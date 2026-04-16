@@ -3,7 +3,8 @@
 import "./globals.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Home } from "lucide-react";
+import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Home, Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function RootLayout({
   children,
@@ -12,7 +13,13 @@ export default function RootLayout({
 }>) {
   const pathname = usePathname();
   const router = useRouter();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isLoginPage = pathname === '/login';
+
+  // Close sidebar on navigation
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
 
   const handleLogout = async () => {
     await fetch('/api/auth?action=logout', { method: 'POST', body: JSON.stringify({}) });
@@ -40,15 +47,22 @@ export default function RootLayout({
       </head>
       <body>
         <header className="header">
+          <button 
+            className="header-menu-btn" 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            style={{ border: 'none', background: 'none', display: 'none' }}
+          >
+            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
           <div className="header-logo">
-            <Home size={22} strokeWidth={2.5} />
-            <span>STARLAND MOVE TRACKER</span>
+            <Home size={20} strokeWidth={3} />
+            <span>STARLAND</span>
           </div>
         </header>
         <div className="app-container">
-          <aside className="sidebar">
-            <div style={{ padding: '0 16px', marginBottom: '24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '1px' }}>
-              ANDREW & TORY'S MOVE
+          <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
+            <div style={{ padding: '0 16px', marginBottom: '24px', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
+              ANDREW & TORY
             </div>
             <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
               <LayoutDashboard size={18} />

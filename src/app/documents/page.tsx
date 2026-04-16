@@ -39,7 +39,7 @@ export default function DocumentsPage() {
     setDocuments(await res.json());
 
     if (newDoc.name.toLowerCase().includes('closing') || newDoc.name.toLowerCase().includes('lease')) {
-      if (confirm('Smart Extraction detected "Closing/Lease" in document. Create "Sign documents" task?')) {
+      if (confirm('Smart Extraction detected "Closing/Lease" in document. Create "Sign documents" task for Andrew & Tory?')) {
         await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -64,14 +64,14 @@ export default function DocumentsPage() {
     setDocuments(await res.json());
   };
 
-  if (loading) return <div style={{ color: 'var(--text-secondary)' }}>Loading documents...</div>;
+  if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading documents...</div>;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-12">
+      <div className="flex flex-stack items-center justify-between mb-12">
         <div>
-          <h1 style={{ marginBottom: '8px' }}>Documents</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Essential files and links for your relocation.</p>
+          <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Documents</h1>
+          <p className="section-subtitle" style={{ marginBottom: 0 }}>Essential files and links for your relocation.</p>
         </div>
         <button className="btn btn-primary" style={{ gap: '10px' }} onClick={() => setIsAdding(!isAdding)}>
           <Plus size={18} />
@@ -85,26 +85,24 @@ export default function DocumentsPage() {
           <form onSubmit={handleAdd}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Label</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Label</label>
                 <input 
                   required
                   value={newDoc.name} 
                   onChange={e => setNewDoc({ ...newDoc, name: e.target.value })} 
                   placeholder="e.g. Closing Disclosure, Rental Agreement"
-                  style={{ width: '100%' }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>URL / Drive Link</label>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>URL / Drive Link</label>
                 <input 
                   required
                   value={newDoc.url} 
                   onChange={e => setNewDoc({ ...newDoc, url: e.target.value })} 
                   placeholder="https://drive.google.com/..."
-                  style={{ width: '100%' }}
                 />
               </div>
-              <div className="flex gap-4" style={{ marginTop: '10px' }}>
+              <div className="flex gap-3" style={{ marginTop: '10px' }}>
                 <button type="submit" className="btn btn-primary">Save Document</button>
                 <button type="button" className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
               </div>
@@ -113,27 +111,27 @@ export default function DocumentsPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
         {documents.map(doc => (
-          <div key={doc.id} className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '16px', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-            <div className="flex items-center gap-3">
-              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+          <div key={doc.id} className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '20px', border: 'none', boxShadow: 'var(--shadow-md)' }}>
+            <div className="flex items-start gap-4">
+              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', flexShrink: 0 }}>
                 {doc.isLink ? <LinkIcon size={20} /> : <FileText size={20} />}
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: '15px' }}>{doc.name}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>Added {new Date(doc.createdAt).toLocaleDateString()}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '4px' }}>ADDED {new Date(doc.createdAt).toLocaleDateString()}</div>
               </div>
             </div>
             
             <div className="flex gap-2" style={{ marginTop: 'auto' }}>
-              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ flex: 1, gap: '8px', fontSize: '12px', padding: '8px' }}>
+              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ flex: 1, gap: '8px', fontSize: '13px', height: '36px' }}>
                 <ExternalLink size={14} /> Open
               </a>
               <button 
                 onClick={() => deleteDoc(doc.id)} 
                 className="btn btn-secondary" 
-                style={{ padding: '8px', color: 'var(--text-secondary)' }}
+                style={{ width: '36px', height: '36px', padding: 0, color: 'var(--text-secondary)' }}
               >
                 <Trash2 size={16} />
               </button>
@@ -141,9 +139,9 @@ export default function DocumentsPage() {
           </div>
         ))}
         {documents.length === 0 && (
-          <div style={{ gridColumn: '1 / -1', padding: '64px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <div style={{ gridColumn: '1 / -1', padding: '80px 24px', textAlign: 'center', color: 'var(--text-secondary)', background: 'white', borderRadius: 'var(--radius)', border: '1px dashed var(--border)' }}>
              <FileText size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
-             <div style={{ fontSize: '14px', fontWeight: 500 }}>No documents yet. Attach your first link to get started.</div>
+             <div style={{ fontSize: '14px', fontWeight: 600 }}>No documents yet. Attach your first link to get started.</div>
           </div>
         )}
       </div>

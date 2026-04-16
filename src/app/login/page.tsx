@@ -30,49 +30,49 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '48px 40px', borderRadius: '8px', border: '1px solid #dadce0' }}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ fontSize: '24px', fontWeight: 500, color: '#202124', marginBottom: '8px' }}>Move Tracker</div>
-          <div style={{ fontSize: '24px', fontWeight: 400, color: '#202124', marginBottom: '12px' }}>Welcome</div>
-          <p style={{ fontSize: '16px', color: '#202124' }}>To continue, enter the app password</p>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--background)' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '440px', padding: '48px 40px', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)' }}>
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--accent)', marginBottom: '16px', letterSpacing: '0.1em' }}>STARLAND MOVE TRACKER</div>
+          <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '8px' }}>Welcome</div>
+          <p style={{ fontSize: '15px', color: 'var(--text-secondary)' }}>Please enter the app password to continue</p>
         </div>
         
         <form onSubmit={handleLogin}>
           <div className="mb-4">
             <input 
               type="password" 
-              placeholder="Enter your password" 
+              placeholder="App password" 
               value={password} 
               onChange={e => setPassword(e.target.value)}
               required
               autoFocus
               style={{ 
                 width: '100%', 
-                height: '56px', 
+                height: '52px', 
                 fontSize: '16px', 
-                border: error ? '1px solid #d93025' : '1px solid #dadce0',
-                padding: '13px 15px' 
+                border: error ? '2px solid #e74c3c' : '1px solid var(--border)',
+                padding: '0 16px',
+                borderRadius: '8px'
               }}
             />
           </div>
           
           {error && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d93025', fontSize: '12px', marginBottom: '16px' }}>
-              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>error</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#e74c3c', fontSize: '13px', marginBottom: '16px', justifyContent: 'center', fontWeight: 600 }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>error</span>
               {error}
             </div>
           )}
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '40px' }}>
-            <span style={{ fontSize: '14px', color: '#1a73e8', fontWeight: 500, cursor: 'pointer' }}>Forgot password?</span>
+          <div style={{ marginTop: '32px' }}>
             <button 
               type="submit" 
               className="btn btn-primary" 
-              style={{ height: '40px', minWidth: '88px', borderRadius: '4px' }} 
+              style={{ width: '100%', height: '48px', fontSize: '15px' }} 
               disabled={loading}
             >
-              {loading ? 'Processing...' : 'Next'}
+              {loading ? 'Verifying...' : 'Access Tracker'}
             </button>
           </div>
         </form>

@@ -21,7 +21,7 @@ export default function TimelinePage() {
     });
   }, []);
 
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)' }}>Preparing your timeline...</div>;
+  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Preparing your timeline...</div>;
 
   const moveDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
   const closingDate = settings.closingDate ? parseISO(settings.closingDate) : null;
@@ -55,10 +55,10 @@ export default function TimelinePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-12">
+      <div className="flex flex-stack items-center justify-between mb-12">
         <div>
-          <h1 style={{ marginBottom: '8px' }}>Move Timeline</h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+          <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Timeline</h1>
+          <p className="section-subtitle" style={{ marginBottom: 0 }}>
             A chronological view of your relocation journey.
           </p>
         </div>

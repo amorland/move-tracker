@@ -29,79 +29,75 @@ export default function SettingsPage() {
     alert('Settings saved!');
   };
 
-  if (loading || !settings) return <div style={{ color: '#5f6368' }}>Loading Settings...</div>;
+  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading Settings...</div>;
 
   return (
     <div>
-      <h1>Settings</h1>
-      <p style={{ color: '#5f6368', marginBottom: '32px' }}>Manage your move timeline and address details.</p>
+      <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Settings</h1>
+      <p className="section-subtitle">Manage move dates and relocation details.</p>
       
-      <div className="card" style={{ maxWidth: '800px', padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid #dadce0' }}>
-          <div style={{ fontSize: '18px', fontWeight: 500, color: '#202124', marginBottom: '8px' }}>Move Details</div>
-          <div style={{ fontSize: '14px', color: '#5f6368' }}>Set the dates for your relocation window.</div>
+      <div className="card" style={{ maxWidth: '800px', padding: 0, overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-md)' }}>
+        <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', backgroundColor: '#ffffff' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', marginBottom: '4px' }}>Timeline Configuration</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>Adjust your moving window and closing date.</div>
         </div>
 
         <form onSubmit={handleSave}>
-          <div style={{ padding: '24px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+          <div style={{ padding: '32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px', color: '#3c4043' }}>Earliest Move Date</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Earliest Move Date</label>
                 <input 
                   type="date" 
                   value={settings.earliestMoveDate} 
                   onChange={e => setSettings({ ...settings, earliestMoveDate: e.target.value })} 
-                  style={{ width: '100%' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px', color: '#3c4043' }}>Latest Move Date</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Latest Move Date</label>
                 <input 
                   type="date" 
                   value={settings.latestMoveDate} 
                   onChange={e => setSettings({ ...settings, latestMoveDate: e.target.value })} 
-                  style={{ width: '100%' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px', color: '#3c4043' }}>Confirmed Move Date</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed Move Date</label>
                 <input 
                   type="date" 
                   value={settings.confirmedMoveDate || ''} 
                   onChange={e => setSettings({ ...settings, confirmedMoveDate: e.target.value || null })} 
-                  style={{ width: '100%' }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px', color: '#3c4043' }}>Closing Date</label>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Closing Date</label>
                 <input 
                   type="date" 
                   value={settings.closingDate || ''} 
                   onChange={e => setSettings({ ...settings, closingDate: e.target.value || null })} 
-                  style={{ width: '100%' }}
                 />
               </div>
             </div>
           </div>
 
-          <div style={{ padding: '16px 24px', background: '#f8f9fa', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-             <button type="submit" className="btn btn-primary" disabled={saving}>
-               {saving ? 'Saving...' : 'Save changes'}
+          <div style={{ padding: '20px 32px', background: '#fcfcfd', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+             <button type="submit" className="btn btn-primary" style={{ padding: '12px 32px' }} disabled={saving}>
+               {saving ? 'Saving...' : 'Save Configuration'}
              </button>
           </div>
         </form>
       </div>
 
-      <div className="card mt-8" style={{ maxWidth: '800px', background: '#f8f9fa' }}>
-        <div className="flex items-center gap-4">
-          <span className="material-symbols-outlined" style={{ color: '#1a73e8', fontSize: '24px' }}>info</span>
+      <div className="card mt-8" style={{ maxWidth: '800px', background: 'var(--accent-soft)', border: 'none' }}>
+        <div className="flex items-start gap-4">
+          <span className="material-symbols-outlined" style={{ color: 'var(--accent)', fontSize: '24px' }}>info</span>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 500, color: '#202124' }}>Current Timeline Anchor</div>
-            <div style={{ fontSize: '14px', color: '#5f6368', marginTop: '4px' }}>
-              Your tasks are currently calculated based on <strong>{settings.confirmedMoveDate ? 'your confirmed date' : 'the earliest window date'} ({format(parseISO(settings.confirmedMoveDate || settings.earliestMoveDate), 'PPP')})</strong>.
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>How dates are calculated</div>
+            <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.6' }}>
+              Your task timeline is anchored to <strong>{settings.confirmedMoveDate ? 'your confirmed date' : 'the start of your move window'} ({format(parseISO(settings.confirmedMoveDate || settings.earliestMoveDate), 'MMMM d, yyyy')})</strong>. Updating these dates will automatically reschedule all relative tasks.
             </div>
           </div>
         </div>
