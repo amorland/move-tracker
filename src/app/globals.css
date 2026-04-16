@@ -217,20 +217,81 @@ h1 {
   font-weight: 800;
   color: var(--foreground);
   margin-bottom: 8px;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
 }
 
 h2 {
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--foreground);
   margin-bottom: 16px;
+  letter-spacing: -0.01em;
 }
 
 .section-subtitle {
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: 15px;
   margin-bottom: 32px;
+  font-weight: 500;
+}
+
+/* Unified Task & Item Row Styles */
+.task-row:hover {
+  background-color: #fcfcfd !important;
+}
+
+.task-row .hover\:text-red-500:hover {
+  color: #ef4444 !important;
+}
+
+/* Custom Checkbox Animation */
+.material-symbols-outlined {
+  user-select: none;
+  transition: transform 0.1s ease;
+}
+.material-symbols-outlined:active {
+  transform: scale(0.9);
+}
+
+/* Desktop spacing refinement */
+@media (min-width: 1024px) {
+  .main-content {
+    padding: 48px 64px;
+  }
+}
+
+/* Grid adjustments for 3-column layouts */
+@media (max-width: 1100px) {
+  .grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .grid-cols-3, .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Layout improvements for overview cards on small screens */
+@media (max-width: 1200px) {
+  .overview-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+@media (max-width: 800px) {
+  .overview-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Mobile Task Row adjustments */
+@media (max-width: 768px) {
+  .task-metadata {
+    display: none !important;
+  }
+  .mobile-only {
+    display: flex !important;
+  }
 }
 
 /* Buttons */

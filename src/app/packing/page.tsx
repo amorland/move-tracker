@@ -314,11 +314,20 @@ function ItemCard({ item, onToggle, onEdit, onDelete }: { item: PackingItem, onT
   const isPacked = item.status === 'Packed';
 
   return (
-    <div className={`card ${isPacked ? 'opacity-60' : ''}`} style={{ margin: 0, padding: '16px', border: isPacked ? '1px solid #e2e8f0' : '1px solid #f1f5f9', background: isPacked ? '#f8fafc' : '#fff', position: 'relative' }}>
-      <div className="flex justify-between items-start mb-3">
+    <div className={`card ${isPacked ? 'opacity-70' : ''}`} style={{ 
+      margin: 0, 
+      padding: '20px', 
+      border: 'none', 
+      boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+      background: isPacked ? '#fcfcfd' : '#ffffff', 
+      position: 'relative',
+      transition: 'all 0.2s ease',
+      borderLeft: isBring ? (isPacked ? '4px solid var(--success-soft)' : '4px solid var(--accent)') : '4px solid #f1f5f9'
+    }}>
+      <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-2">
           <div style={{ 
-            fontSize: '10px', 
+            fontSize: '9px', 
             fontWeight: 800, 
             padding: '2px 8px', 
             borderRadius: '4px', 
@@ -328,48 +337,60 @@ function ItemCard({ item, onToggle, onEdit, onDelete }: { item: PackingItem, onT
             color: item.action === 'Bring' ? '#0369a1' : 
                    item.action === 'Sell' ? '#15803d' :
                    item.action === 'Donate' ? '#b45309' : '#b91c1c',
-            textTransform: 'uppercase'
+            textTransform: 'uppercase',
+            letterSpacing: '0.02em'
           }}>
             {item.action}
           </div>
           {item.priority === 'High' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#ef4444', fontSize: '10px', fontWeight: 700 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#ef4444', fontSize: '9px', fontWeight: 800 }}>
               <AlertCircle size={10} /> HIGH
             </div>
           )}
         </div>
-        <div className="flex gap-2">
-          <button onClick={onEdit} style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer' }} className="hover:text-accent transition-colors">
+        <div className="flex gap-1">
+          <button onClick={onEdit} style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', padding: '4px' }} className="hover:text-accent transition-colors">
             <MoreVertical size={14} />
           </button>
         </div>
       </div>
       
       <div className="flex items-start gap-3">
-        {isBring ? (
+        {isBring && (
           <button onClick={onToggle} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', marginTop: '2px' }}>
             {isPacked ? 
-              <CheckCircle2 size={20} className="text-success" /> : 
-              <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid #e2e8f0' }}></div>
+              <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '24px' }}>check_circle</span> : 
+              <span className="material-symbols-outlined" style={{ color: '#d1d5db', fontSize: '24px' }}>radio_button_unchecked</span>
             }
           </button>
-        ) : (
-          <div style={{ width: '20px' }}></div>
         )}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '14px', fontWeight: 700, textDecoration: isPacked ? 'line-through' : 'none', color: isPacked ? 'var(--text-secondary)' : 'var(--foreground)' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ 
+            fontSize: '14px', 
+            fontWeight: 700, 
+            textDecoration: isPacked ? 'line-through' : 'none', 
+            color: isPacked ? 'var(--text-secondary)' : 'var(--foreground)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
             {item.itemName}
           </div>
-          {item.notes && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.4' }}>{item.notes}</div>}
+          {item.notes && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.5' }}>{item.notes}</div>}
         </div>
       </div>
 
-      <div className="mt-4 pt-3 flex justify-between items-center" style={{ borderTop: '1px solid #f8fafc' }}>
-        <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <div className="mt-5 pt-3 flex justify-between items-center" style={{ borderTop: '1px solid #f8fafc' }}>
+        <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
           <Tag size={10} /> {item.room}
         </div>
-        <button onClick={onDelete} style={{ border: 'none', background: 'none', color: '#fee2e2', cursor: 'pointer' }} className="hover:text-red-500 transition-colors">
-          <Trash2 size={12} />
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(); }} 
+          style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', padding: '4px' }} 
+          className="hover:text-red-500 transition-colors"
+          title="Delete item"
+        >
+          <Trash2 size={14} />
         </button>
       </div>
     </div>

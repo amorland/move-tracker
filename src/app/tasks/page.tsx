@@ -174,55 +174,66 @@ export default function TasksPage() {
               <div style={{ padding: '4px 0' }}>
                 {catTasks.map((task, idx) => (
                   <div key={task.id} style={{ 
-                    padding: '16px 24px', 
+                    padding: '12px 24px', 
                     borderBottom: idx === catTasks.length - 1 ? 'none' : '1px solid #f8f9fa',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '20px',
-                    backgroundColor: task.status === 'Complete' ? 'rgba(0,0,0,0.01)' : 'transparent'
-                  }}>
+                    gap: '16px',
+                    backgroundColor: task.status === 'Complete' ? 'rgba(0,0,0,0.01)' : 'transparent',
+                    transition: 'background-color 0.2s ease'
+                  }} className="task-row">
                     <button 
                       onClick={() => toggleTaskStatus(task)}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
+                      style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
                     >
                       {task.status === 'Complete' ? 
-                        <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '26px' }}>check_circle</span> : 
-                        <span className="material-symbols-outlined" style={{ color: '#d1d5db', fontSize: '26px' }}>radio_button_unchecked</span>
+                        <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '24px' }}>check_circle</span> : 
+                        <span className="material-symbols-outlined" style={{ color: '#d1d5db', fontSize: '24px' }}>radio_button_unchecked</span>
                       }
                     </button>
                     
-                    <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openEditModal(task)}>
-                      <div style={{ 
-                        fontSize: '14px', 
-                        fontWeight: 600,
-                        color: task.status === 'Complete' ? 'var(--text-secondary)' : 'var(--foreground)',
-                        textDecoration: task.status === 'Complete' ? 'line-through' : 'none',
-                        transition: 'all 0.2s ease'
-                      }}>
-                        {task.title}
+                    <div style={{ flex: 1, cursor: 'pointer', minWidth: 0, display: 'flex', alignItems: 'center', gap: '20px' }} onClick={() => openEditModal(task)}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ 
+                          fontSize: '14px', 
+                          fontWeight: 600,
+                          color: task.status === 'Complete' ? 'var(--text-secondary)' : 'var(--foreground)',
+                          textDecoration: task.status === 'Complete' ? 'line-through' : 'none',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {task.title}
+                        </div>
+                        {/* Mobile-only metadata */}
+                        <div className="mobile-only" style={{ display: 'none', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                          <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{task.dueDate ? format(parseISO(task.dueDate), 'MMM d') : ''}</span>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)' }}>{task.owner}</span>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
-                        {task.dueDate && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <CalendarIcon size={10} />
-                            {format(parseISO(task.dueDate), 'MMM d, yyyy')}
-                          </div>
-                        )}
-                        <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }} className="task-metadata">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '100px' }}>
+                          <CalendarIcon size={12} style={{ color: 'var(--text-secondary)' }} />
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                            {task.dueDate ? format(parseISO(task.dueDate), 'MMM d, yyyy') : 'No date'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em', width: '70px' }}>
                           {task.phase}
+                        </div>
+                        <div className="badge badge-neutral" style={{ fontSize: '10px', padding: '4px 10px', borderRadius: '6px', minWidth: '65px', textAlign: 'center' }}>
+                          {task.owner}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-1.5 badge badge-neutral" style={{ fontSize: '10px', padding: '4px 8px' }}>
-                        <User size={10} />
-                        {task.owner}
-                      </div>
+                    <div style={{ flexShrink: 0 }}>
                       <button 
-                        onClick={() => deleteTask(task.id)} 
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#e5e7eb' }}
+                        onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }} 
+                        style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', padding: '6px' }}
                         className="hover:text-red-500 transition-colors"
+                        title="Delete task"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -230,7 +241,7 @@ export default function TasksPage() {
                   </div>
                 ))}
                 {catTasks.length === 0 && (
-                  <div style={{ padding: '40px 24px', color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', fontStyle: 'italic' }}>
+                  <div style={{ padding: '48px 24px', color: 'var(--text-secondary)', fontSize: '13px', textAlign: 'center' }}>
                     No matching tasks in this category.
                   </div>
                 )}

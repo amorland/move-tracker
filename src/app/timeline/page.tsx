@@ -116,27 +116,42 @@ export default function TimelinePage() {
                     <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700 }}>{window.label}</h2>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                     {tasksInWindow.map(task => (
                       <div key={task.id} className="card" style={{ 
                         margin: 0, 
-                        padding: '16px', 
+                        padding: '16px 20px', 
                         display: 'flex', 
                         alignItems: 'center', 
-                        gap: '12px', 
+                        gap: '16px', 
                         border: 'none', 
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                        background: task.status === 'Complete' ? '#fdfdfe' : 'white',
-                        opacity: task.status === 'Complete' ? 0.8 : 1
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                        background: task.status === 'Complete' ? 'rgba(255,255,255,0.6)' : 'white',
+                        transition: 'all 0.2s ease',
+                        borderLeft: task.status === 'Complete' ? '4px solid var(--success)' : '4px solid var(--accent)'
                       }}>
-                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: task.status === 'Complete' ? 'var(--success)' : 'var(--accent)' }}></div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--foreground)' }}>{task.title}</div>
-                          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-secondary)', marginTop: '2px' }}>
-                            {task.calculatedDate ? format(task.calculatedDate, 'MMM d') : 'Flexible'}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ 
+                            fontSize: '14px', 
+                            fontWeight: 600, 
+                            color: task.status === 'Complete' ? 'var(--text-secondary)' : 'var(--foreground)',
+                            textDecoration: task.status === 'Complete' ? 'line-through' : 'none',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {task.title}
+                          </div>
+                          <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <CalendarIcon size={10} />
+                            {task.calculatedDate ? format(task.calculatedDate, 'MMM d, yyyy') : 'Flexible'}
                           </div>
                         </div>
-                        {task.status === 'Complete' && <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '18px' }}>check_circle</span>}
+                        {task.status === 'Complete' && (
+                          <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '14px', fontWeight: 'bold' }}>done</span>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

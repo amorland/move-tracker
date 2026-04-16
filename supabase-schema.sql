@@ -102,17 +102,17 @@ JOIN (
     ('Move-Out Logistics', 'Book PODS', 'Both', 'Before Move', -60, 0),
     ('Move-Out Logistics', 'Schedule pod delivery', 'Andrew', 'Before Move', -30, 1),
     ('Move-Out Logistics', 'Schedule move-out help', 'Both', 'Before Move', -14, 2),
-    ('Packing & Supplies', 'Buy clear containers', 'Wife', 'Before Move', -45, 0),
+    ('Packing & Supplies', 'Buy clear containers', 'Tory', 'Before Move', -45, 0),
     ('Packing & Supplies', 'Create packing plan', 'Both', 'Before Move', -40, 1),
     ('Travel Planning', 'Plan route', 'Both', 'Before Move', -30, 0),
     ('Travel Planning', 'Plan accommodations', 'Andrew', 'Before Move', -25, 1),
     ('Utilities Setup & Cancellation', 'Cancel utilities (Clearwater)', 'Andrew', 'Before Move', -7, 0),
-    ('Utilities Setup & Cancellation', 'Setup utilities (Cold Spring)', 'Wife', 'Before Move', -7, 1),
+    ('Utilities Setup & Cancellation', 'Setup utilities (Cold Spring)', 'Tory', 'Before Move', -7, 1),
     ('Address Changes', 'Forward mail', 'Both', 'Before Move', -5, 0),
     ('Closing & Contract', 'Final walkthrough', 'Both', 'Before Closing', -1, 0),
     ('Closing & Contract', 'Sign closing docs', 'Both', 'Before Closing', 0, 1),
     ('Cold Spring Local Setup', 'Setup NYSEG (Electric)', 'Andrew', 'After Move', 1, 0),
-    ('Cold Spring Local Setup', 'Setup Village Water Dept', 'Wife', 'After Move', 1, 1),
+    ('Cold Spring Local Setup', 'Setup Village Water Dept', 'Tory', 'After Move', 1, 1),
     ('Cold Spring Local Setup', 'Check Optimum/Verizon for Internet', 'Both', 'After Move', 2, 2)
 ) AS t(cat_name, title, owner, timingType, timingOffsetDays, orderIndex)
 ON ic.name = t.cat_name;
