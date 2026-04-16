@@ -4,11 +4,29 @@ import { useEffect, useState } from 'react';
 import { PackingItem, PackingAction, PackingStatus, PackingPriority } from '@/lib/types';
 import { Plus, Trash2, Box, X, Save, Filter, Search, Tag, AlertCircle, CheckCircle2, MoreVertical } from 'lucide-react';
 
+const COMMON_ROOMS = [
+  'Kitchen',
+  'Living Room',
+  'Master Bedroom',
+  'Bedroom 2',
+  'Bedroom 3',
+  'Bathroom 1',
+  'Bathroom 2',
+  'Garage',
+  'Storage',
+  'Office',
+  'Dining Room',
+  'Outdoor/Patio',
+  'Closet',
+  'Other'
+];
+
 export default function PackingPage() {
   const [items, setItems] = useState<PackingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<PackingItem> | null>(null);
+  const [showCustomRoom, setShowCustomRoom] = useState(false);
   
   // Filters
   const [roomFilter, setRoomFilter] = useState<string>('All');
@@ -29,29 +47,39 @@ export default function PackingPage() {
 
   const deleteItem = async (id: number) => {
     if (!confirm('Delete this item?')) return;
-    await fetch(`/api/packing?id=${id}`, { method: 'DELETE' });
-    fetchItems();
+    const res = await fetch(`/api/packing?id=${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      fetchItems();
+    } else {
+      const err = await res.json();
+      alert(`Error deleting item: ${err.error || 'Unknown error'}`);
+    }
   };
 
   const openAddModal = (room?: string) => {
     setEditingItem({
-      room: room || '',
+      room: room || COMMON_ROOMS[0],
       itemName: '',
       action: 'Bring',
       status: 'Not Packed',
       priority: 'Medium',
       notes: ''
     });
+    setShowCustomRoom(false);
     setIsModalOpen(true);
   };
 
   const openEditModal = (item: PackingItem) => {
     setEditingItem(item);
+    setShowCustomRoom(false);
     setIsModalOpen(true);
   };
 
   const saveItem = async () => {
-    if (!editingItem || !editingItem.itemName || !editingItem.room) return;
+    if (!editingItem || !editingItem.itemName || !editingItem.room) {
+      alert('Please fill in Item Name and Room.');
+      return;
+    }
 
     const method = editingItem.id ? 'PATCH' : 'POST';
     const res = await fetch('/api/packing', {
@@ -64,6 +92,9 @@ export default function PackingPage() {
       setIsModalOpen(false);
       setEditingItem(null);
       fetchItems();
+    } else {
+      const err = await res.json();
+      alert(`Error saving item: ${err.error || 'Unknown error'}`);
     }
   };
 
@@ -239,15 +270,49 @@ export default function PackingPage() {
             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Room / Category</label>
-                <input 
-                  value={editingItem.room || ''} 
-                  onChange={e => setEditingItem({...editingItem, room: e.target.value})}
-                  placeholder="e.g. Kitchen, Master Bedroom, Storage"
-                  list="room-suggestions"
-                />
-                <datalist id="room-suggestions">
-                  {rooms.map(r => <option key={r} value={r} />)}
-                </datalist>
+                {!showCustomRoom ? (
+                  <select 
+                    value={COMMON_ROOMS.includes(editingItem.room || '') ? editingItem.room : 'CUSTOM'} 
+                    onChange={e => {
+                      if (e.target.value === 'CUSTOM') {
+                        setShowCustomRoom(true);
+                        setEditingItem({...editingItem, room: ''});
+                      } else {
+                        setEditingItem({...editingItem, room: e.target.value});
+                      }
+                    }}
+                  >
+                    {COMMON_ROOMS.map(r => <option key={r} value={r}>{r}</option>)}
+                    {/* Include any custom rooms already in the database that aren't in COMMON_ROOMS */}
+                    {Array.from(new Set(items.map(i => i.room)))
+                      .filter(r => !COMMON_ROOMS.includes(r))
+                      .map(r => <option key={r} value={r}>{r}</option>)
+                    }
+                    {!COMMON_ROOMS.includes(editingItem.room || '') && editingItem.room && !Array.from(new Set(items.map(i => i.room))).includes(editingItem.room) && (
+                      <option value={editingItem.room}>{editingItem.room}</option>
+                    )}
+                    <option value="CUSTOM">+ Add Custom Room...</option>
+                  </select>
+                ) : (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      value={editingItem.room || ''} 
+                      onChange={e => setEditingItem({...editingItem, room: e.target.value})}
+                      placeholder="Enter room name"
+                      autoFocus
+                    />
+                    <button 
+                      className="btn btn-secondary" 
+                      onClick={() => {
+                        setShowCustomRoom(false);
+                        setEditingItem({...editingItem, room: COMMON_ROOMS[0]});
+                      }}
+                      style={{ padding: '0 12px' }}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
               </div>
               
               <div>
