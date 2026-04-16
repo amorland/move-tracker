@@ -3,7 +3,7 @@
 import "./globals.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CheckSquare, Calendar, FileText, Settings as SettingsIcon, LogOut, Layout } from "lucide-react";
+import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Home } from "lucide-react";
 
 export default function RootLayout({
   children,
@@ -23,6 +23,9 @@ export default function RootLayout({
   if (isLoginPage) {
     return (
       <html lang="en">
+        <head>
+          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        </head>
         <body>{children}</body>
       </html>
     );
@@ -30,39 +33,42 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+      </head>
       <body>
         <header className="header">
           <div className="header-logo">
-            <Layout size={24} color="#0070ff" fill="#0070ff" />
-            <span>MOVE PIPELINE</span>
+            <Home size={22} strokeWidth={2.5} />
+            <span>MOVE TRACKER</span>
           </div>
         </header>
         <div className="app-container">
           <aside className="sidebar">
             <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
               <LayoutDashboard size={18} />
-              Overview
+              <span>Overview</span>
             </Link>
             <Link href="/tasks" className={`nav-item ${pathname === '/tasks' ? 'active' : ''}`}>
-              <CheckSquare size={18} />
-              Steps
+              <CheckCircle size={18} />
+              <span>Tasks</span>
             </Link>
             <Link href="/timeline" className={`nav-item ${pathname === '/timeline' ? 'active' : ''}`}>
               <Calendar size={18} />
-              Pipeline
+              <span>Timeline</span>
             </Link>
             <Link href="/documents" className={`nav-item ${pathname === '/documents' ? 'active' : ''}`}>
               <FileText size={18} />
-              Artifacts
+              <span>Documents</span>
             </Link>
             <Link href="/settings" className={`nav-item ${pathname === '/settings' ? 'active' : ''}`}>
               <SettingsIcon size={18} />
-              Configure
+              <span>Settings</span>
             </Link>
             <div style={{ flex: 1 }}></div>
             <button onClick={handleLogout} className="nav-item" style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
               <LogOut size={18} />
-              Logout
+              <span>Logout</span>
             </button>
           </aside>
           <main className="main-content">

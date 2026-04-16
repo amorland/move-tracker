@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Document, Task, Category } from '@/lib/types';
+import { Plus, Link as LinkIcon, FileText, Trash2, ExternalLink } from 'lucide-react';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -57,88 +58,92 @@ export default function DocumentsPage() {
   };
 
   const deleteDoc = async (id: number) => {
-    if (!confirm('Are you sure?')) return;
+    if (!confirm('Delete this document link?')) return;
     await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
     const res = await fetch('/api/documents');
     setDocuments(await res.json());
   };
 
-  if (loading) return <div style={{ color: '#5f6368' }}>Loading Documents...</div>;
+  if (loading) return <div style={{ color: 'var(--text-secondary)' }}>Loading documents...</div>;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1>Documents</h1>
-        <button className="btn btn-primary" onClick={() => setIsAdding(!isAdding)}>
-          <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '8px' }}>add</span>
-          New
+      <div className="flex items-center justify-between mb-12">
+        <div>
+          <h1 style={{ marginBottom: '8px' }}>Documents</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Essential files and links for your relocation.</p>
+        </div>
+        <button className="btn btn-primary" style={{ gap: '10px' }} onClick={() => setIsAdding(!isAdding)}>
+          <Plus size={18} />
+          Add New
         </button>
       </div>
 
       {isAdding && (
-        <form onSubmit={handleAdd} className="card" style={{ maxWidth: '600px', marginBottom: '32px' }}>
-          <div className="mb-4">
-            <input 
-              required
-              value={newDoc.name} 
-              onChange={e => setNewDoc({ ...newDoc, name: e.target.value })} 
-              placeholder="Name (e.g. Closing Disclosure)"
-              style={{ width: '100%' }}
-            />
-          </div>
-          <div className="mb-4">
-            <input 
-              required
-              value={newDoc.url} 
-              onChange={e => setNewDoc({ ...newDoc, url: e.target.value })} 
-              placeholder="Link URL"
-              style={{ width: '100%' }}
-            />
-          </div>
-          <div className="flex gap-4">
-            <button type="submit" className="btn btn-primary">Add</button>
-            <button type="button" className="btn btn-outline" onClick={() => setIsAdding(false)}>Cancel</button>
-          </div>
-        </form>
+        <div className="card" style={{ maxWidth: '600px', marginBottom: '40px', border: '2px solid var(--accent-soft)' }}>
+          <h2 style={{ marginTop: 0 }}>Attach Link</h2>
+          <form onSubmit={handleAdd}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Label</label>
+                <input 
+                  required
+                  value={newDoc.name} 
+                  onChange={e => setNewDoc({ ...newDoc, name: e.target.value })} 
+                  placeholder="e.g. Closing Disclosure, Rental Agreement"
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>URL / Drive Link</label>
+                <input 
+                  required
+                  value={newDoc.url} 
+                  onChange={e => setNewDoc({ ...newDoc, url: e.target.value })} 
+                  placeholder="https://drive.google.com/..."
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div className="flex gap-4" style={{ marginTop: '10px' }}>
+                <button type="submit" className="btn btn-primary">Save Document</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
+              </div>
+            </div>
+          </form>
+        </div>
       )}
 
-      <div style={{ background: 'white', border: '1px solid #dadce0', borderRadius: '8px', overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px', padding: '12px 16px', background: '#f8f9fa', borderBottom: '1px solid #dadce0', fontSize: '12px', fontWeight: 500, color: '#5f6368' }}>
-          <div>NAME</div>
-          <div>DATE ADDED</div>
-          <div></div>
-        </div>
-        {documents.map((doc, idx) => (
-          <div key={doc.id} style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr 100px', 
-            padding: '12px 16px', 
-            borderBottom: idx === documents.length - 1 ? 'none' : '1px solid #f1f3f4',
-            alignItems: 'center',
-            fontSize: '14px'
-          }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+        {documents.map(doc => (
+          <div key={doc.id} className="card" style={{ margin: 0, display: 'flex', flexDirection: 'column', gap: '16px', border: 'none', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined" style={{ color: '#1a73e8', fontSize: '20px' }}>
-                {doc.isLink ? 'link' : 'description'}
-              </span>
-              <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: '#202124', textDecoration: 'none', fontWeight: 500 }}>
-                {doc.name}
-              </a>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
+                {doc.isLink ? <LinkIcon size={20} /> : <FileText size={20} />}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '15px' }}>{doc.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>Added {new Date(doc.createdAt).toLocaleDateString()}</div>
+              </div>
             </div>
-            <div style={{ color: '#5f6368' }}>{new Date(doc.createdAt).toLocaleDateString()}</div>
-            <div style={{ textAlign: 'right' }}>
+            
+            <div className="flex gap-2" style={{ marginTop: 'auto' }}>
+              <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ flex: 1, gap: '8px', fontSize: '12px', padding: '8px' }}>
+                <ExternalLink size={14} /> Open
+              </a>
               <button 
                 onClick={() => deleteDoc(doc.id)} 
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#5f6368' }}
+                className="btn btn-secondary" 
+                style={{ padding: '8px', color: 'var(--text-secondary)' }}
               >
-                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+                <Trash2 size={16} />
               </button>
             </div>
           </div>
         ))}
         {documents.length === 0 && (
-          <div style={{ padding: '32px', textAlign: 'center', color: '#5f6368', fontSize: '14px' }}>
-            No documents yet.
+          <div style={{ gridColumn: '1 / -1', padding: '64px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+             <FileText size={48} style={{ opacity: 0.1, marginBottom: '16px' }} />
+             <div style={{ fontSize: '14px', fontWeight: 500 }}>No documents yet. Attach your first link to get started.</div>
           </div>
         )}
       </div>
