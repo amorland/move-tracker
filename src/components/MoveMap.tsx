@@ -187,7 +187,7 @@ export default function MoveMap() {
             {locations.map(loc => {
               if (!loc.lat || !loc.lng) return null;
               
-              let icon = DefaultIcon;
+              let icon: L.Icon | L.DivIcon = DefaultIcon;
               if (loc.category === 'Origin') icon = OriginIcon;
               else if (loc.category === 'Destination') icon = DestIcon;
               else if (loc.category === 'Stop') icon = StopIcon;
