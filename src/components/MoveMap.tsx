@@ -240,14 +240,14 @@ export default function MoveMap() {
                   <label style={{ fontSize: '11px', fontWeight: 700, marginBottom: '4px', display: 'block' }}>NAME</label>
                   <input 
                     required placeholder="e.g. Hotel, Electric Co" 
-                    value={newLoc.name} onChange={e => setNewDoc({...newLoc, name: e.target.value})} 
+                    value={newLoc.name || ''} onChange={e => setNewDoc({...newLoc, name: e.target.value})} 
                   />
                 </div>
                 <div className="form-group">
                   <label style={{ fontSize: '11px', fontWeight: 700, marginBottom: '4px', display: 'block' }}>ADDRESS</label>
                   <input 
                     required placeholder="Full street address" 
-                    value={newLoc.address} onChange={e => setNewDoc({...newLoc, address: e.target.value})} 
+                    value={newLoc.address || ''} onChange={e => setNewDoc({...newLoc, address: e.target.value})} 
                   />
                 </div>
                 <div className="form-group">
@@ -267,7 +267,7 @@ export default function MoveMap() {
                   <label style={{ fontSize: '11px', fontWeight: 700, marginBottom: '4px', display: 'block' }}>NOTES</label>
                   <textarea 
                     placeholder="Optional notes..." 
-                    value={newLoc.notes} onChange={e => setNewDoc({...newLoc, notes: e.target.value})}
+                    value={newLoc.notes || ''} onChange={e => setNewDoc({...newLoc, notes: e.target.value})}
                     style={{ minHeight: '60px', padding: '8px', borderRadius: '4px', border: '1px solid var(--border)', fontSize: '14px' }}
                   />
                 </div>
