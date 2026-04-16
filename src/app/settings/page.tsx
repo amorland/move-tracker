@@ -33,7 +33,7 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Settings</h1>
+      <h1>Settings</h1>
       <p className="section-subtitle">Manage move dates and relocation details.</p>
       
       <div className="card" style={{ maxWidth: '800px', padding: 0, overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-md)' }}>

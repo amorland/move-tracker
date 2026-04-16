@@ -83,7 +83,7 @@ export default function TasksPage() {
     <div>
       <div className="flex flex-stack items-center justify-between mb-12">
         <div>
-          <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Tasks</h1>
+          <h1>Tasks</h1>
           <p className="section-subtitle" style={{ marginBottom: 0 }}>Manage and track every detail of the move.</p>
         </div>
         <button className="btn btn-primary" style={{ gap: '10px' }} onClick={() => fetchData()}>

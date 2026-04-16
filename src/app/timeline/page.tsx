@@ -57,7 +57,7 @@ export default function TimelinePage() {
     <div>
       <div className="flex flex-stack items-center justify-between mb-12">
         <div>
-          <h1 style={{ fontSize: '32px', fontWeight: 800 }}>Timeline</h1>
+          <h1>Timeline</h1>
           <p className="section-subtitle" style={{ marginBottom: 0 }}>
             A chronological view of your relocation journey.
           </p>
