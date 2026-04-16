@@ -3,7 +3,7 @@
 import "./globals.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import Head from "next/head";
+import { LayoutDashboard, CheckSquare, Calendar, FileText, Settings as SettingsIcon, LogOut, Layout } from "lucide-react";
 
 export default function RootLayout({
   children,
@@ -23,9 +23,6 @@ export default function RootLayout({
   if (isLoginPage) {
     return (
       <html lang="en">
-        <head>
-          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-        </head>
         <body>{children}</body>
       </html>
     );
@@ -33,40 +30,39 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <head>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-      </head>
       <body>
         <header className="header">
-          <span className="material-symbols-outlined" style={{ fontSize: '24px', color: '#5f6368', cursor: 'pointer' }}>menu</span>
-          <span className="header-title">Move Tracker</span>
+          <div className="header-logo">
+            <Layout size={24} color="#0070ff" fill="#0070ff" />
+            <span>MOVE PIPELINE</span>
+          </div>
         </header>
         <div className="app-container">
           <aside className="sidebar">
             <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
-              <span className="material-symbols-outlined">dashboard</span>
-              Dashboard
+              <LayoutDashboard size={18} />
+              Overview
             </Link>
             <Link href="/tasks" className={`nav-item ${pathname === '/tasks' ? 'active' : ''}`}>
-              <span className="material-symbols-outlined">task_alt</span>
-              Tasks
+              <CheckSquare size={18} />
+              Steps
             </Link>
             <Link href="/timeline" className={`nav-item ${pathname === '/timeline' ? 'active' : ''}`}>
-              <span className="material-symbols-outlined">calendar_today</span>
-              Timeline
+              <Calendar size={18} />
+              Pipeline
             </Link>
             <Link href="/documents" className={`nav-item ${pathname === '/documents' ? 'active' : ''}`}>
-              <span className="material-symbols-outlined">description</span>
-              Documents
+              <FileText size={18} />
+              Artifacts
             </Link>
             <Link href="/settings" className={`nav-item ${pathname === '/settings' ? 'active' : ''}`}>
-              <span className="material-symbols-outlined">settings</span>
-              Settings
+              <SettingsIcon size={18} />
+              Configure
             </Link>
             <div style={{ flex: 1 }}></div>
-            <button onClick={handleLogout} className="nav-item">
-              <span className="material-symbols-outlined">logout</span>
-              Log out
+            <button onClick={handleLogout} className="nav-item" style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
+              <LogOut size={18} />
+              Logout
             </button>
           </aside>
           <main className="main-content">

@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task } from '@/lib/types';
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
+import { CheckCircle2, Circle, PlayCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Dashboard() {
@@ -21,88 +22,91 @@ export default function Dashboard() {
     });
   }, []);
 
-  if (loading || !settings) return <div style={{ color: '#5f6368' }}>Loading Dashboard...</div>;
+  if (loading || !settings) return <div style={{ color: '#949a9f' }}>Loading Pipeline Overview...</div>;
 
   const completedTasks = data.tasks.filter(t => t.status === 'Complete').length;
   const totalTasks = data.tasks.length;
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
+  
   const moveDate = settings.confirmedMoveDate || settings.earliestMoveDate;
   const daysToMove = differenceInDays(parseISO(moveDate), new Date());
 
+  // Simplified Pipeline Graph for Dashboard
+  const stages = [
+    { name: 'Planning', status: progress > 20 ? 'success' : 'in-progress' },
+    { name: 'Packing', status: progress > 50 ? 'success' : progress > 20 ? 'in-progress' : 'pending' },
+    { name: 'Transit', status: progress > 80 ? 'success' : progress > 50 ? 'in-progress' : 'pending' },
+    { name: 'Settling', status: progress === 100 ? 'success' : progress > 80 ? 'in-progress' : 'pending' }
+  ];
+
   return (
     <div>
-      <h1>Dashboard</h1>
+      <h1>Pipeline Overview</h1>
       
-      <div className="flex gap-4 mb-4" style={{ flexWrap: 'wrap' }}>
-        <div className="card" style={{ flex: '1 1 300px' }}>
-          <div className="card-title">
-            <span className="material-symbols-outlined" style={{ color: '#1a73e8' }}>location_on</span>
-            Move Window
-          </div>
-          <div className="flex items-center gap-2" style={{ fontSize: '18px', fontWeight: 500, color: '#3c4043' }}>
-            Clearwater
-            <span className="material-symbols-outlined" style={{ color: '#5f6368' }}>arrow_forward</span>
-            Cold Spring
-          </div>
-          <div className="mt-4">
-            {settings.confirmedMoveDate ? (
-              <div className="badge badge-green">Confirmed: {format(parseISO(settings.confirmedMoveDate), 'MMM d, yyyy')}</div>
-            ) : (
-              <div className="badge badge-blue">Window: {format(parseISO(settings.earliestMoveDate), 'MMM d')} – {format(parseISO(settings.latestMoveDate), 'MMM d, yyyy')}</div>
-            )}
-          </div>
+      <div className="card" style={{ padding: '40px' }}>
+        <div className="flex items-center" style={{ width: '100%', marginBottom: '40px' }}>
+          {stages.map((stage, idx) => (
+            <div key={stage.name} style={{ display: 'flex', alignItems: 'center', flex: idx === stages.length - 1 ? 'none' : 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                <div className={`pipeline-node ${stage.status}`}>
+                  {stage.status === 'success' && <CheckCircle2 size={20} />}
+                  {stage.status === 'in-progress' && <PlayCircle size={20} />}
+                  {stage.status === 'pending' && <Circle size={20} />}
+                </div>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#949a9f', textTransform: 'uppercase' }}>{stage.name}</span>
+              </div>
+              {idx < stages.length - 1 && <div className="pipeline-line"></div>}
+            </div>
+          ))}
         </div>
 
-        <div className="card" style={{ flex: '1 1 300px' }}>
-          <div className="card-title">
-            <span className="material-symbols-outlined" style={{ color: '#d93025' }}>schedule</span>
-            Countdown
+        <div className="flex justify-between items-center">
+          <div>
+            <div style={{ fontSize: '32px', fontWeight: 300 }}>{progress}% Successful</div>
+            <div style={{ color: '#949a9f', fontSize: '14px' }}>{completedTasks} of {totalTasks} steps completed</div>
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 500, color: '#202124' }}>
-            {daysToMove > 0 ? `${daysToMove} Days` : daysToMove === 0 ? "Move Day" : 'Completed'}
-          </div>
-          <div style={{ color: '#5f6368', fontSize: '14px', marginTop: '4px' }}>
-            Until {settings.confirmedMoveDate ? 'confirmed' : 'estimated'} date
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--jenkins-blue)' }}>T-Minus {daysToMove} Days</div>
+            <div style={{ color: '#949a9f', fontSize: '14px' }}>Target: {format(parseISO(moveDate), 'MMM d, yyyy')}</div>
           </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-title">
-          <span className="material-symbols-outlined" style={{ color: '#1e8e3e' }}>assignment_turned_in</span>
-          Move Progress
+      <div className="flex gap-6">
+        <div className="card" style={{ flex: 1 }}>
+          <h2>Current Steps</h2>
+          <div className="flex flex-col gap-3">
+            {data.tasks.filter(t => t.status !== 'Complete').slice(0, 5).map(task => (
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #f0f4f7' }}>
+                <PlayCircle size={18} className="text-blue" style={{ color: 'var(--jenkins-blue)' }} />
+                <span style={{ fontSize: '14px', fontWeight: 500 }}>{task.title}</span>
+                <span className="badge badge-gray" style={{ marginLeft: 'auto' }}>{task.owner}</span>
+              </div>
+            ))}
+            <Link href="/tasks" className="btn btn-outline" style={{ marginTop: '10px', textAlign: 'center' }}>View Pipeline Steps</Link>
+          </div>
         </div>
-        <div className="flex justify-between items-center mb-2">
-          <span style={{ fontSize: '14px', color: '#5f6368' }}>{completedTasks} of {totalTasks} tasks completed</span>
-          <span style={{ fontSize: '14px', fontWeight: 500, color: '#1e8e3e' }}>{progress}%</span>
-        </div>
-        <div className="progress-container">
-          <div className="progress-bar" style={{ width: `${progress}%`, backgroundColor: '#1e8e3e' }}></div>
-        </div>
-      </div>
 
-      <div className="flex items-center justify-between mt-8 mb-4">
-        <h2 style={{ margin: 0 }}>Upcoming Tasks</h2>
-        <Link href="/tasks" style={{ color: '#1a73e8', fontSize: '14px', fontWeight: 500, textDecoration: 'none' }}>View all</Link>
-      </div>
-
-      <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #dadce0', overflow: 'hidden' }}>
-        {data.tasks.filter(t => t.status !== 'Complete').slice(0, 5).map((task, idx) => (
-          <div key={task.id} style={{ 
-            padding: '12px 16px', 
-            borderBottom: idx === 4 ? 'none' : '1px solid #f1f3f4',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px'
-          }}>
-            <span className="material-symbols-outlined" style={{ color: '#5f6368', fontSize: '20px' }}>radio_button_unchecked</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: 500 }}>{task.title}</div>
-              <div style={{ fontSize: '12px', color: '#5f6368' }}>{data.categories.find(c => c.id === task.categoryId)?.name}</div>
+        <div className="card" style={{ width: '300px' }}>
+          <h2>Environment</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#949a9f', marginBottom: '4px' }}>SOURCE</div>
+              <div style={{ fontSize: '14px', fontWeight: 500 }}>805 S Hercules Ave, Clearwater</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#949a9f', marginBottom: '4px' }}>DESTINATION</div>
+              <div style={{ fontSize: '14px', fontWeight: 500 }}>25 Chestnut St, Cold Spring</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#949a9f', marginBottom: '4px' }}>RESOURCES</div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <span className="badge badge-info">Andrew</span>
+                <span className="badge badge-info">Wife</span>
+              </div>
             </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );

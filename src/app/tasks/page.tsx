@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Category, Task, TaskStatus } from '@/lib/types';
+import { CheckCircle2, Circle, PlayCircle, Plus, Trash2 } from 'lucide-react';
 
 export default function TasksPage() {
   const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
@@ -31,13 +32,13 @@ export default function TasksPage() {
   };
 
   const deleteTask = async (id: number) => {
-    if (!confirm('Are you sure?')) return;
+    if (!confirm('Abort step?')) return;
     await fetch(`/api/tasks?id=${id}`, { method: 'DELETE' });
     fetchData();
   };
 
   const addTask = async (categoryId: number) => {
-    const title = prompt('Task Title:');
+    const title = prompt('Step Title:');
     if (!title) return;
     
     await fetch('/api/tasks', {
@@ -48,81 +49,66 @@ export default function TasksPage() {
     fetchData();
   };
 
-  if (loading) return <div style={{ color: '#5f6368' }}>Loading Tasks...</div>;
+  if (loading) return <div style={{ color: '#949a9f' }}>Loading Pipeline Steps...</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <h1>Tasks</h1>
-        <button className="btn btn-primary" onClick={() => fetchData()}>
-          <span className="material-symbols-outlined" style={{ fontSize: '18px', marginRight: '8px' }}>refresh</span>
-          Refresh
-        </button>
+        <h1>Pipeline Steps</h1>
+        <button className="btn btn-outline" onClick={() => fetchData()}>Refresh Build</button>
       </div>
 
       {data.categories.map(category => (
-        <div key={category.id} className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 style={{ margin: 0 }}>{category.name}</h2>
-            <button className="btn btn-outline" style={{ height: '32px', padding: '0 12px' }} onClick={() => addTask(category.id)}>
-              <span className="material-symbols-outlined" style={{ fontSize: '18px', marginRight: '4px' }}>add</span>
-              Add task
+        <div key={category.id} className="card" style={{ padding: '0', overflow: 'hidden' }}>
+          <div style={{ padding: '16px 24px', backgroundColor: '#f0f4f7', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{category.name}</h2>
+            <button className="btn btn-primary" style={{ padding: '4px 8px', fontSize: '11px' }} onClick={() => addTask(category.id)}>
+              <Plus size={14} style={{ marginRight: '4px' }} /> ADD STEP
             </button>
           </div>
           
-          <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #dadce0', overflow: 'hidden' }}>
+          <div>
             {data.tasks.filter(t => t.categoryId === category.id).map((task, idx) => (
               <div key={task.id} style={{ 
-                padding: '12px 16px', 
-                borderBottom: idx === data.tasks.filter(t => t.categoryId === category.id).length - 1 ? 'none' : '1px solid #f1f3f4',
+                padding: '12px 24px', 
+                borderBottom: idx === data.tasks.filter(t => t.categoryId === category.id).length - 1 ? 'none' : '1px solid #f0f4f7',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '16px',
-                opacity: task.status === 'Complete' ? 0.6 : 1
+                gap: '16px'
               }}>
                 <button 
                   onClick={() => toggleTaskStatus(task)}
-                  style={{ 
-                    border: 'none', 
-                    background: 'none', 
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: 0
-                  }}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}
                 >
-                  <span className="material-symbols-outlined" style={{ 
-                    color: task.status === 'Complete' ? '#1e8e3e' : '#5f6368',
-                    fontSize: '22px'
-                  }}>
-                    {task.status === 'Complete' ? 'check_circle' : 'radio_button_unchecked'}
-                  </span>
+                  {task.status === 'Complete' ? 
+                    <CheckCircle2 size={20} color="var(--jenkins-green)" /> : 
+                    <PlayCircle size={20} color="var(--jenkins-blue)" />
+                  }
                 </button>
                 
                 <div style={{ flex: 1 }}>
                   <div style={{ 
                     fontSize: '14px', 
-                    fontWeight: 400,
-                    textDecoration: task.status === 'Complete' ? 'line-through' : 'none'
+                    fontWeight: 500,
+                    color: task.status === 'Complete' ? '#949a9f' : 'inherit'
                   }}>
                     {task.title}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  <div className="badge badge-gray" style={{ fontSize: '10px' }}>{task.owner}</div>
+                  <span className="badge badge-gray">{task.owner}</span>
                   <button 
                     onClick={() => deleteTask(task.id)} 
-                    style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex' }}
-                    className="text-gray"
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#949a9f' }}
                   >
-                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>delete</span>
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
             ))}
             {data.tasks.filter(t => t.categoryId === category.id).length === 0 && (
-              <div style={{ padding: '16px', color: '#5f6368', fontSize: '14px', fontStyle: 'italic' }}>No tasks in this category.</div>
+              <div style={{ padding: '24px', color: '#949a9f', fontSize: '13px', textAlign: 'center' }}>No steps defined in this stage.</div>
             )}
           </div>
         </div>

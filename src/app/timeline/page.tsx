@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Task, Category } from '@/lib/types';
 import { addDays, format, parseISO, differenceInDays } from 'date-fns';
+import { CheckCircle2, PlayCircle, Circle, ChevronDown } from 'lucide-react';
 
 export default function TimelinePage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
@@ -20,7 +21,7 @@ export default function TimelinePage() {
     });
   }, []);
 
-  if (loading || !settings) return <div style={{ color: '#5f6368' }}>Loading Timeline...</div>;
+  if (loading || !settings) return <div style={{ color: '#949a9f' }}>Loading Pipeline Graph...</div>;
 
   const moveDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
   const closingDate = settings.closingDate ? parseISO(settings.closingDate) : null;
@@ -45,35 +46,26 @@ export default function TimelinePage() {
   });
 
   const windows = [
-    { label: '90+ Days Out', filter: (d: number) => d <= -90, color: '#1a73e8' },
-    { label: '60 Days Out', filter: (d: number) => d > -90 && d <= -60, color: '#1a73e8' },
-    { label: '30 Days Out', filter: (d: number) => d > -60 && d <= -30, color: '#1a73e8' },
-    { label: '2 Weeks Out', filter: (d: number) => d > -30 && d <= -14, color: '#1a73e8' },
-    { label: '1 Week Out', filter: (d: number) => d > -14 && d < 0, color: '#1a73e8' },
-    { label: 'Move Day', filter: (d: number) => d === 0, color: '#d93025' },
-    { label: 'Post-Move', filter: (d: number) => d > 0, color: '#1e8e3e' }
+    { label: 'Initialization', filter: (d: number) => d <= -60 },
+    { label: 'Strategic Planning', filter: (d: number) => d > -60 && d <= -30 },
+    { label: 'Final Build', filter: (d: number) => d > -30 && d < 0 },
+    { label: 'Deployment (Move Day)', filter: (d: number) => d === 0 },
+    { label: 'Post-Deployment', filter: (d: number) => d > 0 }
   ];
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1>Timeline</h1>
-        <div className="badge badge-blue">
-          Move Date: {format(moveDate, 'PPP')}
+      <div className="flex items-center justify-between mb-10">
+        <div>
+          <h1 style={{ marginBottom: '8px' }}>Pipeline Graph</h1>
+          <p style={{ color: '#949a9f', fontSize: '14px' }}>
+            Build Status: <span style={{ color: 'var(--jenkins-green)', fontWeight: 700 }}>STABLE</span> • Target: {format(moveDate, 'MMM d, yyyy')}
+          </p>
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
-        <div style={{ 
-          position: 'absolute', 
-          left: '11px', 
-          top: '0', 
-          bottom: '0', 
-          width: '2px', 
-          background: '#f1f3f4' 
-        }}></div>
-
-        {windows.map(window => {
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        {windows.map((window, wIdx) => {
           const tasksInWindow = tasksWithDates.filter(t => {
             if (!t.calculatedDate) return false;
             const diff = differenceInDays(t.calculatedDate, moveDate);
@@ -82,53 +74,34 @@ export default function TimelinePage() {
 
           if (tasksInWindow.length === 0) return null;
 
+          const isSuccess = tasksInWindow.every(t => t.status === 'Complete');
+          const isInProgress = tasksInWindow.some(t => t.status === 'In Progress') || (!isSuccess && tasksInWindow.some(t => t.status === 'Not Started'));
+
           return (
-            <div key={window.label} style={{ marginBottom: '40px', position: 'relative', paddingLeft: '40px' }}>
-              <div style={{ 
-                position: 'absolute', 
-                left: '0', 
-                top: '4px', 
-                width: '24px', 
-                height: '24px', 
-                borderRadius: '50%', 
-                background: 'white', 
-                border: `2px solid ${window.color}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 1
-              }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: window.color }}></div>
-              </div>
-
-              <h2 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 500, color: window.color }}>
-                {window.label}
-              </h2>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-                {tasksInWindow.map(task => (
-                  <div key={task.id} className="card" style={{ margin: 0, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span className="material-symbols-outlined" style={{ 
-                      fontSize: '20px', 
-                      color: task.status === 'Complete' ? '#1e8e3e' : '#5f6368' 
-                    }}>
-                      {task.status === 'Complete' ? 'check_circle' : 'radio_button_unchecked'}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ 
-                        fontSize: '14px', 
-                        fontWeight: 500,
-                        textDecoration: task.status === 'Complete' ? 'line-through' : 'none',
-                        color: task.status === 'Complete' ? '#5f6368' : '#202124'
-                      }}>
-                        {task.title}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#5f6368' }}>
-                        {task.calculatedDate ? format(task.calculatedDate, 'MMM d') : 'Flexible'}
-                      </div>
-                    </div>
+            <div key={window.label} style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '32px' }}>
+                   <div className={`pipeline-node ${isSuccess ? 'success' : 'in-progress'}`} style={{ width: '24px', height: '24px' }}>
+                     {isSuccess ? <CheckCircle2 size={16} /> : <PlayCircle size={16} />}
+                   </div>
+                   {wIdx < windows.length - 1 && <div style={{ width: '2px', height: '40px', background: 'var(--border)', margin: '4px 0' }}></div>}
+                </div>
+                
+                <div style={{ flex: 1, marginBottom: '20px' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#333', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    {window.label}
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#949a9f' }}>({tasksInWindow.length} STEPS)</span>
                   </div>
-                ))}
+                  
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {tasksInWindow.map(task => (
+                      <div key={task.id} className="card" style={{ padding: '10px 16px', margin: 0, minWidth: '200px', display: 'flex', alignItems: 'center', gap: '12px', border: 'none', background: 'white', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                        {task.status === 'Complete' ? <CheckCircle2 size={14} color="var(--jenkins-green)" /> : <PlayCircle size={14} color="var(--jenkins-blue)" />}
+                        <div style={{ fontSize: '13px', fontWeight: 500 }}>{task.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           );
