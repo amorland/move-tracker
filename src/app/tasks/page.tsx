@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Category, Task, TaskStatus, TaskOwner, TimingType, TaskPhase } from '@/lib/types';
+import { Category, Task, TaskStatus, TaskOwner, TimingType, TaskPhase, MoveSettings } from '@/lib/types';
 import { CheckCircle2, Circle, Plus, Trash2, Layout, User, Calendar as CalendarIcon, X, Save, Edit3, Filter, ArrowRight } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays } from 'date-fns';
 
 export default function TasksPage() {
   const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
+  const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Partial<Task> | null>(null);
@@ -20,9 +21,14 @@ export default function TasksPage() {
   }, []);
 
   const fetchData = async () => {
-    const res = await fetch('/api/categories');
-    const data = await res.json();
-    setData(data);
+    const [catRes, settingsRes] = await Promise.all([
+      fetch('/api/categories'),
+      fetch('/api/settings')
+    ]);
+    const categoriesData = await catRes.json();
+    const settingsData = await settingsRes.json();
+    setData(categoriesData);
+    setSettings(settingsData);
     setLoading(false);
   };
 
@@ -80,6 +86,21 @@ export default function TasksPage() {
       setEditingTask(null);
       fetchData();
     }
+  };
+
+  const getTaskDate = (task: Task) => {
+    if (task.dueDate) return parseISO(task.dueDate);
+    if (!settings) return null;
+    
+    const moveDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
+    const closingDate = settings.closingDate ? parseISO(settings.closingDate) : null;
+
+    let baseDate = moveDate;
+    if (task.timingType === 'Before Closing' || task.timingType === 'After Closing') {
+      if (!closingDate) return null;
+      baseDate = closingDate;
+    }
+    return addDays(baseDate, task.timingOffsetDays);
   };
 
   const filteredTasks = data.tasks.filter(t => {
@@ -213,11 +234,16 @@ export default function TasksPage() {
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }} className="task-metadata">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '100px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '110px' }}>
                           <CalendarIcon size={12} style={{ color: 'var(--text-secondary)' }} />
-                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                            {task.dueDate ? format(parseISO(task.dueDate), 'MMM d, yyyy') : 'No date'}
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                              {getTaskDate(task) ? format(getTaskDate(task)!, 'MMM d, yyyy') : 'No date'}
+                            </span>
+                            {!task.dueDate && getTaskDate(task) && (
+                              <span style={{ fontSize: '8px', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginTop: '-2px' }}>Target</span>
+                            )}
+                          </div>
                         </div>
                         <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em', width: '70px' }}>
                           {task.phase}

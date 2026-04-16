@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { format, parseISO, differenceInDays, addDays } from 'date-fns';
 import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box } from 'lucide-react';
 import Link from 'next/link';
 
@@ -34,6 +34,21 @@ export default function Dashboard() {
   
   const moveDate = settings.confirmedMoveDate || settings.earliestMoveDate;
   const daysToMove = differenceInDays(parseISO(moveDate), new Date());
+
+  const getTaskDate = (task: Task) => {
+    if (task.dueDate) return parseISO(task.dueDate);
+    if (!settings) return null;
+    
+    const moveDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
+    const closingDate = settings.closingDate ? parseISO(settings.closingDate) : null;
+
+    let baseDate = moveDate;
+    if (task.timingType === 'Before Closing' || task.timingType === 'After Closing') {
+      if (!closingDate) return null;
+      baseDate = closingDate;
+    }
+    return addDays(baseDate, task.timingOffsetDays);
+  };
 
   const packingRooms = Array.from(new Set(packingItems.map(i => i.room)));
   const bringItems = packingItems.filter(i => i.action === 'Bring');
@@ -152,12 +167,13 @@ export default function Dashboard() {
                     <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 500 }}>
                       {data.categories.find(c => c.id === task.categoryId)?.name}
                     </div>
-                    {task.dueDate && (
+                    {getTaskDate(task) && (
                       <>
                         <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--border)' }}></div>
                         <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
                           <CalendarIcon size={10} />
-                          {format(parseISO(task.dueDate), 'MMM d')}
+                          <span>{format(getTaskDate(task)!, 'MMM d')}</span>
+                          {!task.dueDate && <span style={{ fontSize: '7px', opacity: 0.7, textTransform: 'uppercase' }}>• Target</span>}
                         </div>
                       </>
                     )}
