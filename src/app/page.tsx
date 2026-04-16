@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task } from '@/lib/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { CheckCircle2, MapPin, Clock, ArrowRight, Star } from 'lucide-react';
+import { MapPin, Star } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Dashboard() {
@@ -41,7 +41,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 style={{ marginBottom: '40px' }}>Move Overview</h1>
+      <h1 style={{ marginBottom: '40px' }}>Andrew & Tory's Move</h1>
       
       {/* Visual Progression Section */}
       <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
@@ -75,7 +75,7 @@ export default function Dashboard() {
         <div className="card" style={{ flex: 1 }}>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Star size={18} fill="var(--warning)" color="var(--warning)" />
-            Next Tasks
+            Priority Tasks
           </h2>
           <div className="flex flex-col gap-1">
             {data.tasks.filter(t => t.status !== 'Complete').slice(0, 4).map(task => (
@@ -85,6 +85,11 @@ export default function Dashboard() {
                 <span className="badge badge-neutral" style={{ marginLeft: 'auto', fontSize: '10px' }}>{task.owner}</span>
               </div>
             ))}
+            {data.tasks.filter(t => t.status !== 'Complete').length === 0 && (
+              <div style={{ padding: '20px 0', color: 'var(--text-secondary)', fontSize: '14px', fontStyle: 'italic' }}>
+                All caught up! Nice work.
+              </div>
+            )}
             <Link href="/tasks" className="btn btn-secondary" style={{ marginTop: '20px' }}>View All Tasks</Link>
           </div>
         </div>
@@ -106,7 +111,7 @@ export default function Dashboard() {
             </div>
             <div style={{ marginTop: '8px' }}>
                <div className="badge badge-info" style={{ width: '100%', justifyContent: 'center' }}>
-                 Andrew & Wife
+                 Andrew & Tory
                </div>
             </div>
           </div>

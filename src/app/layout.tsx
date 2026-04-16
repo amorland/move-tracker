@@ -24,6 +24,7 @@ export default function RootLayout({
     return (
       <html lang="en">
         <head>
+          <title>Login | Starland Move Tracker</title>
           <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         </head>
         <body>{children}</body>
@@ -34,17 +35,21 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <title>Starland Move Tracker</title>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
       </head>
       <body>
         <header className="header">
           <div className="header-logo">
             <Home size={22} strokeWidth={2.5} />
-            <span>MOVE TRACKER</span>
+            <span>STARLAND MOVE TRACKER</span>
           </div>
         </header>
         <div className="app-container">
           <aside className="sidebar">
+            <div style={{ padding: '0 16px', marginBottom: '24px', fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: '1px' }}>
+              ANDREW & TORY'S MOVE
+            </div>
             <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
               <LayoutDashboard size={18} />
               <span>Overview</span>

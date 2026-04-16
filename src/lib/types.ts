@@ -1,5 +1,5 @@
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete';
-export type TaskOwner = 'Andrew' | 'Wife' | 'Both';
+export type TaskOwner = 'Andrew' | 'Tory' | 'Both';
 export type TimingType = 'Fixed' | 'Before Move' | 'After Move' | 'Before Closing' | 'After Closing' | 'Flexible';
 
 export interface MoveSettings {
