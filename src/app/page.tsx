@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task } from '@/lib/types';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { Home, ArrowRight, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import { MapPin, Calendar as CalendarIcon, CheckCircle2, Clock, Star } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Dashboard() {
@@ -22,7 +22,7 @@ export default function Dashboard() {
     });
   }, []);
 
-  if (loading || !settings) return <div>Loading...</div>;
+  if (loading || !settings) return <div className="text-gray">Loading dashboard...</div>;
 
   const completedTasks = data.tasks.filter(t => t.status === 'Complete').length;
   const totalTasks = data.tasks.length;
@@ -35,18 +35,20 @@ export default function Dashboard() {
     <div>
       <h1>Dashboard</h1>
       
-      <div className="flex gap-4 mb-4">
-        <div className="card flex-1">
-          <div className="flex items-center gap-2 text-gray-600 mb-2">
-            <Home size={18} />
-            <span style={{ fontSize: '14px', fontWeight: 500 }}>Move Window</span>
+      <div className="flex gap-4 mb-4" style={{ flexWrap: 'wrap' }}>
+        <div className="card flex-1" style={{ minWidth: '300px' }}>
+          <div className="flex items-center gap-2 text-gray mb-3">
+            <MapPin size={18} />
+            <span style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase' }}>Route Details</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span style={{ fontWeight: 600 }}>Clearwater, FL</span>
-            <ArrowRight size={16} />
-            <span style={{ fontWeight: 600 }}>Cold Spring, NY</span>
+          <div className="flex items-center gap-3">
+            <span style={{ fontSize: '18px', fontWeight: 700 }}>Clearwater</span>
+            <div style={{ height: '2px', flex: 1, backgroundColor: 'var(--border)', position: 'relative' }}>
+              <div style={{ position: 'absolute', top: '-7px', right: '0' }}>✈️</div>
+            </div>
+            <span style={{ fontSize: '18px', fontWeight: 700 }}>Cold Spring</span>
           </div>
-          <div className="mt-4 text-sm">
+          <div className="mt-4">
             {settings.confirmedMoveDate ? (
               <div className="badge badge-green">Confirmed: {format(parseISO(settings.confirmedMoveDate), 'MMM d, yyyy')}</div>
             ) : (
@@ -55,46 +57,60 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="card flex-1">
-          <div className="flex items-center gap-2 text-gray-600 mb-2">
+        <div className="card flex-1" style={{ minWidth: '300px' }}>
+          <div className="flex items-center gap-2 text-gray mb-3">
             <Clock size={18} />
-            <span style={{ fontSize: '14px', fontWeight: 500 }}>Countdown</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase' }}>Timeline</span>
           </div>
-          <div style={{ fontSize: '24px', fontWeight: 700 }}>
-            {daysToMove > 0 ? `${daysToMove} days to go` : daysToMove === 0 ? 'Today is the day!' : 'Moved!'}
+          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--primary)' }}>
+            {daysToMove > 0 ? `${daysToMove} Days Left` : daysToMove === 0 ? "It's Move Day!" : 'Welcome Home!'}
           </div>
-          <p className="text-sm text-gray-600">Based on {settings.confirmedMoveDate ? 'confirmed' : 'earliest'} move date</p>
+          <p className="text-sm text-gray mt-1">Based on {settings.confirmedMoveDate ? 'confirmed' : 'earliest'} move date</p>
         </div>
       </div>
 
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} className="text-blue" />
-            <span style={{ fontWeight: 600 }}>Overall Progress</span>
+            <CheckCircle2 size={20} className="text-primary" />
+            <span style={{ fontWeight: 700, fontSize: '16px' }}>Move Progress</span>
           </div>
-          <span style={{ fontWeight: 600 }}>{progress}%</span>
+          <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{progress}%</span>
         </div>
-        <div style={{ background: 'var(--gray-100)', height: '8px', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ background: 'var(--blue)', height: '100%', width: `${progress}%`, transition: 'width 0.5s' }}></div>
+        <div style={{ background: '#f1f5f9', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
+          <div style={{ 
+            background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)', 
+            height: '100%', 
+            width: `${progress}%`, 
+            transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
+            borderRadius: '5px'
+          }}></div>
         </div>
-        <p className="mt-4 text-sm text-gray-600">{completedTasks} of {totalTasks} tasks completed</p>
+        <div className="flex justify-between mt-3 text-sm font-medium">
+          <span className="text-gray">{completedTasks} tasks finished</span>
+          <span className="text-gray">{totalTasks - completedTasks} remaining</span>
+        </div>
       </div>
 
-      <h2>Priority Tasks</h2>
-      <div className="flex flex-col gap-2">
-        {data.tasks.filter(t => t.status !== 'Complete').slice(0, 5).map(task => (
-          <div key={task.id} className="card" style={{ padding: '12px 16px', marginBottom: '8px' }}>
+      <div className="flex items-center justify-between mt-10 mb-6">
+        <h2 style={{ margin: 0 }}>Priority Next Steps</h2>
+        <Link href="/tasks" className="btn btn-secondary gap-2" style={{ fontSize: '12px' }}>
+          View All <Star size={14} />
+        </Link>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {data.tasks.filter(t => t.status !== 'Complete').slice(0, 4).map(task => (
+          <div key={task.id} className="card" style={{ padding: '16px 20px', margin: 0 }}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertCircle size={16} className="text-gray-600" />
-                <span>{task.title}</span>
+              <div className="flex items-center gap-4">
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#cbd5e1' }}></div>
+                <span style={{ fontWeight: 600 }}>{task.title}</span>
               </div>
-              <div className="badge badge-gray">{data.categories.find(c => c.id === task.categoryId)?.name}</div>
+              <div className="badge badge-gray" style={{ fontSize: '10px' }}>{data.categories.find(c => c.id === task.categoryId)?.name}</div>
             </div>
           </div>
         ))}
-        <Link href="/tasks" className="text-blue text-sm font-medium mt-2 hover:underline">View all tasks →</Link>
       </div>
     </div>
   );

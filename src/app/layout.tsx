@@ -33,7 +33,7 @@ export default function RootLayout({
       <body>
         <div className="app-container">
           <aside className="sidebar">
-            <div style={{ padding: '0 10px', marginBottom: '20px', fontWeight: 600, fontSize: '14px' }}>
+            <div className="sidebar-header">
               🏠 Andrew's Move
             </div>
             <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
