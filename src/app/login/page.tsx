@@ -30,28 +30,53 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: 'var(--gray-50)' }}>
-      <form onSubmit={handleLogin} className="card" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
-        <h1 style={{ fontSize: '24px', textAlign: 'center', marginBottom: '8px' }}>Move Tracker</h1>
-        <p style={{ textAlign: 'center', color: 'var(--gray-600)', marginBottom: '24px', fontSize: '14px' }}>Please enter the shared password</p>
-        
-        <div className="mb-4">
-          <input 
-            type="password" 
-            placeholder="Password" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)}
-            required
-            autoFocus
-          />
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '450px', padding: '48px 40px', borderRadius: '8px', border: '1px solid #dadce0' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ fontSize: '24px', fontWeight: 500, color: '#202124', marginBottom: '8px' }}>Move Tracker</div>
+          <div style={{ fontSize: '24px', fontWeight: 400, color: '#202124', marginBottom: '12px' }}>Welcome</div>
+          <p style={{ fontSize: '16px', color: '#202124' }}>To continue, enter the app password</p>
         </div>
         
-        {error && <p style={{ color: '#d44', fontSize: '13px', marginBottom: '16px', textAlign: 'center' }}>{error}</p>}
-        
-        <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '10px' }} disabled={loading}>
-          {loading ? 'Authenticating...' : 'Enter'}
-        </button>
-      </form>
+        <form onSubmit={handleLogin}>
+          <div className="mb-4">
+            <input 
+              type="password" 
+              placeholder="Enter your password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoFocus
+              style={{ 
+                width: '100%', 
+                height: '56px', 
+                fontSize: '16px', 
+                border: error ? '1px solid #d93025' : '1px solid #dadce0',
+                padding: '13px 15px' 
+              }}
+            />
+          </div>
+          
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#d93025', fontSize: '12px', marginBottom: '16px' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>error</span>
+              {error}
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '40px' }}>
+            <span style={{ fontSize: '14px', color: '#1a73e8', fontWeight: 500, cursor: 'pointer' }}>Forgot password?</span>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ height: '40px', minWidth: '88px', borderRadius: '4px' }} 
+              disabled={loading}
+            >
+              {loading ? 'Processing...' : 'Next'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

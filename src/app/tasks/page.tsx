@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Category, Task, TaskStatus } from '@/lib/types';
-import { Plus, Trash2, CheckCircle2, Circle, LayoutGrid, ChevronRight, User, MoreHorizontal } from 'lucide-react';
 
 export default function TasksPage() {
   const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
@@ -49,75 +48,81 @@ export default function TasksPage() {
     fetchData();
   };
 
-  if (loading) return <div className="text-gray">Loading tasks...</div>;
+  if (loading) return <div style={{ color: '#5f6368' }}>Loading Tasks...</div>;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-10">
-        <div>
-          <h1 style={{ marginBottom: '8px' }}>Task Board</h1>
-          <p className="text-gray text-sm">Organize and track every detail of your move.</p>
-        </div>
-        <div className="flex gap-2">
-           <button className="btn btn-secondary" onClick={() => fetchData()}>Refresh</button>
-        </div>
+      <div className="flex items-center justify-between mb-8">
+        <h1>Tasks</h1>
+        <button className="btn btn-primary" onClick={() => fetchData()}>
+          <span className="material-symbols-outlined" style={{ fontSize: '18px', marginRight: '8px' }}>refresh</span>
+          Refresh
+        </button>
       </div>
 
       {data.categories.map(category => (
-        <div key={category.id} className="mb-12">
-          <div className="flex items-center justify-between mb-4 pb-2 border-bottom" style={{ borderBottom: '2px solid var(--border)' }}>
-            <div className="flex items-center gap-2">
-              <LayoutGrid size={18} className="text-primary" />
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{category.name}</h2>
-              <span className="badge badge-gray" style={{ marginLeft: '8px', fontSize: '10px' }}>
-                {data.tasks.filter(t => t.categoryId === category.id).length}
-              </span>
-            </div>
-            <button className="btn btn-primary" style={{ padding: '6px 10px', fontSize: '12px' }} onClick={() => addTask(category.id)}>
-              <Plus size={14} style={{ marginRight: '4px' }} /> New Task
+        <div key={category.id} className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 style={{ margin: 0 }}>{category.name}</h2>
+            <button className="btn btn-outline" style={{ height: '32px', padding: '0 12px' }} onClick={() => addTask(category.id)}>
+              <span className="material-symbols-outlined" style={{ fontSize: '18px', marginRight: '4px' }}>add</span>
+              Add task
             </button>
           </div>
           
-          <div className="flex flex-col gap-2">
-            {data.tasks.filter(t => t.categoryId === category.id).map(task => (
-              <div key={task.id} className="card" style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '20px', border: 'none', backgroundColor: task.status === 'Complete' ? '#f8fafc' : 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                <button onClick={() => toggleTaskStatus(task)} style={{ display: 'flex', color: task.status === 'Complete' ? 'var(--primary)' : 'var(--secondary)' }}>
-                  {task.status === 'Complete' ? 
-                    <CheckCircle2 size={22} /> : 
-                    <Circle size={22} />
-                  }
+          <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #dadce0', overflow: 'hidden' }}>
+            {data.tasks.filter(t => t.categoryId === category.id).map((task, idx) => (
+              <div key={task.id} style={{ 
+                padding: '12px 16px', 
+                borderBottom: idx === data.tasks.filter(t => t.categoryId === category.id).length - 1 ? 'none' : '1px solid #f1f3f4',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                opacity: task.status === 'Complete' ? 0.6 : 1
+              }}>
+                <button 
+                  onClick={() => toggleTaskStatus(task)}
+                  style={{ 
+                    border: 'none', 
+                    background: 'none', 
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: 0
+                  }}
+                >
+                  <span className="material-symbols-outlined" style={{ 
+                    color: task.status === 'Complete' ? '#1e8e3e' : '#5f6368',
+                    fontSize: '22px'
+                  }}>
+                    {task.status === 'Complete' ? 'check_circle' : 'radio_button_unchecked'}
+                  </span>
                 </button>
                 
                 <div style={{ flex: 1 }}>
                   <div style={{ 
-                    fontWeight: 600, 
-                    fontSize: '15px',
-                    color: task.status === 'Complete' ? 'var(--secondary)' : 'var(--foreground)',
+                    fontSize: '14px', 
+                    fontWeight: 400,
                     textDecoration: task.status === 'Complete' ? 'line-through' : 'none'
                   }}>
                     {task.title}
                   </div>
-                  {task.description && (
-                    <div style={{ fontSize: '13px', color: 'var(--secondary)', marginTop: '2px' }}>
-                      {task.description}
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-1 text-gray" style={{ fontSize: '12px', fontWeight: 600 }}>
-                    <User size={14} />
-                    {task.owner}
-                  </div>
-                  <button onClick={() => deleteTask(task.id)} className="text-gray hover:text-red-500 transition-colors">
-                    <Trash2 size={16} />
+                <div className="flex items-center gap-4">
+                  <div className="badge badge-gray" style={{ fontSize: '10px' }}>{task.owner}</div>
+                  <button 
+                    onClick={() => deleteTask(task.id)} 
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex' }}
+                    className="text-gray"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>delete</span>
                   </button>
                 </div>
               </div>
             ))}
-            
             {data.tasks.filter(t => t.categoryId === category.id).length === 0 && (
-              <div className="text-gray text-sm italic py-4 px-2">No tasks in this category yet.</div>
+              <div style={{ padding: '16px', color: '#5f6368', fontSize: '14px', fontStyle: 'italic' }}>No tasks in this category.</div>
             )}
           </div>
         </div>

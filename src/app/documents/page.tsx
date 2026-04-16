@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Document, Task, Category } from '@/lib/types';
-import { Plus, Link as LinkIcon, FileText, Trash2, ExternalLink } from 'lucide-react';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -35,14 +34,11 @@ export default function DocumentsPage() {
     });
     setNewDoc({ name: '', url: '', isLink: true, taskId: '', categoryId: '' });
     setIsAdding(false);
-    
-    // Refresh
     const res = await fetch('/api/documents');
     setDocuments(await res.json());
 
-    // Simulated Smart Extraction
     if (newDoc.name.toLowerCase().includes('closing') || newDoc.name.toLowerCase().includes('lease')) {
-      if (confirm('Smart Extraction detected "Closing/Lease" in document. Would you like to create a "Sign documents" task?')) {
+      if (confirm('Smart Extraction detected "Closing/Lease" in document. Create "Sign documents" task?')) {
         await fetch('/api/tasks', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -67,74 +63,82 @@ export default function DocumentsPage() {
     setDocuments(await res.json());
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div style={{ color: '#5f6368' }}>Loading Documents...</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1>Documents</h1>
-        <button className="btn btn-primary flex items-center gap-2" onClick={() => setIsAdding(!isAdding)}>
-          <Plus size={16} /> Add Document / Link
+        <button className="btn btn-primary" onClick={() => setIsAdding(!isAdding)}>
+          <span className="material-symbols-outlined" style={{ fontSize: '20px', marginRight: '8px' }}>add</span>
+          New
         </button>
       </div>
 
       {isAdding && (
-        <form onSubmit={handleAdd} className="card mb-8">
-          <h2 style={{ marginTop: 0 }}>Add New Document</h2>
+        <form onSubmit={handleAdd} className="card" style={{ maxWidth: '600px', marginBottom: '32px' }}>
           <div className="mb-4">
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>Name</label>
             <input 
               required
               value={newDoc.name} 
               onChange={e => setNewDoc({ ...newDoc, name: e.target.value })} 
-              placeholder="e.g. Closing Disclosure, Rental Agreement"
+              placeholder="Name (e.g. Closing Disclosure)"
+              style={{ width: '100%' }}
             />
           </div>
           <div className="mb-4">
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>URL / Google Drive Link</label>
             <input 
               required
               value={newDoc.url} 
               onChange={e => setNewDoc({ ...newDoc, url: e.target.value })} 
-              placeholder="https://drive.google.com/..."
+              placeholder="Link URL"
+              style={{ width: '100%' }}
             />
           </div>
           <div className="flex gap-4">
-            <button type="submit" className="btn btn-primary">Add Document</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Add</button>
+            <button type="button" className="btn btn-outline" onClick={() => setIsAdding(false)}>Cancel</button>
           </div>
         </form>
       )}
 
-      <div className="flex flex-col gap-4">
-        {documents.map(doc => (
-          <div key={doc.id} className="card" style={{ padding: '16px' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div style={{ padding: '8px', background: 'var(--gray-50)', borderRadius: '4px', color: 'var(--gray-600)' }}>
-                  {doc.isLink ? <LinkIcon size={20} /> : <FileText size={20} />}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600 }}>{doc.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--gray-600)' }}>
-                    Added {new Date(doc.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary flex items-center gap-2">
-                  <ExternalLink size={14} /> Open
-                </a>
-                <button onClick={() => deleteDoc(doc.id)} className="text-gray-600 hover:text-red-500">
-                  <Trash2 size={16} />
-                </button>
-              </div>
+      <div style={{ background: 'white', border: '1px solid #dadce0', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px', padding: '12px 16px', background: '#f8f9fa', borderBottom: '1px solid #dadce0', fontSize: '12px', fontWeight: 500, color: '#5f6368' }}>
+          <div>NAME</div>
+          <div>DATE ADDED</div>
+          <div></div>
+        </div>
+        {documents.map((doc, idx) => (
+          <div key={doc.id} style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr 100px', 
+            padding: '12px 16px', 
+            borderBottom: idx === documents.length - 1 ? 'none' : '1px solid #f1f3f4',
+            alignItems: 'center',
+            fontSize: '14px'
+          }}>
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined" style={{ color: '#1a73e8', fontSize: '20px' }}>
+                {doc.isLink ? 'link' : 'description'}
+              </span>
+              <a href={doc.url} target="_blank" rel="noopener noreferrer" style={{ color: '#202124', textDecoration: 'none', fontWeight: 500 }}>
+                {doc.name}
+              </a>
+            </div>
+            <div style={{ color: '#5f6368' }}>{new Date(doc.createdAt).toLocaleDateString()}</div>
+            <div style={{ textAlign: 'right' }}>
+              <button 
+                onClick={() => deleteDoc(doc.id)} 
+                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#5f6368' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete</span>
+              </button>
             </div>
           </div>
         ))}
         {documents.length === 0 && (
-          <div className="card text-center text-gray-600 italic" style={{ padding: '48px' }}>
-            No documents attached yet. Add links to Google Drive or other files.
+          <div style={{ padding: '32px', textAlign: 'center', color: '#5f6368', fontSize: '14px' }}>
+            No documents yet.
           </div>
         )}
       </div>

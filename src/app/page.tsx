@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task } from '@/lib/types';
 import { format, differenceInDays, parseISO } from 'date-fns';
-import { MapPin, Calendar as CalendarIcon, CheckCircle2, Clock, Star } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Dashboard() {
@@ -22,7 +21,7 @@ export default function Dashboard() {
     });
   }, []);
 
-  if (loading || !settings) return <div className="text-gray">Loading dashboard...</div>;
+  if (loading || !settings) return <div style={{ color: '#5f6368' }}>Loading Dashboard...</div>;
 
   const completedTasks = data.tasks.filter(t => t.status === 'Complete').length;
   const totalTasks = data.tasks.length;
@@ -36,17 +35,15 @@ export default function Dashboard() {
       <h1>Dashboard</h1>
       
       <div className="flex gap-4 mb-4" style={{ flexWrap: 'wrap' }}>
-        <div className="card flex-1" style={{ minWidth: '300px' }}>
-          <div className="flex items-center gap-2 text-gray mb-3">
-            <MapPin size={18} />
-            <span style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase' }}>Route Details</span>
+        <div className="card" style={{ flex: '1 1 300px' }}>
+          <div className="card-title">
+            <span className="material-symbols-outlined" style={{ color: '#1a73e8' }}>location_on</span>
+            Move Window
           </div>
-          <div className="flex items-center gap-3">
-            <span style={{ fontSize: '18px', fontWeight: 700 }}>Clearwater</span>
-            <div style={{ height: '2px', flex: 1, backgroundColor: 'var(--border)', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: '-7px', right: '0' }}>✈️</div>
-            </div>
-            <span style={{ fontSize: '18px', fontWeight: 700 }}>Cold Spring</span>
+          <div className="flex items-center gap-2" style={{ fontSize: '18px', fontWeight: 500, color: '#3c4043' }}>
+            Clearwater
+            <span className="material-symbols-outlined" style={{ color: '#5f6368' }}>arrow_forward</span>
+            Cold Spring
           </div>
           <div className="mt-4">
             {settings.confirmedMoveDate ? (
@@ -57,57 +54,52 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="card flex-1" style={{ minWidth: '300px' }}>
-          <div className="flex items-center gap-2 text-gray mb-3">
-            <Clock size={18} />
-            <span style={{ fontSize: '13px', fontWeight: 600, textTransform: 'uppercase' }}>Timeline</span>
+        <div className="card" style={{ flex: '1 1 300px' }}>
+          <div className="card-title">
+            <span className="material-symbols-outlined" style={{ color: '#d93025' }}>schedule</span>
+            Countdown
           </div>
-          <div style={{ fontSize: '28px', fontWeight: 800, color: 'var(--primary)' }}>
-            {daysToMove > 0 ? `${daysToMove} Days Left` : daysToMove === 0 ? "It's Move Day!" : 'Welcome Home!'}
+          <div style={{ fontSize: '28px', fontWeight: 500, color: '#202124' }}>
+            {daysToMove > 0 ? `${daysToMove} Days` : daysToMove === 0 ? "Move Day" : 'Completed'}
           </div>
-          <p className="text-sm text-gray mt-1">Based on {settings.confirmedMoveDate ? 'confirmed' : 'earliest'} move date</p>
+          <div style={{ color: '#5f6368', fontSize: '14px', marginTop: '4px' }}>
+            Until {settings.confirmedMoveDate ? 'confirmed' : 'estimated'} date
+          </div>
         </div>
       </div>
 
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={20} className="text-primary" />
-            <span style={{ fontWeight: 700, fontSize: '16px' }}>Move Progress</span>
-          </div>
-          <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{progress}%</span>
+        <div className="card-title">
+          <span className="material-symbols-outlined" style={{ color: '#1e8e3e' }}>assignment_turned_in</span>
+          Move Progress
         </div>
-        <div style={{ background: '#f1f5f9', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
-          <div style={{ 
-            background: 'linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%)', 
-            height: '100%', 
-            width: `${progress}%`, 
-            transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)',
-            borderRadius: '5px'
-          }}></div>
+        <div className="flex justify-between items-center mb-2">
+          <span style={{ fontSize: '14px', color: '#5f6368' }}>{completedTasks} of {totalTasks} tasks completed</span>
+          <span style={{ fontSize: '14px', fontWeight: 500, color: '#1e8e3e' }}>{progress}%</span>
         </div>
-        <div className="flex justify-between mt-3 text-sm font-medium">
-          <span className="text-gray">{completedTasks} tasks finished</span>
-          <span className="text-gray">{totalTasks - completedTasks} remaining</span>
+        <div className="progress-container">
+          <div className="progress-bar" style={{ width: `${progress}%`, backgroundColor: '#1e8e3e' }}></div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-10 mb-6">
-        <h2 style={{ margin: 0 }}>Priority Next Steps</h2>
-        <Link href="/tasks" className="btn btn-secondary gap-2" style={{ fontSize: '12px' }}>
-          View All <Star size={14} />
-        </Link>
+      <div className="flex items-center justify-between mt-8 mb-4">
+        <h2 style={{ margin: 0 }}>Upcoming Tasks</h2>
+        <Link href="/tasks" style={{ color: '#1a73e8', fontSize: '14px', fontWeight: 500, textDecoration: 'none' }}>View all</Link>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {data.tasks.filter(t => t.status !== 'Complete').slice(0, 4).map(task => (
-          <div key={task.id} className="card" style={{ padding: '16px 20px', margin: 0 }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#cbd5e1' }}></div>
-                <span style={{ fontWeight: 600 }}>{task.title}</span>
-              </div>
-              <div className="badge badge-gray" style={{ fontSize: '10px' }}>{data.categories.find(c => c.id === task.categoryId)?.name}</div>
+      <div style={{ background: 'white', borderRadius: '8px', border: '1px solid #dadce0', overflow: 'hidden' }}>
+        {data.tasks.filter(t => t.status !== 'Complete').slice(0, 5).map((task, idx) => (
+          <div key={task.id} style={{ 
+            padding: '12px 16px', 
+            borderBottom: idx === 4 ? 'none' : '1px solid #f1f3f4',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px'
+          }}>
+            <span className="material-symbols-outlined" style={{ color: '#5f6368', fontSize: '20px' }}>radio_button_unchecked</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: 500 }}>{task.title}</div>
+              <div style={{ fontSize: '12px', color: '#5f6368' }}>{data.categories.find(c => c.id === task.categoryId)?.name}</div>
             </div>
           </div>
         ))}
