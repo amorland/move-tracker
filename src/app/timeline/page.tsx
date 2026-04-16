@@ -46,11 +46,11 @@ export default function TimelinePage() {
   });
 
   const windows = [
-    { label: 'Initialization', filter: (d: number) => d <= -60, icon: 'edit_calendar' },
-    { label: 'Strategic Planning', filter: (d: number) => d > -60 && d <= -30, icon: 'event_note' },
-    { label: 'Final Countdown', filter: (d: number) => d > -30 && d < 0, icon: 'notifications_active' },
+    { label: 'Strategy', filter: (d: number) => d <= -60, icon: 'assignment' },
+    { label: 'Packing', filter: (d: number) => d > -60 && d <= -14, icon: 'package_2' },
+    { label: 'Transit', filter: (d: number) => d > -14 && d < 0, icon: 'local_shipping' },
     { label: 'Move Day', filter: (d: number) => d === 0, icon: 'local_shipping' },
-    { label: 'Settling In', filter: (d: number) => d > 0, icon: 'auto_awesome' }
+    { label: 'Settling', filter: (d: number) => d > 0, icon: 'celebration' }
   ];
 
   return (

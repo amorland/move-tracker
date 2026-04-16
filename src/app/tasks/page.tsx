@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Category, Task, TaskStatus } from '@/lib/types';
-import { CheckCircle2, Circle, Plus, Trash2, Layout, User } from 'lucide-react';
+import { Category, Task, TaskStatus, TaskOwner, TimingType } from '@/lib/types';
+import { CheckCircle2, Circle, Plus, Trash2, Layout, User, Calendar as CalendarIcon, X, Save, Edit3 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 
 export default function TasksPage() {
   const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Partial<Task> | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -37,16 +40,41 @@ export default function TasksPage() {
     fetchData();
   };
 
-  const addTask = async (categoryId: number) => {
-    const title = prompt('Task Title:');
-    if (!title) return;
-    
-    await fetch('/api/tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categoryId, title, owner: 'Both', status: 'Not Started', timingType: 'Flexible', timingOffsetDays: 0, orderIndex: 0 })
+  const openAddModal = (categoryId: number) => {
+    setEditingTask({
+      categoryId,
+      title: '',
+      description: '',
+      status: 'Not Started',
+      owner: 'Both',
+      timingType: 'Flexible',
+      timingOffsetDays: 0,
+      dueDate: null,
+      notes: ''
     });
-    fetchData();
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (task: Task) => {
+    setEditingTask(task);
+    setIsModalOpen(true);
+  };
+
+  const saveTask = async () => {
+    if (!editingTask || !editingTask.title) return;
+
+    const method = editingTask.id ? 'PATCH' : 'POST';
+    const res = await fetch('/api/tasks', {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editingTask)
+    });
+
+    if (res.ok) {
+      setIsModalOpen(false);
+      setEditingTask(null);
+      fetchData();
+    }
   };
 
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading tasks...</div>;
@@ -82,7 +110,7 @@ export default function TasksPage() {
                     <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>{completedCount} of {catTasks.length} COMPLETED</div>
                   </div>
                 </div>
-                <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12px', height: '32px' }} onClick={() => addTask(category.id)}>
+                <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12px', height: '32px' }} onClick={() => openAddModal(category.id)}>
                   <Plus size={14} style={{ marginRight: '6px' }} /> NEW TASK
                 </button>
               </div>
@@ -112,7 +140,7 @@ export default function TasksPage() {
                       }
                     </button>
                     
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => openEditModal(task)}>
                       <div style={{ 
                         fontSize: '14px', 
                         fontWeight: 600,
@@ -122,6 +150,12 @@ export default function TasksPage() {
                       }}>
                         {task.title}
                       </div>
+                      {task.dueDate && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <CalendarIcon size={10} />
+                          {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-6">
@@ -149,6 +183,63 @@ export default function TasksPage() {
           );
         })}
       </div>
+
+      {/* Task Edit/Add Modal */}
+      {isModalOpen && editingTask && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px', padding: 0, overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="justify-between">
+              <h2 style={{ margin: 0, fontSize: '18px' }}>{editingTask.id ? 'Edit Task' : 'New Task'}</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--text-secondary)' }}><X size={20} /></button>
+            </div>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Title</label>
+                <input 
+                  value={editingTask.title || ''} 
+                  onChange={e => setEditingTask({...editingTask, title: e.target.value})}
+                  placeholder="Task title"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Owner</label>
+                <select 
+                  value={editingTask.owner || 'Both'} 
+                  onChange={e => setEditingTask({...editingTask, owner: e.target.value as TaskOwner})}
+                >
+                  <option value="Andrew">Andrew</option>
+                  <option value="Tory">Tory</option>
+                  <option value="Both">Both</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Due Date (Optional)</label>
+                <input 
+                  type="date"
+                  value={editingTask.dueDate || ''} 
+                  onChange={e => setEditingTask({...editingTask, dueDate: e.target.value || null})}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Notes</label>
+                <textarea 
+                  value={editingTask.description || ''} 
+                  onChange={e => setEditingTask({...editingTask, description: e.target.value})}
+                  placeholder="Additional details..."
+                  style={{ height: '80px', resize: 'none' }}
+                />
+              </div>
+            </div>
+            <div style={{ padding: '16px 24px', backgroundColor: '#fcfcfd', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
+              <button className="btn btn-primary" style={{ gap: '8px' }} onClick={saveTask}>
+                <Save size={16} /> Save Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

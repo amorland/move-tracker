@@ -39,3 +39,14 @@ export interface Document {
   isLink: boolean;
   createdAt: string;
 }
+
+export interface MoveLocation {
+  id: number;
+  name: string;
+  address: string;
+  notes: string | null;
+  category: 'Origin' | 'Destination' | 'Stop' | 'Utility' | 'Errand' | 'Service';
+  lat: number | null;
+  lng: number | null;
+  createdAt: string;
+}

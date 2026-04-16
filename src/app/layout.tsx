@@ -3,7 +3,7 @@
 import "./globals.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Home, Menu, X } from "lucide-react";
+import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Home, Menu, X, Map as MapIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function RootLayout({
@@ -75,6 +75,10 @@ export default function RootLayout({
             <Link href="/timeline" className={`nav-item ${pathname === '/timeline' ? 'active' : ''}`}>
               <Calendar size={18} />
               <span>Timeline</span>
+            </Link>
+            <Link href="/map" className={`nav-item ${pathname === '/map' ? 'active' : ''}`}>
+              <MapIcon size={18} />
+              <span>Move Map</span>
             </Link>
             <Link href="/documents" className={`nav-item ${pathname === '/documents' ? 'active' : ''}`}>
               <FileText size={18} />
