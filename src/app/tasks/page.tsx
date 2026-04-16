@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Category, Task, TaskStatus, TaskOwner, TimingType } from '@/lib/types';
-import { CheckCircle2, Circle, Plus, Trash2, Layout, User, Calendar as CalendarIcon, X, Save, Edit3 } from 'lucide-react';
+import { Category, Task, TaskStatus, TaskOwner, TimingType, TaskPhase } from '@/lib/types';
+import { CheckCircle2, Circle, Plus, Trash2, Layout, User, Calendar as CalendarIcon, X, Save, Edit3, Filter, ArrowRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 export default function TasksPage() {
@@ -10,6 +10,10 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Partial<Task> | null>(null);
+  
+  // Filters
+  const [ownerFilter, setOwnerFilter] = useState<TaskOwner | 'All'>('All');
+  const [phaseFilter, setPhaseFilter] = useState<TaskPhase | 'All'>('All');
 
   useEffect(() => {
     fetchData();
@@ -47,6 +51,7 @@ export default function TasksPage() {
       description: '',
       status: 'Not Started',
       owner: 'Both',
+      phase: 'Both',
       timingType: 'Flexible',
       timingOffsetDays: 0,
       dueDate: null,
@@ -77,26 +82,72 @@ export default function TasksPage() {
     }
   };
 
+  const filteredTasks = data.tasks.filter(t => {
+    const matchesOwner = ownerFilter === 'All' || t.owner === ownerFilter;
+    const matchesPhase = phaseFilter === 'All' || t.phase === phaseFilter;
+    return matchesOwner && matchesPhase;
+  });
+
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading tasks...</div>;
 
   return (
     <div>
-      <div className="flex flex-stack items-center justify-between mb-12">
+      <div className="flex flex-stack items-center justify-between mb-8">
         <div>
           <h1>Tasks</h1>
           <p className="section-subtitle" style={{ marginBottom: 0 }}>Manage and track every detail of the move.</p>
         </div>
-        <button className="btn btn-primary" style={{ gap: '10px' }} onClick={() => fetchData()}>
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>sync</span>
-          Refresh
-        </button>
+        <div className="flex gap-3">
+          <button className="btn btn-secondary" style={{ gap: '8px' }} onClick={() => fetchData()}>
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>sync</span>
+            Sync
+          </button>
+        </div>
+      </div>
+
+      {/* Filters Bar */}
+      <div className="card" style={{ padding: '16px 24px', marginBottom: '32px', border: 'none', boxShadow: 'var(--shadow-sm)', display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 700 }}>
+          <Filter size={14} /> FILTERS:
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>OWNER</label>
+          <select 
+            value={ownerFilter} 
+            onChange={e => setOwnerFilter(e.target.value as any)}
+            style={{ padding: '4px 12px', fontSize: '12px', height: '32px', minWidth: '100px' }}
+          >
+            <option value="All">All Owners</option>
+            <option value="Andrew">Andrew</option>
+            <option value="Tory">Tory</option>
+            <option value="Both">Both</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>PHASE</label>
+          <select 
+            value={phaseFilter} 
+            onChange={e => setPhaseFilter(e.target.value as any)}
+            style={{ padding: '4px 12px', fontSize: '12px', height: '32px', minWidth: '120px' }}
+          >
+            <option value="All">All Phases</option>
+            <option value="Move Out">Move Out</option>
+            <option value="Move In">Move In</option>
+            <option value="Both">Both</option>
+          </select>
+        </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
         {data.categories.map(category => {
-          const catTasks = data.tasks.filter(t => t.categoryId === category.id);
-          const completedCount = catTasks.filter(t => t.status === 'Complete').length;
-          const progressPercent = catTasks.length > 0 ? (completedCount / catTasks.length) * 100 : 0;
+          const catTasks = filteredTasks.filter(t => t.categoryId === category.id);
+          const allCatTasks = data.tasks.filter(t => t.categoryId === category.id);
+          const completedCount = allCatTasks.filter(t => t.status === 'Complete').length;
+          const progressPercent = allCatTasks.length > 0 ? (completedCount / allCatTasks.length) * 100 : 0;
+
+          if (catTasks.length === 0 && (ownerFilter !== 'All' || phaseFilter !== 'All')) return null;
 
           return (
             <div key={category.id} className="card" style={{ padding: '0', overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-md)' }}>
@@ -107,7 +158,7 @@ export default function TasksPage() {
                   </div>
                   <div>
                     <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>{category.name}</h2>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>{completedCount} of {catTasks.length} COMPLETED</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>{completedCount} of {allCatTasks.length} COMPLETED</div>
                   </div>
                 </div>
                 <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12px', height: '32px' }} onClick={() => openAddModal(category.id)}>
@@ -150,12 +201,17 @@ export default function TasksPage() {
                       }}>
                         {task.title}
                       </div>
-                      {task.dueDate && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <CalendarIcon size={10} />
-                          {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
+                        {task.dueDate && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <CalendarIcon size={10} />
+                            {format(parseISO(task.dueDate), 'MMM d, yyyy')}
+                          </div>
+                        )}
+                        <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase' }}>
+                          {task.phase}
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-6">
@@ -175,7 +231,7 @@ export default function TasksPage() {
                 ))}
                 {catTasks.length === 0 && (
                   <div style={{ padding: '40px 24px', color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center', fontStyle: 'italic' }}>
-                    No tasks in this category. Click "New Task" to add one.
+                    No matching tasks in this category.
                   </div>
                 )}
               </div>
@@ -202,17 +258,32 @@ export default function TasksPage() {
                   autoFocus
                 />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Owner</label>
-                <select 
-                  value={editingTask.owner || 'Both'} 
-                  onChange={e => setEditingTask({...editingTask, owner: e.target.value as TaskOwner})}
-                >
-                  <option value="Andrew">Andrew</option>
-                  <option value="Tory">Tory</option>
-                  <option value="Both">Both</option>
-                </select>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Owner</label>
+                  <select 
+                    value={editingTask.owner || 'Both'} 
+                    onChange={e => setEditingTask({...editingTask, owner: e.target.value as TaskOwner})}
+                  >
+                    <option value="Andrew">Andrew</option>
+                    <option value="Tory">Tory</option>
+                    <option value="Both">Both</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Phase</label>
+                  <select 
+                    value={editingTask.phase || 'Both'} 
+                    onChange={e => setEditingTask({...editingTask, phase: e.target.value as TaskPhase})}
+                  >
+                    <option value="Move Out">Move Out</option>
+                    <option value="Move In">Move In</option>
+                    <option value="Both">Both</option>
+                  </select>
+                </div>
               </div>
+
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Due Date (Optional)</label>
                 <input 
@@ -224,8 +295,8 @@ export default function TasksPage() {
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Notes</label>
                 <textarea 
-                  value={editingTask.description || ''} 
-                  onChange={e => setEditingTask({...editingTask, description: e.target.value})}
+                  value={editingTask.notes || ''} 
+                  onChange={e => setEditingTask({...editingTask, notes: e.target.value})}
                   placeholder="Additional details..."
                   style={{ height: '80px', resize: 'none' }}
                 />

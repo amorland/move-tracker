@@ -1,23 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Category, Task } from '@/lib/types';
+import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
-import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, ArrowRight } from 'lucide-react';
+import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box } from 'lucide-react';
 import Link from 'next/link';
+
 
 export default function Dashboard() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
+  const [packingItems, setPackingItems] = useState<PackingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/settings').then(res => res.json()),
-      fetch('/api/categories').then(res => res.json())
-    ]).then(([settingsData, categoriesData]) => {
+      fetch('/api/categories').then(res => res.json()),
+      fetch('/api/packing').then(res => res.json())
+    ]).then(([settingsData, categoriesData, packingData]) => {
       setSettings(settingsData);
       setData(categoriesData);
+      setPackingItems(packingData);
       setLoading(false);
     });
   }, []);
@@ -30,6 +34,11 @@ export default function Dashboard() {
   
   const moveDate = settings.confirmedMoveDate || settings.earliestMoveDate;
   const daysToMove = differenceInDays(parseISO(moveDate), new Date());
+
+  const packingRooms = Array.from(new Set(packingItems.map(i => i.room)));
+  const bringItems = packingItems.filter(i => i.action === 'Bring');
+  const packedItems = bringItems.filter(i => i.status === 'Packed').length;
+  const packingProgress = bringItems.length > 0 ? Math.round((packedItems / bringItems.length) * 100) : 0;
 
   // Refined Move Stages with better semantic icons
   const stages = [
@@ -94,7 +103,7 @@ export default function Dashboard() {
       </div>
 
       <div className="flex flex-stack gap-8">
-        <div className="card" style={{ flex: 2, marginBottom: 0 }}>
+        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
           <div className="flex items-center justify-between mb-6">
             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Star size={18} fill="#f1c40f" color="#f1c40f" />
@@ -105,13 +114,13 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="flex flex-col">
-            {data.tasks.filter(t => t.status !== 'Complete').slice(0, 4).map((task, idx) => (
+            {data.tasks.filter(t => t.status !== 'Complete').slice(0, 3).map((task, idx) => (
               <div key={task.id} style={{ 
                 display: 'flex', 
                 alignItems: 'center', 
                 gap: '16px', 
                 padding: '16px 0', 
-                borderBottom: idx === 3 || idx === data.tasks.filter(t => t.status !== 'Complete').slice(0, 4).length - 1 ? 'none' : '1px solid var(--border)' 
+                borderBottom: idx === 2 || idx === data.tasks.filter(t => t.status !== 'Complete').slice(0, 3).length - 1 ? 'none' : '1px solid var(--border)' 
               }}>
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></div>
                 <div style={{ flex: 1 }}>
@@ -136,13 +145,51 @@ export default function Dashboard() {
         </div>
 
         <div className="card" style={{ flex: 1, marginBottom: 0 }}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Box size={18} color="var(--accent)" />
+              Packing
+            </h2>
+            <Link href="/packing" className="badge badge-info" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              Inventory <ChevronRight size={12} />
+            </Link>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '24px' }}>
+            <span style={{ fontSize: '32px', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1 }}>{packingProgress}%</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)' }}>Items Packed</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {packingRooms.slice(0, 3).map(room => {
+              const roomItems = packingItems.filter(i => i.room === room && i.action === 'Bring');
+              const roomPacked = roomItems.filter(i => i.status === 'Packed').length;
+              const roomProgress = roomItems.length > 0 ? (roomPacked / roomItems.length) * 100 : 0;
+              return (
+                <div key={room}>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)' }}>{room}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>{roomPacked}/{roomItems.length}</span>
+                  </div>
+                  <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${roomProgress}%`, background: 'var(--accent)', transition: 'width 0.4s ease' }}></div>
+                  </div>
+                </div>
+              );
+            })}
+            {packingRooms.length === 0 && (
+              <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                No packing inventory started.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="card" style={{ flex: 1, marginBottom: 0 }}>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <MapPin size={18} color="var(--accent)" />
             Relocation
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '24px' }}>
             <div style={{ position: 'relative', paddingLeft: '28px' }}>
-              {/* Vertical Path Line */}
               <div style={{ 
                 position: 'absolute', 
                 left: '6px', 
@@ -159,23 +206,20 @@ export default function Dashboard() {
               <div style={{ marginBottom: '32px' }}>
                 <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>From</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>Clearwater, FL</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>805 S Hercules Ave</div>
               </div>
               <div>
                 <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>To</div>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)' }}>Cold Spring, NY</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>25 Chestnut St</div>
               </div>
             </div>
 
             <div style={{ padding: '16px', background: 'var(--accent-soft)', borderRadius: '10px', border: '1px solid rgba(0, 95, 184, 0.1)' }}>
-               <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--accent)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Household</div>
                <div className="flex items-center gap-3">
                  <div className="flex -space-x-2">
-                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'white', border: '2px solid var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, color: 'var(--accent)', zIndex: 2 }}>A</div>
-                   <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'white', border: '2px solid var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 800, color: 'var(--accent)', zIndex: 1 }}>T</div>
+                   <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'white', border: '2px solid var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: 'var(--accent)', zIndex: 2 }}>A</div>
+                   <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'white', border: '2px solid var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 800, color: 'var(--accent)', zIndex: 1 }}>T</div>
                  </div>
-                 <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--foreground)' }}>Andrew & Tory</div>
+                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--foreground)' }}>Andrew & Tory</div>
                </div>
             </div>
           </div>

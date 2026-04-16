@@ -1,5 +1,6 @@
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete';
 export type TaskOwner = 'Andrew' | 'Tory' | 'Both';
+export type TaskPhase = 'Move Out' | 'Move In' | 'Both';
 export type TimingType = 'Fixed' | 'Before Move' | 'After Move' | 'Before Closing' | 'After Closing' | 'Flexible';
 
 export interface MoveSettings {
@@ -23,11 +24,27 @@ export interface Task {
   description: string | null;
   status: TaskStatus;
   owner: TaskOwner;
+  phase: TaskPhase;
   dueDate: string | null;
   timingType: TimingType;
   timingOffsetDays: number;
   notes: string | null;
   orderIndex: number;
+}
+
+export type PackingAction = 'Bring' | 'Trash' | 'Sell' | 'Donate';
+export type PackingStatus = 'Not Packed' | 'Packed' | 'Unpacked';
+export type PackingPriority = 'Low' | 'Medium' | 'High';
+
+export interface PackingItem {
+  id: number;
+  room: string;
+  itemName: string;
+  action: PackingAction;
+  status: PackingStatus;
+  notes: string | null;
+  priority: PackingPriority;
+  createdAt: string;
 }
 
 export interface Document {

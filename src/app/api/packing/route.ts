@@ -1,23 +1,30 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
+export async function GET() {
+  const { data, error } = await supabase
+    .from('packing_items')
+    .select('*')
+    .order('room', { ascending: true });
+    
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
 export async function POST(request: Request) {
   const body = await request.json();
-  const { categoryId, title, description, status, owner, phase, timingType, timingOffsetDays, notes, orderIndex } = body;
+  const { room, itemName, action, status, notes, priority } = body;
   
   const { data, error } = await supabase
-    .from('tasks')
+    .from('packing_items')
     .insert([{
-      categoryId,
-      title,
-      description: description || null,
-      status: status || 'Not Started',
-      owner: owner || 'Both',
-      phase: phase || 'Both',
-      timingType: timingType || 'Flexible',
-      timingOffsetDays: timingOffsetDays || 0,
+      room,
+      itemName,
+      action: action || 'Bring',
+      status: status || 'Not Packed',
       notes: notes || null,
-      orderIndex: orderIndex || 0
+      priority: priority || 'Medium',
+      createdAt: new Date().toISOString()
     }])
     .select()
     .single();
@@ -28,21 +35,17 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { id, categoryId, title, description, status, owner, phase, timingType, timingOffsetDays, notes, orderIndex } = body;
+  const { id, room, itemName, action, status, notes, priority } = body;
   
   const { data, error } = await supabase
-    .from('tasks')
+    .from('packing_items')
     .update({
-      categoryId,
-      title,
-      description,
+      room,
+      itemName,
+      action,
       status,
-      owner,
-      phase,
-      timingType,
-      timingOffsetDays,
       notes,
-      orderIndex
+      priority
     })
     .eq('id', id)
     .select()
@@ -58,7 +61,7 @@ export async function DELETE(request: Request) {
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   
   const { error } = await supabase
-    .from('tasks')
+    .from('packing_items')
     .delete()
     .eq('id', id);
     
