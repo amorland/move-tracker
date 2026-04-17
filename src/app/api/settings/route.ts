@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
+import { validateDates } from '@/lib/dateUtils';
+import { MoveSettings } from '@/lib/types';
 
 export async function GET() {
   const { data, error } = await supabase
@@ -17,6 +19,19 @@ export async function PATCH(request: Request) {
   
   // Remove id from update if present
   const { id, ...updateData } = body;
+
+  // Get current settings to validate combined state
+  const { data: currentSettings } = await supabase
+    .from('settings')
+    .select('*')
+    .eq('id', 1)
+    .single();
+
+  const mergedSettings = { ...currentSettings, ...updateData };
+  const validationError = validateDates(mergedSettings);
+  if (validationError) {
+    return NextResponse.json({ error: validationError }, { status: 400 });
+  }
   
   const { data, error } = await supabase
     .from('settings')

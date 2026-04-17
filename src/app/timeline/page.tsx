@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Task, Category } from '@/lib/types';
 import { addDays, format, parseISO, differenceInDays } from 'date-fns';
-import { CheckCircle2, ChevronRight, Calendar as CalendarIcon, MapPin } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Calendar as CalendarIcon, MapPin, Heart } from 'lucide-react';
+import { getMilestones } from '@/lib/dateUtils';
 
 export default function TimelinePage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
@@ -21,18 +22,17 @@ export default function TimelinePage() {
     });
   }, []);
 
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Preparing your timeline...</div>;
+  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Preparing Starland timeline...</div>;
 
   const moveDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
-  const closingDate = settings.closingDate ? parseISO(settings.closingDate) : null;
 
   const getTaskDate = (task: Task) => {
     if (task.dueDate) return parseISO(task.dueDate);
     if (!settings) return null;
-    const moveDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
+    const moveBaseDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
     const closingDate = settings.closingDate ? parseISO(settings.closingDate) : null;
 
-    let baseDate = moveDate;
+    let baseDate = moveBaseDate;
     if (task.timingType === 'Before Closing' || task.timingType === 'After Closing') {
       if (!closingDate) return null;
       baseDate = closingDate;
@@ -49,21 +49,16 @@ export default function TimelinePage() {
     return a.calculatedDate.getTime() - b.calculatedDate.getTime();
   });
 
-  const anchorDatesTimeline = [
-    { label: 'U-Pack Dropoff (FL)', date: settings.upackDropoffDate, confirmed: settings.isUpackDropoffConfirmed, type: 'anchor' },
-    { label: 'U-Pack Pickup (FL)', date: settings.upackPickupDate, confirmed: settings.isUpackPickupConfirmed, type: 'anchor' },
-    { label: 'Drive Start', date: settings.driveStartDate, confirmed: settings.isDriveStartConfirmed, type: 'anchor' },
-    { label: 'House Closing', date: settings.closingDate, confirmed: settings.isClosingDateConfirmed, type: 'anchor' },
-    { label: 'Arrival (NY)', date: settings.arrivalDate, confirmed: settings.isArrivalConfirmed, type: 'anchor' },
-    { label: 'U-Pack Delivery (NY)', date: settings.upackDeliveryDate, confirmed: settings.isUpackDeliveryConfirmed, type: 'anchor' },
-    { label: 'U-Pack Final Pickup', date: settings.upackFinalPickupDate, confirmed: settings.isUpackFinalPickupConfirmed, type: 'anchor' }
-  ].filter(ad => ad.date).map(ad => ({
-    id: `anchor-${ad.label}`,
-    title: ad.label,
-    calculatedDate: parseISO(ad.date!),
-    type: 'anchor',
-    confirmed: ad.confirmed
-  }));
+  const milestones = getMilestones(settings);
+  const anchorDatesTimeline = milestones
+    .filter(m => m.date)
+    .map(m => ({
+      id: `anchor-${m.label}`,
+      title: m.label,
+      calculatedDate: parseISO(m.date!),
+      type: 'anchor',
+      status: m.status
+    }));
 
   const allTimelineItems = [
     ...tasksWithDates.map(t => ({ ...t, type: 'task' })),
@@ -85,11 +80,25 @@ export default function TimelinePage() {
   return (
     <div style={{ width: '100%', paddingBottom: '40px' }}>
       <div className="flex flex-stack items-center justify-between mb-12">
-        <div>
-          <h1>Timeline</h1>
-          <p className="section-subtitle" style={{ marginBottom: 0 }}>
-            Chronological roadmap of key dates and actions.
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ 
+            width: '48px', 
+            height: '48px', 
+            borderRadius: '12px', 
+            background: 'var(--accent)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0, 95, 184, 0.2)'
+          }}>
+            <Heart size={24} color="white" fill="white" />
+          </div>
+          <div>
+            <h1 style={{ marginBottom: '4px' }}>Starland Timeline</h1>
+            <p className="section-subtitle" style={{ marginBottom: 0 }}>
+              Chronological roadmap of key dates and actions.
+            </p>
+          </div>
         </div>
         <div className="badge badge-info" style={{ height: '40px', padding: '0 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
            <CalendarIcon size={16} />
@@ -146,13 +155,14 @@ export default function TimelinePage() {
                   const isTask = item.type === 'task';
                   const isComplete = isTask && item.status === 'Complete';
                   const isAnchor = item.type === 'anchor';
+                  const isConfirmed = item.status === 'confirmed';
 
                   return (
                     <div key={item.id} style={{ 
                       padding: isAnchor ? '16px 20px' : '12px 20px', 
                       borderRadius: '12px',
-                      background: isAnchor ? (item.confirmed ? 'var(--success-soft)' : '#f8fafc') : (isComplete ? 'transparent' : 'white'),
-                      border: isAnchor ? (item.confirmed ? '1px solid rgba(26, 138, 95, 0.1)' : '1px solid #f1f5f9') : (isComplete ? '1px solid var(--border)' : '1px solid #f1f5f9'),
+                      background: isAnchor ? (isConfirmed ? 'var(--success-soft)' : '#fcfcfd') : (isComplete ? 'transparent' : 'white'),
+                      border: isAnchor ? (isConfirmed ? '1px solid rgba(26, 138, 95, 0.1)' : '1px solid #f1f5f9') : (isComplete ? '1px solid var(--border)' : '1px solid #f1f5f9'),
                       boxShadow: (isAnchor || isComplete) ? 'none' : '0 2px 4px rgba(0,0,0,0.02)',
                       display: 'flex',
                       alignItems: 'center',
@@ -172,8 +182,8 @@ export default function TimelinePage() {
                         <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <CalendarIcon size={10} />
                           {format(item.calculatedDate, 'MMM d, yyyy')}
-                          {isAnchor && !item.confirmed && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#e2e8f0', color: '#475569' }}>ESTIMATED</span>}
-                          {isAnchor && item.confirmed && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'var(--success)', color: 'white' }}>CONFIRMED</span>}
+                          {isAnchor && item.status === 'estimated' && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#e2e8f0', color: '#475569' }}>ESTIMATED</span>}
+                          {isAnchor && item.status === 'confirmed' && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'var(--success)', color: 'white' }}>CONFIRMED</span>}
                         </div>
                       </div>
                       {isComplete && (
@@ -181,7 +191,7 @@ export default function TimelinePage() {
                           <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '14px', fontWeight: 'bold' }}>done</span>
                         </div>
                       )}
-                      {isAnchor && <span className="material-symbols-outlined" style={{ color: item.confirmed ? 'var(--success)' : '#94a3b8', fontSize: '20px' }}>event_available</span>}
+                      {isAnchor && <span className="material-symbols-outlined" style={{ color: isConfirmed ? 'var(--success)' : '#94a3b8', fontSize: '20px' }}>event_available</span>}
                     </div>
                   );
                 })}

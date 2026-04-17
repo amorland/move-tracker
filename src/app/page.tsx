@@ -3,8 +3,10 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
 import { format, parseISO, differenceInDays, addDays } from 'date-fns';
-import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3 } from 'lucide-react';
+import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Heart } from 'lucide-react';
 import Link from 'next/link';
+import MilestoneGrid from '@/components/MilestoneGrid';
+import { getMilestones, validateDates } from '@/lib/dateUtils';
 
 export default function Dashboard() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
@@ -18,6 +20,7 @@ export default function Dashboard() {
   const [activeDateLabel, setActiveDateLabel] = useState('');
   const [tempDate, setTempDate] = useState('');
   const [tempConfirmed, setTempConfirmed] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -40,6 +43,7 @@ export default function Dashboard() {
     if (!settings) return;
     setActiveDateKey(key);
     setActiveDateLabel(label);
+    setValidationError(null);
     
     // @ts-ignore
     setTempDate(settings[key] || '');
@@ -70,7 +74,15 @@ export default function Dashboard() {
     // Create update object
     const updatePayload: any = { [activeDateKey]: tempDate || null };
     
-    if (activeDateKey !== 'confirmedMoveDate') {
+    if (activeDateKey === 'confirmedMoveDate') {
+      if (tempConfirmed && !tempDate) {
+        setValidationError("Final move date cannot be confirmed without a date.");
+        return;
+      }
+      if (!tempConfirmed) {
+        updatePayload[activeDateKey] = null;
+      }
+    } else {
       let actualConfirmKey = `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
       if (activeDateKey === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
       if (activeDateKey === 'upackDropoffDate') actualConfirmKey = 'isUpackDropoffConfirmed';
@@ -80,7 +92,20 @@ export default function Dashboard() {
       if (activeDateKey === 'upackDeliveryDate') actualConfirmKey = 'isUpackDeliveryConfirmed';
       if (activeDateKey === 'upackFinalPickupDate') actualConfirmKey = 'isUpackFinalPickupConfirmed';
       
+      if (tempConfirmed && !tempDate) {
+        setValidationError(`${activeDateLabel} cannot be confirmed without a date.`);
+        return;
+      }
+
       updatePayload[actualConfirmKey] = tempConfirmed;
+    }
+
+    // Client-side validation for business rules
+    const mergedSettings = { ...settings, ...updatePayload };
+    const ruleError = validateDates(mergedSettings);
+    if (ruleError) {
+      setValidationError(ruleError);
+      return;
     }
 
     const res = await fetch('/api/settings', {
@@ -93,9 +118,10 @@ export default function Dashboard() {
       // Update local state by merging
       setSettings({ ...settings, ...updatePayload });
       setIsDateModalOpen(false);
+      setValidationError(null);
     } else {
       const err = await res.json();
-      alert(`Error saving date: ${err.error || 'Unknown error'}`);
+      setValidationError(err.error || 'Unknown error');
     }
   };
 
@@ -109,7 +135,7 @@ export default function Dashboard() {
     fetchData();
   };
 
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading your move overview...</div>;
+  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading Starland hub...</div>;
 
   const completedTasks = data.tasks.filter(t => t.status === 'Complete').length;
   const totalTasks = data.tasks.length;
@@ -152,16 +178,7 @@ export default function Dashboard() {
     { label: 'TO TRASH', count: trashItems, percent: getInventoryPercent(trashItems), color: '#ef4444', icon: <Clock size={14} /> }
   ];
 
-  // Anchor Dates Display Logic
-  const anchorDates = [
-    { key: 'upackDropoffDate', label: 'U-Pack Dropoff (FL)', date: settings.upackDropoffDate, confirmed: settings.isUpackDropoffConfirmed },
-    { key: 'upackPickupDate', label: 'U-Pack Pickup (FL)', date: settings.upackPickupDate, confirmed: settings.isUpackPickupConfirmed },
-    { key: 'driveStartDate', label: 'Drive Start', date: settings.driveStartDate, confirmed: settings.isDriveStartConfirmed },
-    { key: 'closingDate', label: 'House Closing', date: settings.closingDate, confirmed: settings.isClosingDateConfirmed },
-    { key: 'arrivalDate', label: 'Arrival (NY)', date: settings.arrivalDate, confirmed: settings.isArrivalConfirmed },
-    { key: 'upackDeliveryDate', label: 'U-Pack Delivery (NY)', date: settings.upackDeliveryDate, confirmed: settings.isUpackDeliveryConfirmed },
-    { key: 'upackFinalPickupDate', label: 'Final Pickup (NY)', date: settings.upackFinalPickupDate, confirmed: settings.isUpackFinalPickupConfirmed }
-  ];
+  const milestones = getMilestones(settings);
 
   const stages = [
     { name: 'Strategy', status: progress > 15 ? 'complete' : 'current', icon: 'assignment' },
@@ -173,9 +190,25 @@ export default function Dashboard() {
   return (
     <div style={{ width: '100%', paddingBottom: '40px' }}>
       <div className="flex flex-stack items-center justify-between mb-10">
-        <div>
-          <h1 style={{ marginBottom: '4px' }}>Command Center</h1>
-          <p className="section-subtitle" style={{ marginBottom: 0 }}>Relocation overview for Andrew & Tory.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ 
+            width: '48px', 
+            height: '48px', 
+            borderRadius: '12px', 
+            background: 'var(--accent)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0, 95, 184, 0.2)'
+          }}>
+            <Heart size={24} color="white" fill="white" />
+          </div>
+          <div>
+            <h1 style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              Starland Moving
+            </h1>
+            <p className="section-subtitle" style={{ marginBottom: 0 }}>Tory & Andrew's Relocation Hub</p>
+          </div>
         </div>
         <div className="flex gap-4">
           <Link href="/settings" className="btn btn-secondary" style={{ gap: '8px' }}>
@@ -279,41 +312,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={{ padding: '28px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
-              {anchorDates.map((ad, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => openDateModal(ad.key, ad.label)}
-                  style={{ 
-                    padding: '20px', 
-                    borderRadius: '16px', 
-                    background: ad.confirmed ? 'var(--success-soft)' : '#fcfcfd',
-                    border: ad.confirmed ? '2px solid rgba(26, 138, 95, 0.1)' : '2px solid #f1f5f9',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    transition: 'all 0.2s ease',
-                    cursor: 'pointer'
-                  }} className="card-hover-effect">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontSize: '10px', fontWeight: 800, color: ad.confirmed ? 'var(--success)' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{ad.label}</div>
-                    <Edit3 size={10} color="#cbd5e1" />
-                  </div>
-                  <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--foreground)' }}>
-                    {ad.date ? format(parseISO(ad.date), 'MMM d, yyyy') : 'TBD'}
-                  </div>
-                  {ad.confirmed ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--success)', fontSize: '10px', fontWeight: 800, marginTop: '2px' }}>
-                      <CheckCircle2 size={12} /> CONFIRMED
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#94a3b8', fontSize: '10px', fontWeight: 700, marginTop: '2px' }}>
-                      <Clock size={12} /> ESTIMATED
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            <MilestoneGrid milestones={milestones} onEdit={openDateModal} />
           </div>
         </div>
 
@@ -436,6 +435,20 @@ export default function Dashboard() {
                <button onClick={() => setIsDateModalOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={20} /></button>
              </div>
              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {validationError && (
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    borderRadius: '8px', 
+                    background: '#fef2f2', 
+                    border: '1px solid #fee2e2', 
+                    color: '#dc2626', 
+                    fontSize: '13px', 
+                    fontWeight: 600,
+                    lineHeight: '1.4'
+                  }}>
+                    {validationError}
+                  </div>
+                )}
                 <div>
                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Date (YYYY-MM-DD)</label>

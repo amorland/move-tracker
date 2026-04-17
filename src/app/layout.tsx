@@ -56,7 +56,7 @@ export default function RootLayout({
           </button>
           <div className="header-logo">
             <Home size={20} strokeWidth={3} />
-            <span>STARLAND</span>
+            <span>STARLAND MOVING</span>
           </div>
         </header>
         <div className="app-container">

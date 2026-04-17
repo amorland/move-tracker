@@ -1,15 +1,15 @@
-'use client';
-
 import { useEffect, useState } from 'react';
 import { MoveSettings } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { Calendar, CheckCircle2, Info, Save, Clock, AlertCircle, X } from 'lucide-react';
+import { Calendar, CheckCircle2, Info, Save, Clock, AlertCircle, X, Heart } from 'lucide-react';
+import { validateDates } from '@/lib/dateUtils';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/settings').then(res => res.json()).then(data => {
@@ -21,6 +21,17 @@ export default function SettingsPage() {
   const handleSave = async () => {
     if (!settings) return;
     setSaving(true);
+    setValidationError(null);
+
+    // Business rule validation
+    const error = validateDates(settings);
+    if (error) {
+      setValidationError(error);
+      setSaving(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
     const res = await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -29,11 +40,15 @@ export default function SettingsPage() {
     if (res.ok) {
       setLastSaved(new Date());
       setTimeout(() => setLastSaved(null), 3000);
+    } else {
+      const err = await res.json();
+      setValidationError(err.error || 'Unknown error');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     setSaving(false);
   };
 
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading Settings...</div>;
+  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading Starland Settings...</div>;
 
   const CustomDateInput = ({ 
     label, 
@@ -113,9 +128,23 @@ export default function SettingsPage() {
   return (
     <div style={{ width: '100%', paddingBottom: '100px' }}>
       <div className="flex flex-stack items-center justify-between mb-10">
-        <div>
-          <h1>Relocation Settings</h1>
-          <p className="section-subtitle" style={{ marginBottom: 0 }}>Define anchor dates and logistics for your move.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ 
+            width: '48px', 
+            height: '48px', 
+            borderRadius: '12px', 
+            background: 'var(--accent)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(0, 95, 184, 0.2)'
+          }}>
+            <Heart size={24} color="white" fill="white" />
+          </div>
+          <div>
+            <h1 style={{ marginBottom: '4px' }}>Starland Settings</h1>
+            <p className="section-subtitle" style={{ marginBottom: 0 }}>Define anchor dates and logistics for your move.</p>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           {lastSaved && (
@@ -133,6 +162,13 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {validationError && (
+        <div className="card" style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#dc2626', padding: '20px', marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <X size={20} />
+          <span style={{ fontWeight: 600 }}>{validationError}</span>
+        </div>
+      )}
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
         
@@ -158,7 +194,17 @@ export default function SettingsPage() {
                dateValue={settings.confirmedMoveDate}
                onDateChange={val => setSettings({...settings, confirmedMoveDate: val})}
                confirmedValue={!!settings.confirmedMoveDate}
-               onConfirmedChange={() => {}} 
+               onConfirmedChange={(val) => {
+                 if (val) {
+                   // Cannot confirm without a date
+                   if (!settings.confirmedMoveDate) {
+                     setValidationError("Final move date cannot be confirmed without a date.");
+                     return;
+                   }
+                 } else {
+                   setSettings({...settings, confirmedMoveDate: null});
+                 }
+               }} 
              />
           </div>
         </section>
@@ -238,7 +284,7 @@ export default function SettingsPage() {
             <div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>Logistics Management</div>
               <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: '1.7', maxWidth: '800px' }}>
-                Type dates directly in <strong>YYYY-MM-DD</strong> format for speed, or click the blue calendar icon to select. Toggle <strong>Set as Confirmed</strong> once you have definitive dates to lock them in across your Command Center and Timeline.
+                Type dates directly in <strong>YYYY-MM-DD</strong> format for speed, or click the blue calendar icon to select. Toggle <strong>Set as Confirmed</strong> once you have definitive dates to lock them in across your Starland Moving hub and Timeline.
               </div>
             </div>
           </div>
