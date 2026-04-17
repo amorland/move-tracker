@@ -147,15 +147,15 @@ export default function Dashboard() {
 
   const milestones = getMilestones(settings);
 
-  const bringItems = packingItems.filter(i => i.action === 'Bring');
-  const resolvedItems = packingItems.filter(i => i.status === 'Resolved');
+  const bringItems = packingItems.filter(i => (i.action || (i as any).action) === 'Bring');
+  const resolvedItems = packingItems.filter(i => (i.status || (i as any).status) === 'Resolved');
   const resolutionProgress = packingItems.length > 0 ? Math.round((resolvedItems.length / packingItems.length) * 100) : 0;
 
   const inventorySummary = [
-    { label: 'BRING', count: bringItems.length, resolved: bringItems.filter(i => i.status === 'Resolved').length, color: 'var(--accent)', icon: <Box size={14} /> },
-    { label: 'SELL', count: packingItems.filter(i => i.action === 'Sell').length, resolved: packingItems.filter(i => i.action === 'Sell' && i.status === 'Resolved').length, color: '#d1cdc4', icon: <DollarSign size={14} /> },
-    { label: 'DONATE', count: packingItems.filter(i => i.action === 'Donate').length, resolved: packingItems.filter(i => i.action === 'Donate' && i.status === 'Resolved').length, color: '#e0dbd5', icon: <Heart size={14} /> },
-    { label: 'TRASH', count: packingItems.filter(i => i.action === 'Trash').length, resolved: packingItems.filter(i => i.action === 'Trash' && i.status === 'Resolved').length, color: '#e5e1da', icon: <Trash size={14} /> }
+    { label: 'BRING', count: bringItems.length, resolved: bringItems.filter(i => (i.status || (i as any).status) === 'Resolved').length, color: 'var(--accent)', icon: <Box size={14} /> },
+    { label: 'SELL', count: packingItems.filter(i => (i.action || (i as any).action) === 'Sell').length, resolved: packingItems.filter(i => (i.action || (i as any).action) === 'Sell' && (i.status || (i as any).status) === 'Resolved').length, color: '#d1cdc4', icon: <DollarSign size={14} /> },
+    { label: 'DONATE', count: packingItems.filter(i => (i.action || (i as any).action) === 'Donate').length, resolved: packingItems.filter(i => (i.action || (i as any).action) === 'Donate' && (i.status || (i as any).status) === 'Resolved').length, color: '#e0dbd5', icon: <Heart size={14} /> },
+    { label: 'TRASH', count: packingItems.filter(i => (i.action || (i as any).action) === 'Trash').length, resolved: packingItems.filter(i => (i.action || (i as any).action) === 'Trash' && (i.status || (i as any).status) === 'Resolved').length, color: '#e5e1da', icon: <Trash size={14} /> }
   ];
 
   return (

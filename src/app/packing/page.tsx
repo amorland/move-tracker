@@ -63,18 +63,22 @@ export default function InventoryPage() {
   };
 
   const filteredItems = items.filter(i => {
-    const matchesTab = i.action === activeTab;
-    const matchesSearch = i.itemName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesResolution = showResolved ? i.status === 'Resolved' : i.status === 'Unresolved';
+    const itemAction = i.action || (i as any).action;
+    const itemNameStr = i.itemName || (i as any).itemName || 'Unnamed Item';
+    const itemStatus = i.status || (i as any).status;
+
+    const matchesTab = itemAction === activeTab;
+    const matchesSearch = itemNameStr.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesResolution = showResolved ? itemStatus === 'Resolved' : itemStatus === 'Unresolved';
     return matchesTab && matchesSearch && matchesResolution;
   });
 
   const stats = {
-    Bring: items.filter(i => i.action === 'Bring' && i.status === 'Unresolved').length,
-    Sell: items.filter(i => i.action === 'Sell' && i.status === 'Unresolved').length,
-    Donate: items.filter(i => i.action === 'Donate' && i.status === 'Unresolved').length,
-    Trash: items.filter(i => i.action === 'Trash' && i.status === 'Unresolved').length,
-    Resolved: items.filter(i => i.status === 'Resolved').length
+    Bring: items.filter(i => (i.action || (i as any).action) === 'Bring' && (i.status || (i as any).status) === 'Unresolved').length,
+    Sell: items.filter(i => (i.action || (i as any).action) === 'Sell' && (i.status || (i as any).status) === 'Unresolved').length,
+    Donate: items.filter(i => (i.action || (i as any).action) === 'Donate' && (i.status || (i as any).status) === 'Unresolved').length,
+    Trash: items.filter(i => (i.action || (i as any).action) === 'Trash' && (i.status || (i as any).status) === 'Unresolved').length,
+    Resolved: items.filter(i => (i.status || (i as any).status) === 'Resolved').length
   };
 
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Inventory...</div>;
@@ -181,7 +185,12 @@ export default function InventoryPage() {
 }
 
 function InventoryRow({ item, onResolve, onDelete, onMove, onEdit }: { item: PackingItem, onResolve: () => void, onDelete: () => void, onMove: (a: PackingAction) => void, onEdit: () => void }) {
-  const isResolved = item.status === 'Resolved';
+  const itemStatus = item.status || (item as any).status;
+  const isResolved = itemStatus === 'Resolved';
+  const itemName = item.itemName || (item as any).itemName || 'Unnamed Item';
+  const itemRoom = item.room || (item as any).room || 'Other';
+  const itemNotes = item.notes || (item as any).notes;
+  const itemAction = item.action || (item as any).action;
   
   return (
     <div style={{ 
@@ -203,25 +212,25 @@ function InventoryRow({ item, onResolve, onDelete, onMove, onEdit }: { item: Pac
       </button>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName}</div>
+        <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
           <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {item.room}
+            {itemRoom}
           </div>
-          {item.notes && (
+          {itemNotes && (
             <>
               <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--border)' }}></div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.notes}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{itemNotes}</div>
             </>
           )}
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: '8px' }}>
-        {item.action === 'Sell' && !isResolved && (
+        {itemAction === 'Sell' && !isResolved && (
           <button className="btn btn-secondary" style={{ fontSize: '10px', padding: '6px 12px' }} onClick={() => onMove('Donate')}>MOVE TO DONATE</button>
         )}
-        {item.action === 'Donate' && !isResolved && (
+        {itemAction === 'Donate' && !isResolved && (
           <button className="btn btn-secondary" style={{ fontSize: '10px', padding: '6px 12px' }} onClick={() => onMove('Trash')}>MOVE TO TRASH</button>
         )}
         <button onClick={onEdit} style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><MoreVertical size={18} /></button>
@@ -232,10 +241,10 @@ function InventoryRow({ item, onResolve, onDelete, onMove, onEdit }: { item: Pac
 }
 
 function InventoryModal({ item, onClose, onSave }: { item: Partial<PackingItem>, onClose: () => void, onSave: (i: Partial<PackingItem>) => void }) {
-  const [itemName, setItemName] = useState(item.itemName || '');
-  const [room, setRoom] = useState(item.room || COMMON_ROOMS[0]);
-  const [action, setAction] = useState(item.action || 'Bring');
-  const [notes, setNotes] = useState(item.notes || '');
+  const [itemName, setItemName] = useState(item.itemName || (item as any).itemName || '');
+  const [room, setRoom] = useState(item.room || (item as any).room || COMMON_ROOMS[0]);
+  const [action, setAction] = useState(item.action || (item as any).action || 'Bring');
+  const [notes, setNotes] = useState(item.notes || (item as any).notes || '');
 
   const handleSave = () => {
     onSave({
