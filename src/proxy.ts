@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const authCookie = request.cookies.get('move_tracker_auth');
   const { pathname } = request.nextUrl;
 

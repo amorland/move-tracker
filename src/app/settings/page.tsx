@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { MoveSettings } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
