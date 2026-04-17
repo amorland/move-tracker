@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
-import { format, parseISO, differenceInDays, addDays } from 'date-fns';
-import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box } from 'lucide-react';
+import { format, parseISO, differenceInDays, addDays, isValid } from 'date-fns';
+import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Dashboard() {
@@ -11,6 +11,13 @@ export default function Dashboard() {
   const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
   const [packingItems, setPackingItems] = useState<PackingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Date Editing Modal State
+  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
+  const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
+  const [activeDateLabel, setActiveDateLabel] = useState('');
+  const [tempDate, setTempDate] = useState('');
+  const [tempConfirmed, setTempConfirmed] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -26,6 +33,60 @@ export default function Dashboard() {
     setData(await categoriesRes.json());
     setPackingItems(await packingRes.json());
     setLoading(false);
+  };
+
+  const openDateModal = (key: string, label: string) => {
+    if (!settings) return;
+    setActiveDateKey(key);
+    setActiveDateLabel(label);
+    
+    // @ts-ignore
+    setTempDate(settings[key] || '');
+    
+    const confirmKey = `is${key.charAt(0).toUpperCase()}${key.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
+    // Special mapping for field names that don't follow the pattern exactly
+    let actualConfirmKey = confirmKey;
+    if (key === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
+    if (key === 'upackDropoffDate') actualConfirmKey = 'isUpackDropoffConfirmed';
+    if (key === 'upackPickupDate') actualConfirmKey = 'isUpackPickupConfirmed';
+    if (key === 'driveStartDate') actualConfirmKey = 'isDriveStartConfirmed';
+    if (key === 'arrivalDate') actualConfirmKey = 'isArrivalConfirmed';
+    if (key === 'upackDeliveryDate') actualConfirmKey = 'isUpackDeliveryConfirmed';
+    if (key === 'upackFinalPickupDate') actualConfirmKey = 'isUpackFinalPickupConfirmed';
+    
+    // @ts-ignore
+    setTempConfirmed(!!settings[actualConfirmKey]);
+    setIsDateModalOpen(true);
+  };
+
+  const saveQuickDate = async () => {
+    if (!settings || !activeDateKey) return;
+    
+    const updatedSettings = { ...settings, [activeDateKey]: tempDate };
+    
+    // Map confirmation key
+    let actualConfirmKey = `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
+    if (activeDateKey === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
+    if (activeDateKey === 'upackDropoffDate') actualConfirmKey = 'isUpackDropoffConfirmed';
+    if (activeDateKey === 'upackPickupDate') actualConfirmKey = 'isUpackPickupConfirmed';
+    if (activeDateKey === 'driveStartDate') actualConfirmKey = 'isDriveStartConfirmed';
+    if (activeDateKey === 'arrivalDate') actualConfirmKey = 'isArrivalConfirmed';
+    if (activeDateKey === 'upackDeliveryDate') actualConfirmKey = 'isUpackDeliveryConfirmed';
+    if (activeDateKey === 'upackFinalPickupDate') actualConfirmKey = 'isUpackFinalPickupConfirmed';
+    
+    // @ts-ignore
+    updatedSettings[actualConfirmKey] = tempConfirmed;
+
+    const res = await fetch('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedSettings)
+    });
+
+    if (res.ok) {
+      setSettings(updatedSettings);
+      setIsDateModalOpen(false);
+    }
   };
 
   const toggleTaskStatus = async (task: Task) => {
@@ -83,13 +144,13 @@ export default function Dashboard() {
 
   // Anchor Dates Display Logic
   const anchorDates = [
-    { label: 'U-Pack Dropoff (FL)', date: settings.upackDropoffDate, confirmed: settings.isUpackDropoffConfirmed },
-    { label: 'U-Pack Pickup (FL)', date: settings.upackPickupDate, confirmed: settings.isUpackPickupConfirmed },
-    { label: 'Drive Start', date: settings.driveStartDate, confirmed: settings.isDriveStartConfirmed },
-    { label: 'House Closing', date: settings.closingDate, confirmed: settings.isClosingDateConfirmed },
-    { label: 'Arrival (NY)', date: settings.arrivalDate, confirmed: settings.isArrivalConfirmed },
-    { label: 'U-Pack Delivery (NY)', date: settings.upackDeliveryDate, confirmed: settings.isUpackDeliveryConfirmed },
-    { label: 'Final Pickup (NY)', date: settings.upackFinalPickupDate, confirmed: settings.isUpackFinalPickupConfirmed }
+    { key: 'upackDropoffDate', label: 'U-Pack Dropoff (FL)', date: settings.upackDropoffDate, confirmed: settings.isUpackDropoffConfirmed },
+    { key: 'upackPickupDate', label: 'U-Pack Pickup (FL)', date: settings.upackPickupDate, confirmed: settings.isUpackPickupConfirmed },
+    { key: 'driveStartDate', label: 'Drive Start', date: settings.driveStartDate, confirmed: settings.isDriveStartConfirmed },
+    { key: 'closingDate', label: 'House Closing', date: settings.closingDate, confirmed: settings.isClosingDateConfirmed },
+    { key: 'arrivalDate', label: 'Arrival (NY)', date: settings.arrivalDate, confirmed: settings.isArrivalConfirmed },
+    { key: 'upackDeliveryDate', label: 'U-Pack Delivery (NY)', date: settings.upackDeliveryDate, confirmed: settings.isUpackDeliveryConfirmed },
+    { key: 'upackFinalPickupDate', label: 'Final Pickup (NY)', date: settings.upackFinalPickupDate, confirmed: settings.isUpackFinalPickupConfirmed }
   ];
 
   const stages = [
@@ -198,17 +259,24 @@ export default function Dashboard() {
           <div style={{ padding: '28px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' }}>
               {anchorDates.map((ad, idx) => (
-                <div key={idx} style={{ 
-                  padding: '20px', 
-                  borderRadius: '16px', 
-                  background: ad.confirmed ? 'var(--success-soft)' : '#fcfcfd',
-                  border: ad.confirmed ? '2px solid rgba(26, 138, 95, 0.1)' : '2px solid #f1f5f9',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  transition: 'all 0.2s ease'
-                }} className="card-hover-effect">
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: ad.confirmed ? 'var(--success)' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{ad.label}</div>
+                <div 
+                  key={idx} 
+                  onClick={() => openDateModal(ad.key, ad.label)}
+                  style={{ 
+                    padding: '20px', 
+                    borderRadius: '16px', 
+                    background: ad.confirmed ? 'var(--success-soft)' : '#fcfcfd',
+                    border: ad.confirmed ? '2px solid rgba(26, 138, 95, 0.1)' : '2px solid #f1f5f9',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer'
+                  }} className="card-hover-effect">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '10px', fontWeight: 800, color: ad.confirmed ? 'var(--success)' : '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{ad.label}</div>
+                    <Edit3 size={10} color="#cbd5e1" />
+                  </div>
                   <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--foreground)' }}>
                     {ad.date ? format(parseISO(ad.date), 'MMM d, yyyy') : 'TBD'}
                   </div>
@@ -326,7 +394,7 @@ export default function Dashboard() {
               {data.tasks.filter(t => t.status !== 'Complete').length === 0 && (
                 <div style={{ padding: '80px 32px', textAlign: 'center' }}>
                   <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-                    <CheckCircle2 size={32} color="var(--success)" />
+                    CheckCircle2 size={32} color="var(--success)" />
                   </div>
                   <div style={{ fontSize: '18px', color: 'var(--foreground)', fontWeight: 800, marginBottom: '8px' }}>Move Plan Clear!</div>
                   <div style={{ fontSize: '15px', color: 'var(--text-secondary)', fontWeight: 500 }}>All active priorities have been completed.</div>
@@ -336,6 +404,80 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Quick Date Edit Modal */}
+      {isDateModalOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
+             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+               <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Update {activeDateLabel}</h2>
+               <button onClick={() => setIsDateModalOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={20} /></button>
+             </div>
+             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div>
+                   <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Date (YYYY-MM-DD)</label>
+                   <div style={{ position: 'relative' }}>
+                     <input 
+                       type="text"
+                       placeholder="2026-04-16"
+                       value={tempDate}
+                       onChange={e => setTempDate(e.target.value)}
+                       style={{ paddingRight: '40px' }}
+                     />
+                     <input 
+                       type="date"
+                       value={tempDate}
+                       onChange={e => setTempDate(e.target.value)}
+                       style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', width: '24px', height: '24px', opacity: 0, cursor: 'pointer' }}
+                     />
+                     <CalendarIcon size={18} color="var(--accent)" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                   </div>
+                   <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '8px' }}>Type the date manually for speed, or click the icon for a calendar.</p>
+                </div>
+
+                <div 
+                  onClick={() => setTempConfirmed(!tempConfirmed)}
+                  style={{ 
+                    padding: '16px', 
+                    borderRadius: '12px', 
+                    border: '2px solid',
+                    borderColor: tempConfirmed ? 'var(--success)' : 'var(--border)',
+                    background: tempConfirmed ? 'var(--success-soft)' : 'transparent',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ 
+                    width: '24px', 
+                    height: '24px', 
+                    borderRadius: '50%', 
+                    border: '2px solid',
+                    borderColor: tempConfirmed ? 'var(--success)' : '#d1d5db',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: tempConfirmed ? 'var(--success)' : 'transparent'
+                  }}>
+                    {tempConfirmed && <CheckCircle2 size={16} color="#fff" />}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--foreground)' }}>Confirmed Date</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Toggle this once the date is finalized.</div>
+                  </div>
+                </div>
+             </div>
+             <div style={{ padding: '16px 24px', backgroundColor: '#fafbfc', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button className="btn btn-secondary" onClick={() => setIsDateModalOpen(false)}>Cancel</button>
+                <button className="btn btn-primary" style={{ gap: '8px' }} onClick={saveQuickDate}>
+                  <Save size={16} /> Save Update
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
