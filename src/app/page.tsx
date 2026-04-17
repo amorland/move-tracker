@@ -217,7 +217,7 @@ export default function Dashboard() {
               Inventory Status
             </h2>
             <Link href="/packing" className="badge badge-info card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700 }}>LOG ITEMS</span> <ChevronRight size={14} />
+              <span style={{ fontSize: '11px', fontWeight: 700 }}>VIEW INVENTORY</span> <ChevronRight size={14} />
             </Link>
           </div>
           <div style={{ padding: '32px 28px' }}>

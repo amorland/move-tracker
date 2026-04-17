@@ -74,7 +74,7 @@ export default function RootLayout({
             </Link>
             <Link href="/packing" className={`nav-item ${pathname === '/packing' ? 'active' : ''}`}>
               <Box size={18} />
-              <span>Packing List</span>
+              <span>Inventory List</span>
             </Link>
             <Link href="/timeline" className={`nav-item ${pathname === '/timeline' ? 'active' : ''}`}>
               <Calendar size={18} />

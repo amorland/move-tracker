@@ -144,8 +144,8 @@ export default function PackingPage() {
     <div>
       <div className="flex flex-stack items-center justify-between mb-8">
         <div>
-          <h1>Packing List</h1>
-          <p className="section-subtitle" style={{ marginBottom: 0 }}>Granular inventory tracking for every room.</p>
+          <h1>Inventory List</h1>
+          <p className="section-subtitle" style={{ marginBottom: 0 }}>Decide what to bring, sell, donate, or trash.</p>
         </div>
         <button className="btn btn-primary" style={{ gap: '10px' }} onClick={() => openAddModal()}>
           <Plus size={20} /> Add Item
@@ -213,7 +213,7 @@ export default function PackingPage() {
                     </h3>
                   </div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    {packedCount} / {roomItems.length} ITEMS PACKED
+                    {packedCount} / {roomItems.filter(i => i.action === 'Bring').length} ITEMS PACKED
                   </div>
                 </div>
                 <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '2px', marginBottom: '12px', overflow: 'hidden' }}>
@@ -233,16 +233,17 @@ export default function PackingPage() {
                 </div>
               </div>
             );
-          }) : (
+          ) : (
             <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', borderRadius: '16px', boxShadow: 'var(--shadow-sm)' }}>
               <Box size={48} color="var(--border)" style={{ margin: '0 auto 16px' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No items found</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No inventory items</h3>
               <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 24px' }}>
-                Start tracking your move inventory by adding your first item.
+                Start tracking your items and deciding their fate.
               </p>
               <button className="btn btn-primary" onClick={() => openAddModal()}>Add Your First Item</button>
             </div>
           )
+
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredItems.map(item => (
