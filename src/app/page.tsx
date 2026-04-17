@@ -163,8 +163,8 @@ export default function Dashboard() {
   const totalTasks = data.tasks.length;
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   
-  const moveDateStr = settings.confirmedMoveDate || settings.earliestMoveDate;
-  const daysToMove = differenceInDays(parseISO(moveDateStr), new Date());
+  const moveDateStr = settings.confirmedMoveDate;
+  const daysToMove = moveDateStr ? differenceInDays(parseISO(moveDateStr), new Date()) : null;
 
   const bringItems = packingItems.filter(i => i.action === 'Bring');
   const resolvedItems = packingItems.filter(i => i.status === 'Resolved');
@@ -219,7 +219,7 @@ export default function Dashboard() {
             style={{ height: '48px', padding: '0 24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderRadius: 'var(--radius)', background: 'var(--accent-soft)', color: 'var(--foreground)', border: 'none' }}
           >
              <CalendarIcon size={18} />
-             <span style={{ fontWeight: 600, letterSpacing: '0.05em' }}>{format(parseISO(moveDateStr), 'MMMM d, yyyy').toUpperCase()}</span>
+             <span style={{ fontWeight: 600, letterSpacing: '0.05em' }}>{moveDateStr ? format(parseISO(moveDateStr), 'MMMM d, yyyy').toUpperCase() : 'DATE TBD'}</span>
           </div>
         </div>
       </div>
@@ -257,7 +257,7 @@ export default function Dashboard() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <div onClick={() => openDateModal('confirmedMoveDate', 'Move Date')} style={{ fontSize: '32px', fontWeight: 600, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, marginBottom: '12px', letterSpacing: '0.05em', textTransform: 'uppercase', cursor: 'pointer' }} className="hover-opacity">
-              {daysToMove > 0 ? `${daysToMove} Days` : daysToMove === 0 ? "Move Day" : 'Complete'}
+              {daysToMove !== null ? (daysToMove > 0 ? `${daysToMove} Days` : daysToMove === 0 ? "Move Day" : 'Complete') : 'DATE UNSET'}
             </div>
             <div onClick={() => openDateModal('confirmedMoveDate', 'Move Date')} className="flex items-center gap-2 justify-end" style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
               {settings.confirmedMoveDate ? <CheckCircle2 size={14} color="var(--accent)" /> : <Clock size={14} />}
@@ -414,13 +414,21 @@ function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Owner</label>
-              <select value={editing.owner} onChange={e => setEditing({...editing, owner: e.target.value as any})}>
-                <option value="Andrew">Andrew</option>
-                <option value="Tory">Tory</option>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Phase</label>
+              <select value={editing.phase} onChange={e => setEditing({...editing, phase: e.target.value as any})}>
+                <option value="Move Out">Move Out</option>
+                <option value="Move In">Move In</option>
                 <option value="Both">Both</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Owner</label>
+            <select value={editing.owner} onChange={e => setEditing({...editing, owner: e.target.value as any})}>
+              <option value="Andrew">Andrew</option>
+              <option value="Tory">Tory</option>
+              <option value="Both">Both</option>
+            </select>
           </div>
         </div>
         <div style={{ padding: '24px 32px', background: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>

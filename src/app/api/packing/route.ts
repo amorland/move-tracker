@@ -22,12 +22,12 @@ export async function POST(request: Request) {
       .from('packing_items')
       .insert([{
         room,
-        item_name: itemName,
+        itemName: itemName, // Quoted internally by Supabase JS if using this key
         action: action || 'Bring',
         status: status || 'Unresolved',
         notes: notes || null,
         priority: priority || 'Medium',
-        created_at: new Date().toISOString()
+        createdAt: new Date().toISOString()
       }])
       .select()
       .single();
@@ -54,7 +54,7 @@ export async function PATCH(request: Request) {
       .from('packing_items')
       .update({
         room,
-        item_name: itemName,
+        itemName,
         action,
         status,
         notes,
