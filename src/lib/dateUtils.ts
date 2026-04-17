@@ -35,8 +35,6 @@ export const getMilestones = (settings: MoveSettings): Milestone[] => {
 };
 
 export const validateDates = (settings: Partial<MoveSettings>): string | null => {
-  console.log('DEBUG: validateDates receiving settings:', JSON.stringify(settings, null, 2));
-  
   const upackDropoffDate = settings.upackDropoffDate || null;
   const upackPickupDate = settings.upackPickupDate || null;
   const driveStartDate = settings.driveStartDate || null;

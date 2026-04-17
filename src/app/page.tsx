@@ -179,9 +179,9 @@ export default function Dashboard() {
 
   const inventorySummary = [
     { label: 'TO BRING', count: bringItems.length, percent: getInventoryPercent(bringItems.length), color: 'var(--accent)', icon: <Box size={14} /> },
-    { label: 'TO SELL', count: sellItems, percent: getInventoryPercent(sellItems), color: '#10b981', icon: <Star size={14} /> },
-    { label: 'TO DONATE', count: donateItems, percent: getInventoryPercent(donateItems), color: '#f59e0b', icon: <MapPin size={14} /> },
-    { label: 'TO TRASH', count: trashItems, percent: getInventoryPercent(trashItems), color: '#ef4444', icon: <Clock size={14} /> }
+    { label: 'TO SELL', count: sellItems, percent: getInventoryPercent(sellItems), color: '#8DA399', icon: <Star size={14} /> },
+    { label: 'TO DONATE', count: donateItems, percent: getInventoryPercent(donateItems), color: '#C99452', icon: <MapPin size={14} /> },
+    { label: 'TO TRASH', count: trashItems, percent: getInventoryPercent(trashItems), color: '#B07D62', icon: <Clock size={14} /> }
   ];
 
   const milestones = getMilestones(settings);
@@ -194,66 +194,67 @@ export default function Dashboard() {
   ];
 
   return (
-    <div style={{ width: '100%', paddingBottom: '40px' }}>
-      <div className="flex flex-stack items-center justify-between mb-10">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+    <div style={{ width: '100%', paddingBottom: '60px' }}>
+      <div className="flex flex-stack items-center justify-between mb-12">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            borderRadius: '12px', 
+            width: '64px', 
+            height: '64px', 
+            borderRadius: '18px', 
             background: 'var(--accent)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0, 95, 184, 0.2)'
+            boxShadow: '0 8px 16px rgba(212, 122, 106, 0.25)'
           }}>
-            <Heart size={24} color="white" fill="white" />
+            <Heart size={32} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '12px' }}>
               Starland Moving
             </h1>
-            <p className="section-subtitle" style={{ marginBottom: 0 }}>Tory & Andrew's Relocation Hub</p>
+            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '16px', fontWeight: 600 }}>Tory & Andrew's Relocation Hub</p>
           </div>
         </div>
         <div className="flex gap-4">
-          <Link href="/settings" className="btn btn-secondary" style={{ gap: '8px' }}>
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>settings</span>
+          <Link href="/settings" className="btn btn-secondary" style={{ gap: '8px', padding: '0 24px', height: '48px', borderRadius: '14px' }}>
+            <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>settings</span>
             Settings
           </Link>
           <div 
             onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
             className="badge badge-info card-hover-effect" 
-            style={{ height: '40px', padding: '0 20px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
+            style={{ height: '48px', padding: '0 24px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderRadius: '14px' }}
           >
-             <CalendarIcon size={16} />
+             <CalendarIcon size={18} />
              <span style={{ fontWeight: 700 }}>{format(parseISO(moveDateStr), 'MMMM d, yyyy')}</span>
           </div>
         </div>
       </div>
       
       {/* Visual Progression Section */}
-      <div className="card" style={{ padding: '48px 32px', marginBottom: '40px', border: 'none', boxShadow: 'var(--shadow-md)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'var(--accent-soft)' }}>
+      <div className="card" style={{ padding: '64px 40px', marginBottom: '48px', border: 'none', boxShadow: 'var(--shadow-md)', position: 'relative', overflow: 'hidden', background: '#fff' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '6px', background: 'var(--accent-soft)' }}>
           <div style={{ height: '100%', width: `${progress}%`, background: 'var(--accent)', transition: 'width 1s ease-in-out' }}></div>
         </div>
 
-        <div className="flex items-center" style={{ width: '100%', marginBottom: '64px', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', width: '100%', maxWidth: '1000px', alignItems: 'center' }}>
+        <div className="flex items-center" style={{ width: '100%', marginBottom: '80px', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', width: '100%', maxWidth: '1200px', alignItems: 'center' }}>
             {stages.map((stage, idx) => (
               <div key={stage.name} style={{ display: 'flex', alignItems: 'center', flex: idx === stages.length - 1 ? 'none' : 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', position: 'relative' }}>
-                  <div className={`progress-node ${stage.status === 'complete' ? 'complete' : stage.status === 'current' ? 'current' : ''}`} style={{ width: '56px', height: '56px' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '28px' }}>{stage.icon}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', position: 'relative' }}>
+                  <div className={`progress-node ${stage.status === 'complete' ? 'complete' : stage.status === 'current' ? 'current' : ''}`} style={{ width: '64px', height: '64px' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>{stage.icon}</span>
                   </div>
                   <span style={{ 
-                    fontSize: '13px', 
+                    fontSize: '14px', 
                     fontWeight: 700, 
+                    fontFamily: 'var(--font-headings)',
                     color: stage.status === 'pending' ? 'var(--text-secondary)' : 'var(--foreground)', 
-                    letterSpacing: '0.05em', 
+                    letterSpacing: '0.02em', 
                     textTransform: 'uppercase',
                     position: 'absolute',
-                    top: '70px',
+                    top: '80px',
                     whiteSpace: 'nowrap'
                   }}>
                     {stage.name}
@@ -261,8 +262,8 @@ export default function Dashboard() {
                 </div>
                 {idx < stages.length - 1 && (
                   <div className={`progress-connector ${stage.status === 'complete' ? 'filled' : ''}`} style={{ 
-                    marginTop: '-24px',
-                    height: '3px',
+                    marginTop: '-32px',
+                    height: '4px',
                     background: stage.status === 'complete' ? 'var(--success)' : 'var(--border)'
                   }}></div>
                 )}
@@ -271,18 +272,18 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex flex-stack justify-between items-end" style={{ marginTop: '72px', paddingTop: '32px', borderTop: '1px solid var(--border)' }}>
+        <div className="flex flex-stack justify-between items-end" style={{ marginTop: '80px', paddingTop: '40px', borderTop: '1px solid var(--border)' }}>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Overall Move Progress</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-              <span style={{ fontSize: '56px', fontWeight: 800, color: 'var(--foreground)', lineHeight: 1, letterSpacing: '-0.02em' }}>{progress}%</span>
-              <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-secondary)' }}>Complete</span>
+            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Overall Move Progress</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
+              <span style={{ fontSize: '64px', fontWeight: 800, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, letterSpacing: '-0.02em' }}>{progress}%</span>
+              <span style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-secondary)' }}>Complete</span>
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div 
               onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
-              style={{ fontSize: '32px', fontWeight: 800, color: 'var(--accent)', lineHeight: 1, marginBottom: '8px', letterSpacing: '-0.01em', cursor: 'pointer' }}
+              style={{ fontSize: '36px', fontWeight: 700, fontFamily: 'var(--font-headings)', color: 'var(--accent)', lineHeight: 1, marginBottom: '10px', letterSpacing: '-0.01em', cursor: 'pointer' }}
               className="hover-opacity"
             >
               {daysToMove > 0 ? `${daysToMove} Days to Move` : daysToMove === 0 ? "Today is Move Day!" : 'Relocation Complete'}
@@ -290,9 +291,9 @@ export default function Dashboard() {
             <div 
               onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
               className="flex items-center gap-2 justify-end" 
-              style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
             >
-              {settings.confirmedMoveDate ? <CheckCircle2 size={16} color="var(--success)" /> : <Clock size={16} />}
+              {settings.confirmedMoveDate ? <CheckCircle2 size={18} color="var(--success)" /> : <Clock size={18} />}
               <span>{settings.confirmedMoveDate ? 'Final date confirmed' : 'Target date estimated'}</span>
             </div>
           </div>

@@ -138,58 +138,58 @@ export default function SettingsPage() {
 
   return (
     <div style={{ width: '100%', paddingBottom: '100px' }}>
-      <div className="flex flex-stack items-center justify-between mb-10">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className="flex flex-stack items-center justify-between mb-12">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            borderRadius: '12px', 
+            width: '64px', 
+            height: '64px', 
+            borderRadius: '18px', 
             background: 'var(--accent)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0, 95, 184, 0.2)'
+            boxShadow: '0 8px 16px rgba(212, 122, 106, 0.25)'
           }}>
-            <Heart size={24} color="white" fill="white" />
+            <Heart size={32} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '4px' }}>Starland Settings</h1>
-            <p className="section-subtitle" style={{ marginBottom: 0 }}>Define anchor dates and logistics for your move.</p>
+            <h1 style={{ marginBottom: '2px' }}>Starland Settings</h1>
+            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '16px', fontWeight: 600 }}>Define anchor dates and logistics for your move.</p>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           {lastSaved && (
-            <div style={{ fontSize: '13px', color: 'var(--success)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CheckCircle2 size={18} /> UPDATES PERSISTED
+            <div style={{ fontSize: '14px', color: 'var(--success)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CheckCircle2 size={20} /> UPDATES PERSISTED
             </div>
           )}
           <button 
             onClick={handleSave} 
             className="btn btn-primary" 
-            style={{ padding: '0 40px', height: '52px', fontSize: '15px', gap: '12px', borderRadius: '12px' }} 
+            style={{ padding: '0 40px', height: '56px', fontSize: '16px', gap: '12px', borderRadius: '14px', fontWeight: 700 }} 
             disabled={saving}
           >
-            {saving ? 'Saving...' : <><Save size={20} /> Save All Settings</>}
+            {saving ? 'Saving...' : <><Save size={22} /> Save All Settings</>}
           </button>
         </div>
       </div>
 
       {validationError && (
-        <div className="card" style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#dc2626', padding: '20px', marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <X size={20} />
-          <span style={{ fontWeight: 600 }}>{validationError}</span>
+        <div className="card" style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#dc2626', padding: '24px', marginBottom: '40px', display: 'flex', alignItems: 'center', gap: '16px', borderRadius: '16px' }}>
+          <X size={24} />
+          <span style={{ fontWeight: 600, fontSize: '15px' }}>{validationError}</span>
         </div>
       )}
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
         
         {/* Core Timeline Section */}
         <section>
-          <div className="flex items-center gap-3 mb-6">
-             <Calendar size={20} color="var(--accent)" />
-             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Core Move Window</h2>
+          <div className="flex items-center gap-4 mb-8">
+             <Calendar size={24} color="var(--accent)" />
+             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, fontFamily: 'var(--font-headings)' }}>Core Move Window</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '28px' }}>
              <CustomDateInput 
                label="Earliest Possible"
                dateValue={settings.earliestMoveDate}
@@ -223,11 +223,11 @@ export default function SettingsPage() {
 
         {/* Major Milestones */}
         <section>
-          <div className="flex items-center gap-3 mb-6">
-             <AlertCircle size={20} color="var(--warning)" />
-             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Key Milestones</h2>
+          <div className="flex items-center gap-4 mb-8">
+             <AlertCircle size={24} color="var(--warning)" />
+             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, fontFamily: 'var(--font-headings)' }}>Key Milestones</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '28px' }}>
              <CustomDateInput 
                label="House Closing"
                dateValue={settings.closingDate}
@@ -254,11 +254,11 @@ export default function SettingsPage() {
 
         {/* U-Pack Logistics */}
         <section>
-          <div className="flex items-center gap-3 mb-6">
-             <div style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: 900 }}>U</div>
-             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>U-Pack Logistics</h2>
+          <div className="flex items-center gap-4 mb-8">
+             <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '14px', fontWeight: 900 }}>U</div>
+             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 700, fontFamily: 'var(--font-headings)' }}>U-Pack Logistics</h2>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '28px' }}>
              <CustomDateInput 
                label="Container Dropoff (FL)"
                dateValue={settings.upackDropoffDate}
@@ -290,13 +290,13 @@ export default function SettingsPage() {
           </div>
         </section>
 
-        <div className="card" style={{ background: 'var(--accent-soft)', border: 'none', padding: '32px' }}>
-          <div className="flex items-start gap-5">
-            <Info size={28} color="var(--accent)" />
+        <div className="card" style={{ background: 'var(--accent-soft)', border: 'none', padding: '40px', borderRadius: '20px' }}>
+          <div className="flex items-start gap-6">
+            <Info size={32} color="var(--accent)" />
             <div>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--foreground)' }}>Logistics Management</div>
-              <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px', lineHeight: '1.7', maxWidth: '800px' }}>
-                Type dates directly in <strong>YYYY-MM-DD</strong> format for speed, or click the blue calendar icon to select. Toggle <strong>Set as Confirmed</strong> once you have definitive dates to lock them in across your Starland Moving hub and Timeline.
+              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', fontFamily: 'var(--font-headings)' }}>Logistics Management</div>
+              <div style={{ fontSize: '15px', color: 'var(--text-secondary)', marginTop: '10px', lineHeight: '1.7', maxWidth: '850px' }}>
+                Type dates directly in <strong>YYYY-MM-DD</strong> format for speed, or click the terracotta calendar icon to select. Toggle <strong>Set as Confirmed</strong> once you have definitive dates to lock them in across your Starland Moving hub and Timeline.
               </div>
             </div>
           </div>

@@ -38,10 +38,8 @@ export async function PATCH(request: Request) {
   if (mergedSettings.isUpackDeliveryConfirmed && !mergedSettings.upackDeliveryDate) mergedSettings.isUpackDeliveryConfirmed = false;
   if (mergedSettings.isUpackFinalPickupConfirmed && !mergedSettings.upackFinalPickupDate) mergedSettings.isUpackFinalPickupConfirmed = false;
 
-  console.log('Validating settings:', JSON.stringify(mergedSettings, null, 2));
   const validationError = validateDates(mergedSettings);
   if (validationError) {
-    console.error('Validation failed:', validationError);
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 

@@ -43,6 +43,9 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <title>Starland Move Tracker</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300..700&display=swap" rel="stylesheet" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
       </head>
       <body>
@@ -55,17 +58,20 @@ export default function RootLayout({
             {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <div className="header-logo">
-            <Home size={20} strokeWidth={3} />
-            <span>STARLAND MOVING</span>
+            <Home size={22} strokeWidth={2.5} />
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+              <span style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em', fontFamily: 'var(--font-headings)' }}>Starland Moving</span>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>ANDREW & TORY’S MOVE</span>
+            </div>
           </div>
         </header>
         <div className="app-container">
           <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-            <div style={{ padding: '0 16px', marginBottom: '24px', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
-              ANDREW & TORY
+            <div style={{ padding: '0 16px', marginBottom: '28px', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.12em', fontFamily: 'var(--font-headings)' }}>
+              PERSONAL HUB
             </div>
             <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
-              <LayoutDashboard size={18} />
+              <LayoutDashboard size={20} />
               <span>Overview</span>
             </Link>
             <Link href="/tasks" className={`nav-item ${pathname === '/tasks' ? 'active' : ''}`}>

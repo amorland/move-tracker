@@ -78,44 +78,44 @@ export default function TimelinePage() {
   ];
 
   return (
-    <div style={{ width: '100%', paddingBottom: '40px' }}>
-      <div className="flex flex-stack items-center justify-between mb-12">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+    <div style={{ width: '100%', paddingBottom: '60px' }}>
+      <div className="flex flex-stack items-center justify-between mb-16">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <div style={{ 
-            width: '48px', 
-            height: '48px', 
-            borderRadius: '12px', 
+            width: '64px', 
+            height: '64px', 
+            borderRadius: '18px', 
             background: 'var(--accent)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0, 95, 184, 0.2)'
+            boxShadow: '0 8px 16px rgba(212, 122, 106, 0.25)'
           }}>
-            <Heart size={24} color="white" fill="white" />
+            <Heart size={32} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '4px' }}>Starland Timeline</h1>
-            <p className="section-subtitle" style={{ marginBottom: 0 }}>
+            <h1 style={{ marginBottom: '2px' }}>Starland Timeline</h1>
+            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '16px', fontWeight: 600 }}>
               Chronological roadmap of key dates and actions.
             </p>
           </div>
         </div>
-        <div className="badge badge-info" style={{ height: '40px', padding: '0 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-           <CalendarIcon size={16} />
+        <div className="badge badge-info" style={{ height: '48px', padding: '0 24px', display: 'flex', alignItems: 'center', gap: '12px', borderRadius: '14px', fontSize: '15px' }}>
+           <CalendarIcon size={18} />
            <span style={{ fontWeight: 700 }}>{format(moveDate, 'MMMM d, yyyy')}</span>
         </div>
       </div>
 
-      <div style={{ position: 'relative', paddingLeft: '40px' }}>
+      <div style={{ position: 'relative', paddingLeft: '56px' }}>
         {/* Central Vertical Connector */}
         <div style={{ 
           position: 'absolute', 
-          left: '11px', 
+          left: '21px', 
           top: '0', 
           bottom: '0', 
-          width: '2px', 
+          width: '3px', 
           background: 'var(--border)',
-          opacity: 0.5
+          opacity: 0.6
         }}></div>
 
         {windows.map((window) => {
@@ -128,29 +128,29 @@ export default function TimelinePage() {
           if (itemsInWindow.length === 0) return null;
 
           return (
-            <div key={window.label} style={{ marginBottom: '60px' }}>
-              <div style={{ position: 'relative', marginBottom: '24px' }}>
+            <div key={window.label} style={{ marginBottom: '64px' }}>
+              <div style={{ position: 'relative', marginBottom: '32px' }}>
                 <div style={{ 
                   position: 'absolute', 
-                  left: '-40px', 
+                  left: '-56px', 
                   top: '0', 
-                  width: '24px', 
-                  height: '24px', 
-                  borderRadius: '50%', 
+                  width: '44px', 
+                  height: '44px', 
+                  borderRadius: '14px', 
                   background: 'white', 
-                  border: '2px solid var(--accent)',
+                  border: '2.5px solid var(--accent)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   zIndex: 2,
-                  boxShadow: '0 0 0 4px var(--background)'
+                  boxShadow: '0 0 0 6px var(--background)'
                 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--accent)' }}>{window.icon}</span>
+                  <span className="material-symbols-outlined" style={{ fontSize: '22px', color: 'var(--accent)' }}>{window.icon}</span>
                 </div>
-                <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--accent)' }}>{window.label}</h2>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--accent)', fontFamily: 'var(--font-headings)' }}>{window.label}</h2>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {itemsInWindow.map((item: any) => {
                   const isTask = item.type === 'task';
                   const isComplete = isTask && item.status === 'Complete';
@@ -159,39 +159,39 @@ export default function TimelinePage() {
 
                   return (
                     <div key={item.id} style={{ 
-                      padding: isAnchor ? '16px 20px' : '12px 20px', 
-                      borderRadius: '12px',
-                      background: isAnchor ? (isConfirmed ? 'var(--success-soft)' : '#fcfcfd') : (isComplete ? 'transparent' : 'white'),
-                      border: isAnchor ? (isConfirmed ? '1px solid rgba(26, 138, 95, 0.1)' : '1px solid #f1f5f9') : (isComplete ? '1px solid var(--border)' : '1px solid #f1f5f9'),
-                      boxShadow: (isAnchor || isComplete) ? 'none' : '0 2px 4px rgba(0,0,0,0.02)',
+                      padding: isAnchor ? '20px 24px' : '16px 24px', 
+                      borderRadius: '16px',
+                      background: isAnchor ? (isConfirmed ? 'var(--success-soft)' : '#fff') : (isComplete ? 'rgba(232, 224, 213, 0.2)' : 'white'),
+                      border: isAnchor ? (isConfirmed ? '1px solid rgba(107, 142, 123, 0.2)' : '1px solid var(--border)') : (isComplete ? '1px solid transparent' : '1px solid var(--border)'),
+                      boxShadow: (isAnchor || isComplete) ? 'none' : 'var(--shadow-sm)',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '16px',
-                      opacity: isComplete ? 0.6 : 1,
+                      gap: '20px',
+                      opacity: isComplete ? 0.5 : 1,
                       transition: 'all 0.2s ease'
                     }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ 
-                          fontSize: isAnchor ? '15px' : '14px', 
+                          fontSize: isAnchor ? '17px' : '15px', 
                           fontWeight: (isAnchor || !isComplete) ? 700 : 500, 
                           color: isComplete ? 'var(--text-secondary)' : 'var(--foreground)',
                           textDecoration: isComplete ? 'line-through' : 'none',
                         }}>
                           {item.title}
                         </div>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <CalendarIcon size={10} />
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <CalendarIcon size={12} />
                           {format(item.calculatedDate, 'MMM d, yyyy')}
-                          {isAnchor && item.status === 'estimated' && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: '#e2e8f0', color: '#475569' }}>ESTIMATED</span>}
-                          {isAnchor && item.status === 'confirmed' && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '4px', background: 'var(--success)', color: 'white' }}>CONFIRMED</span>}
+                          {isAnchor && item.status === 'estimated' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', border: '1.5px solid var(--text-secondary)', color: 'var(--text-secondary)', fontWeight: 800 }}>ESTIMATED</span>}
+                          {isAnchor && item.status === 'confirmed' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '6px', background: 'var(--success)', color: 'white', fontWeight: 800 }}>CONFIRMED</span>}
                         </div>
                       </div>
                       {isComplete && (
-                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '14px', fontWeight: 'bold' }}>done</span>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '16px', fontWeight: 'bold' }}>done</span>
                         </div>
                       )}
-                      {isAnchor && <span className="material-symbols-outlined" style={{ color: isConfirmed ? 'var(--success)' : '#94a3b8', fontSize: '20px' }}>event_available</span>}
+                      {isAnchor && <span className="material-symbols-outlined" style={{ color: isConfirmed ? 'var(--success)' : 'var(--text-secondary)', fontSize: '24px' }}>event_available</span>}
                     </div>
                   );
                 })}

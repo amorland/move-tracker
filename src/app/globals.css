@@ -1,21 +1,22 @@
 :root {
-  --background: #fcfcfd;
-  --foreground: #1a1c1e;
+  --background: #fdfbf7;
+  --foreground: #3a3533;
   --sidebar-bg: #ffffff;
   --card-bg: #ffffff;
-  --accent: #005fb8;
-  --accent-soft: #eef4ff;
-  --success: #1a8a5f;
-  --success-soft: #e8f5ed;
-  --warning: #b56000;
-  --text-secondary: #5c6063;
-  --border: #dee2e6;
-  --sidebar-width: 260px;
-  --header-height: 64px;
-  --radius: 12px;
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --accent: #d47a6a;
+  --accent-soft: #f5e9e4;
+  --success: #6b8e7b;
+  --success-soft: #e8f0ea;
+  --warning: #c99452;
+  --text-secondary: #7a7471;
+  --border: #e8e0d5;
+  --sidebar-width: 280px;
+  --header-height: 72px;
+  --radius: 16px;
+  --shadow-sm: 0 2px 4px rgba(58, 53, 51, 0.04);
+  --shadow-md: 0 6px 16px rgba(58, 53, 51, 0.08);
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-headings: 'Quicksand', 'Inter', sans-serif;
 }
 
 * {
@@ -58,12 +59,12 @@ body {
 /* Header */
 .header {
   height: var(--header-height);
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(253, 251, 247, 0.85);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 24px;
+  padding: 0 40px;
   position: fixed;
   top: 0;
   left: 0;
@@ -72,14 +73,14 @@ body {
 }
 
 .header-logo {
-  font-size: 16px;
+  font-family: var(--font-headings);
+  font-size: 18px;
   font-weight: 700;
   color: var(--accent);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   letter-spacing: -0.01em;
-  text-transform: uppercase;
 }
 
 /* Sidebar */
@@ -126,8 +127,14 @@ body {
   flex: 1;
   margin-left: var(--sidebar-width);
   margin-top: var(--header-height);
-  padding: 40px 48px;
+  padding: 56px 64px;
   width: 100%;
+}
+
+@media (max-width: 1440px) {
+  .main-content {
+    padding: 48px;
+  }
 }
 
 @media (max-width: 1024px) {
@@ -164,12 +171,12 @@ body {
 .progress-node {
   width: 44px;
   height: 44px;
-  border-radius: 50%;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: white;
-  border: 2px solid var(--border);
+  border: 2.5px solid var(--border);
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 2;
@@ -211,15 +218,17 @@ body {
 }
 
 h1 {
-  font-size: 32px;
-  font-weight: 800;
+  font-family: var(--font-headings);
+  font-size: 38px;
+  font-weight: 700;
   color: var(--foreground);
   margin-bottom: 8px;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
 }
 
 h2 {
-  font-size: 18px;
+  font-family: var(--font-headings);
+  font-size: 20px;
   font-weight: 700;
   color: var(--foreground);
   margin-bottom: 16px;
