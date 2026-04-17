@@ -146,8 +146,6 @@ export default function Dashboard() {
   if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Hub...</div>;
 
   const milestones = getMilestones(settings);
-  const confirmedMilestones = milestones.filter(m => m.date);
-  const unsetMilestones = milestones.filter(m => !m.date);
 
   const bringItems = packingItems.filter(i => i.action === 'Bring');
   const resolvedItems = packingItems.filter(i => i.status === 'Resolved');
@@ -177,67 +175,56 @@ export default function Dashboard() {
             <Star size={32} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '4px' }}>
+            <h1 style={{ marginBottom: '4px', letterSpacing: '0.02em' }}>
               Starland Moving
             </h1>
-            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Andrew & Tory’s Relocation Hub</p>
+            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Andrew & Tory’s Relocation Hub</p>
           </div>
         </div>
       </div>
       
-      {/* Central Chronological Narrative Timeline */}
-      <div style={{ marginBottom: '80px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
-          <Navigation size={24} color="var(--accent)" />
-          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Move Narrative</h2>
+      {/* Central Chronological Vertical Timeline */}
+      <div style={{ marginBottom: '80px', maxWidth: '800px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '40px' }}>
+          <Navigation size={22} color="var(--accent)" />
+          <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Move Narrative</h2>
         </div>
         
-        <div className="move-narrative-container" style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-          gap: '24px',
-          position: 'relative'
-        }}>
-          {confirmedMilestones.map((m) => (
-            <NarrativeCard 
-              key={m.key} 
-              milestone={m} 
-              onClick={() => openDateModal(m.key, m.label)} 
-            />
-          ))}
-          
-          {unsetMilestones.length > 0 && (
-            <div style={{ 
-              gridColumn: '1 / -1', 
-              marginTop: '16px',
-              borderTop: '1px solid var(--border)',
-              paddingTop: '32px'
-            }}>
-              <h3 style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '24px' }}>To Be Scheduled</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
-                {unsetMilestones.map(m => (
-                  <button 
-                    key={m.key} 
-                    onClick={() => openDateModal(m.key, m.label)}
-                    style={{ 
-                      padding: '12px 20px', 
-                      borderRadius: '10px', 
-                      background: '#fff', 
-                      border: '1px solid var(--border)',
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      color: 'var(--text-secondary)',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    className="card-hover-effect"
-                  >
-                    + {m.label}
-                  </button>
-                ))}
+        <div className="timeline-container" style={{ position: 'relative' }}>
+          {milestones.map((m, index) => (
+            <div key={m.key} style={{ display: 'flex', gap: '32px', position: 'relative' }}>
+              {/* Timeline Connector Column */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px', flexShrink: 0 }}>
+                <div style={{ 
+                  width: '12px', 
+                  height: '12px', 
+                  borderRadius: '50%', 
+                  background: m.status === 'confirmed' ? 'var(--accent)' : m.status === 'estimated' ? 'var(--text-secondary)' : '#fff', 
+                  border: m.status === 'unset' ? '2px solid var(--border)' : 'none',
+                  zIndex: 2,
+                  marginTop: '12px',
+                  boxShadow: m.status === 'confirmed' ? '0 0 0 4px var(--accent-soft)' : 'none'
+                }} />
+                {index < milestones.length - 1 && (
+                  <div style={{ 
+                    width: '1px', 
+                    flex: 1, 
+                    background: 'var(--border)', 
+                    margin: '8px 0',
+                    zIndex: 1
+                  }} />
+                )}
+              </div>
+              
+              {/* Card Container */}
+              <div style={{ flex: 1, paddingBottom: index === milestones.length - 1 ? 0 : '40px' }}>
+                <NarrativeCard 
+                  milestone={m} 
+                  onClick={() => openDateModal(m.key, m.label)} 
+                />
               </div>
             </div>
-          )}
+          ))}
         </div>
       </div>
 
@@ -354,60 +341,71 @@ export default function Dashboard() {
 
 function NarrativeCard({ milestone, onClick }: { milestone: Milestone, onClick: () => void }) {
   const isConfirmed = milestone.status === 'confirmed';
-  const date = parseISO(milestone.date!);
+  const isUnset = milestone.status === 'unset';
+  const date = milestone.date ? parseISO(milestone.date) : null;
   
   return (
     <div 
       onClick={onClick}
       style={{ 
-        padding: '32px', 
-        borderRadius: '16px', 
-        background: isConfirmed ? 'var(--accent-soft)' : '#fff',
-        border: isConfirmed ? '1px solid var(--accent)' : '1px dashed var(--border)',
+        padding: '24px 28px', 
+        borderRadius: '12px', 
+        background: isConfirmed ? 'var(--accent-soft)' : isUnset ? 'transparent' : '#fff',
+        border: isConfirmed ? '1px solid var(--accent)' : isUnset ? '1px dashed var(--border)' : '1px solid var(--border)',
         display: 'flex',
-        flexDirection: 'column',
-        gap: '16px',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '24px',
+        transition: 'all 0.2s ease',
         cursor: 'pointer',
         boxShadow: isConfirmed ? 'var(--shadow-sm)' : 'none',
-        position: 'relative'
+        opacity: isUnset ? 0.7 : 1
       }} 
       className="card-hover-effect"
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ flex: 1 }}>
         <div style={{ 
           fontSize: '10px', 
           fontWeight: 700, 
           color: isConfirmed ? 'var(--accent)' : 'var(--text-secondary)', 
           textTransform: 'uppercase', 
-          letterSpacing: '0.15em' 
+          letterSpacing: '0.12em',
+          marginBottom: '8px'
         }}>
           {milestone.label}
+        </div>
+        <div style={{ 
+          fontSize: '18px', 
+          fontWeight: isConfirmed ? 600 : 500, 
+          color: isUnset ? 'var(--text-secondary)' : 'var(--foreground)',
+          fontFamily: 'var(--font-headings)',
+          letterSpacing: '-0.01em'
+        }}>
+          {date ? format(date, 'MMMM d, yyyy') : 'Not set'}
+        </div>
+      </div>
+      
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+        <div style={{ 
+          fontSize: '9px', 
+          fontWeight: 700, 
+          color: isConfirmed ? 'var(--accent)' : 'var(--text-secondary)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          padding: '4px 8px',
+          background: isConfirmed ? 'rgba(255,255,255,0.5)' : isUnset ? 'transparent' : 'var(--background)',
+          borderRadius: '4px',
+          border: '1px solid',
+          borderColor: isConfirmed ? 'var(--accent)' : 'var(--border)'
+        }}>
+          {isConfirmed ? 'CONFIRMED' : isUnset ? 'UNSET' : 'ESTIMATED'}
         </div>
         {isConfirmed ? (
           <CheckCircle2 size={16} color="var(--accent)" fill="white" />
         ) : (
           <Clock size={16} color="var(--text-secondary)" />
         )}
-      </div>
-      
-      <div style={{ 
-        fontSize: '24px', 
-        fontWeight: isConfirmed ? 600 : 500, 
-        color: 'var(--foreground)',
-        fontFamily: 'var(--font-headings)'
-      }}>
-        {format(date, 'MMM d, yyyy')}
-      </div>
-      
-      <div style={{ 
-        fontSize: '11px', 
-        fontWeight: 600, 
-        color: isConfirmed ? 'var(--accent)' : 'var(--text-secondary)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.05em'
-      }}>
-        {isConfirmed ? 'FINALIZED' : 'ESTIMATED'}
       </div>
     </div>
   );

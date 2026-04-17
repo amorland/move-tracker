@@ -61,10 +61,12 @@ export default function RootLayout({
             {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <div className="header-logo">
-            <Star size={18} strokeWidth={2.5} fill="currentColor" />
-            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontWeight: 600, fontSize: '15px', letterSpacing: '0.15em', fontFamily: 'var(--font-headings)' }}>Starland Moving</span>
-              <span style={{ fontSize: '9px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: '0.1em', marginTop: '2px' }}>EST. 2026 — RELOCATION HUB</span>
+            <div style={{ color: 'var(--accent)' }}>
+              <Star size={20} strokeWidth={2.5} fill="currentColor" />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <span style={{ fontWeight: 700, fontSize: '16px', letterSpacing: '0.08em', fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>Starland Moving</span>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Andrew & Tory’s Relocation Hub</span>
             </div>
           </div>
         </header>

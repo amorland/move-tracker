@@ -19,18 +19,16 @@ export const getMilestones = (settings: MoveSettings): Milestone[] => {
     { key: 'upackDropoffDate', label: 'U-Pack Dropoff (FL)', date: settings.upackDropoffDate, confirmed: settings.isUpackDropoffConfirmed, status: getStatus(settings.upackDropoffDate, settings.isUpackDropoffConfirmed) },
     { key: 'upackPickupDate', label: 'U-Pack Pickup (FL)', date: settings.upackPickupDate, confirmed: settings.isUpackPickupConfirmed, status: getStatus(settings.upackPickupDate, settings.isUpackPickupConfirmed) },
     { key: 'driveStartDate', label: 'Drive Start', date: settings.driveStartDate, confirmed: settings.isDriveStartConfirmed, status: getStatus(settings.driveStartDate, settings.isDriveStartConfirmed) },
-    { key: 'closingDate', label: 'House Closing', date: settings.closingDate, confirmed: settings.isClosingDateConfirmed, status: getStatus(settings.closingDate, settings.isClosingDateConfirmed) },
     { key: 'arrivalDate', label: 'Arrival (NY)', date: settings.arrivalDate, confirmed: settings.isArrivalConfirmed, status: getStatus(settings.arrivalDate, settings.isArrivalConfirmed) },
+    { key: 'closingDate', label: 'House Closing', date: settings.closingDate, confirmed: settings.isClosingDateConfirmed, status: getStatus(settings.closingDate, settings.isClosingDateConfirmed) },
     { key: 'upackDeliveryDate', label: 'U-Pack Delivery (NY)', date: settings.upackDeliveryDate, confirmed: settings.isUpackDeliveryConfirmed, status: getStatus(settings.upackDeliveryDate, settings.isUpackDeliveryConfirmed) },
     { key: 'upackFinalPickupDate', label: 'U-Pack Final Pickup (NY)', date: settings.upackFinalPickupDate, confirmed: settings.isUpackFinalPickupConfirmed, status: getStatus(settings.upackFinalPickupDate, settings.isUpackFinalPickupConfirmed) }
   ];
 
-  return milestones.sort((a, b) => {
-    if (!a.date && !b.date) return 0;
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return parseISO(a.date).getTime() - parseISO(b.date).getTime();
-  });
+  // We return them in logical sequence. Since the app enforces chronological validation 
+  // for confirmed dates, this logical sequence will match the chronological one.
+  // This also ensures "unset" dates stay in their correct relative positions.
+  return milestones;
 };
 
 export const validateDates = (settings: Partial<MoveSettings>): string | null => {

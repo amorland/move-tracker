@@ -58,8 +58,8 @@ body {
 
 /* Header */
 .header {
-  height: var(--header-height);
-  background: rgba(249, 247, 242, 0.9);
+  height: 72px;
+  background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -74,13 +74,13 @@ body {
 
 .header-logo {
   font-family: var(--font-headings);
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--foreground);
   display: flex;
   align-items: center;
   gap: 16px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -92,10 +92,10 @@ body {
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: var(--header-height);
+  top: 72px;
   bottom: 0;
   left: 0;
-  padding: 24px 12px;
+  padding: 32px 16px;
   transition: transform 0.3s ease;
 }
 
@@ -103,8 +103,8 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
-  font-size: 14px;
+  padding: 12px 20px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   transition: all 0.2s ease;
@@ -127,20 +127,20 @@ body {
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
-  margin-top: var(--header-height);
-  padding: 56px 64px;
+  margin-top: 72px;
+  padding: 64px 80px;
   width: 100%;
 }
 
 @media (max-width: 1440px) {
   .main-content {
-    padding: 48px;
+    padding: 56px 64px;
   }
 }
 
 @media (max-width: 1024px) {
   .main-content {
-    padding: 32px;
+    padding: 48px 40px;
   }
 }
 
@@ -155,7 +155,7 @@ body {
   }
   .main-content {
     margin-left: 0;
-    padding: 24px 16px;
+    padding: 32px 24px;
   }
   .header-menu-btn {
     display: block !important;
@@ -213,37 +213,38 @@ body {
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
-  margin-bottom: 24px;
+  padding: 32px;
+  margin-bottom: 32px;
   box-shadow: var(--shadow-sm);
 }
 
 h1 {
   font-family: var(--font-headings);
-  font-size: 32px;
-  font-weight: 600;
+  font-size: 26px;
+  font-weight: 700;
   color: var(--foreground);
-  margin-bottom: 8px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
 }
 
 h2 {
   font-family: var(--font-headings);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--foreground);
-  margin-bottom: 16px;
-  letter-spacing: 0.1em;
+  margin-bottom: 24px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .section-subtitle {
   color: var(--text-secondary);
   font-size: 15px;
-  margin-bottom: 32px;
+  margin-bottom: 48px;
   font-weight: 500;
+  line-height: 1.6;
 }
+
 
 /* Unified Task & Item Row Styles */
 .task-row {
