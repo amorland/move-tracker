@@ -13,10 +13,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = await request.json();
+  const { id, ...insertData } = body;
   
   const { data, error } = await supabase
     .from('tasks')
-    .insert([body])
+    .insert([insertData])
     .select()
     .single();
     

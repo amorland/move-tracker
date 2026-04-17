@@ -24,7 +24,8 @@ export default function SettingsPage() {
     setSaving(true);
     setValidationError(null);
 
-    const error = validateDates(settings);
+    const projectedSettings = { ...settings };
+    const error = validateDates(projectedSettings);
     if (error) {
       setValidationError(error);
       setSaving(false);
@@ -102,7 +103,7 @@ export default function SettingsPage() {
             <div>
               <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', fontFamily: 'var(--font-headings)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>System Status</div>
               <div style={{ fontSize: '15px', color: 'var(--text-secondary)', marginTop: '16px', lineHeight: '1.8', maxWidth: '850px', fontWeight: 400 }}>
-                All move milestones, U-Pack dates, and house closing logistics are now managed directly through the <strong>Narrative Timeline</strong> on the Overview dashboard. No further global configuration is required here.
+                All move milestones, U-Pack dates, and house closing logistics are now managed directly through the <strong>Move Narrative</strong> on the Overview dashboard. No further global configuration is required here.
               </div>
             </div>
           </div>

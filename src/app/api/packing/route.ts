@@ -14,10 +14,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const { id, ...insertData } = body;
+    
     const { data, error } = await supabase
       .from('packing_items')
       .insert([{
-        ...body,
+        ...insertData,
         createdAt: new Date().toISOString()
       }])
       .select()

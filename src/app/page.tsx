@@ -198,7 +198,7 @@ export default function Dashboard() {
           gap: '24px',
           position: 'relative'
         }}>
-          {confirmedMilestones.map((m, idx) => (
+          {confirmedMilestones.map((m) => (
             <NarrativeCard 
               key={m.key} 
               milestone={m} 
@@ -293,7 +293,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task, idx) => (
+            {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task) => (
               <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '20px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
                 <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}>
                   <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
@@ -430,9 +430,11 @@ function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Category</label>
-              <select value={editing.categoryId} onChange={e => setEditing({...editing, categoryId: parseInt(e.target.value)})}>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Status</label>
+              <select value={editing.status} onChange={e => setEditing({...editing, status: e.target.value as any})}>
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Complete">Complete</option>
               </select>
             </div>
             <div>

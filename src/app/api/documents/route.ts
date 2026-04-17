@@ -1,24 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
-const mapToDB = (doc: any) => ({
-  task_id: doc.taskId,
-  category_id: doc.categoryId,
-  name: doc.name,
-  url: doc.url,
-  is_link: doc.isLink
-});
-
-const mapFromDB = (doc: any) => ({
-  id: doc.id,
-  taskId: doc.task_id,
-  categoryId: doc.category_id,
-  name: doc.name,
-  url: doc.url,
-  isLink: doc.is_link,
-  createdAt: doc.created_at
-});
-
 export async function GET() {
   const { data, error } = await supabase
     .from('documents')
@@ -26,21 +8,24 @@ export async function GET() {
     .order('id', { ascending: true });
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data.map(mapFromDB));
+  return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const dbDoc = mapToDB(body);
+  const { id, ...insertData } = body;
   
   const { data, error } = await supabase
     .from('documents')
-    .insert([dbDoc])
+    .insert([{
+      ...insertData,
+      createdAt: new Date().toISOString()
+    }])
     .select()
     .single();
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(mapFromDB(data));
+  return NextResponse.json(data);
 }
 
 export async function DELETE(request: Request) {
