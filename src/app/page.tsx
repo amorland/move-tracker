@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
-import { format, parseISO, differenceInDays, addDays } from 'date-fns';
-import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Sparkles } from 'lucide-react';
+import { format, parseISO, isBefore } from 'date-fns';
+import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Sparkles, Navigation } from 'lucide-react';
 import Link from 'next/link';
-import MilestoneGrid from '@/components/MilestoneGrid';
-import { getMilestones, validateDates } from '@/lib/dateUtils';
+import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
 
 export default function Dashboard() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
@@ -146,10 +145,10 @@ export default function Dashboard() {
 
   if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Hub...</div>;
 
-  const completedTasks = data.tasks.filter(t => t.status === 'Complete').length;
-  const totalTasks = data.tasks.length;
-  const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-  
+  const milestones = getMilestones(settings);
+  const confirmedMilestones = milestones.filter(m => m.date);
+  const unsetMilestones = milestones.filter(m => !m.date);
+
   const bringItems = packingItems.filter(i => i.action === 'Bring');
   const resolvedItems = packingItems.filter(i => i.status === 'Resolved');
   const resolutionProgress = packingItems.length > 0 ? Math.round((resolvedItems.length / packingItems.length) * 100) : 0;
@@ -161,17 +160,8 @@ export default function Dashboard() {
     { label: 'TRASH', count: packingItems.filter(i => i.action === 'Trash').length, resolved: packingItems.filter(i => i.action === 'Trash' && i.status === 'Resolved').length, color: '#e5e1da', icon: <Clock size={14} /> }
   ];
 
-  const milestones = getMilestones(settings);
-
-  const stages = [
-    { name: 'Strategy', status: progress > 15 ? 'complete' : 'current', icon: 'assignment' },
-    { name: 'Packing', status: progress > 50 ? 'complete' : progress > 15 ? 'current' : 'pending', icon: 'package_2' },
-    { name: 'Transit', status: progress > 85 ? 'complete' : progress > 50 ? 'current' : 'pending', icon: 'local_shipping' },
-    { name: 'Settling', status: progress === 100 ? 'complete' : progress > 85 ? 'current' : 'pending', icon: 'celebration' }
-  ];
-
   return (
-    <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '80px' }}>
+    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', paddingBottom: '80px' }}>
       <div className="flex flex-stack items-center justify-between mb-16">
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ 
@@ -195,114 +185,125 @@ export default function Dashboard() {
         </div>
       </div>
       
-      <div className="card" style={{ padding: '80px 48px', marginBottom: '64px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', position: 'relative', overflow: 'hidden', background: '#fff', borderRadius: 'var(--radius)' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'var(--accent-soft)' }}>
-          <div style={{ height: '100%', width: `${progress}%`, background: 'var(--accent)', transition: 'width 1s ease-in-out' }}></div>
+      {/* Central Chronological Narrative Timeline */}
+      <div style={{ marginBottom: '80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+          <Navigation size={24} color="var(--accent)" />
+          <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Move Narrative</h2>
         </div>
-        <div className="flex items-center" style={{ width: '100%', marginBottom: '100px', justifyContent: 'center' }}>
-          <div style={{ display: 'flex', width: '100%', maxWidth: '1200px', alignItems: 'center' }}>
-            {stages.map((stage, idx) => (
-              <div key={stage.name} style={{ display: 'flex', alignItems: 'center', flex: idx === stages.length - 1 ? 'none' : 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', position: 'relative' }}>
-                  <div className={`progress-node ${stage.status === 'complete' ? 'complete' : stage.status === 'current' ? 'current' : ''}`} style={{ width: '56px', height: '56px', borderRadius: '12px', border: '1.5px solid' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>{stage.icon}</span>
-                  </div>
-                  <span style={{ fontSize: '12px', fontWeight: 600, fontFamily: 'var(--font-headings)', color: stage.status === 'pending' ? 'var(--text-secondary)' : 'var(--foreground)', letterSpacing: '0.15em', textTransform: 'uppercase', position: 'absolute', top: '75px', whiteSpace: 'nowrap' }}>
-                    {stage.name}
-                  </span>
-                </div>
-                {idx < stages.length - 1 && (
-                  <div className={`progress-connector ${stage.status === 'complete' ? 'filled' : ''}`} style={{ marginTop: '-40px', height: '1.5px', background: stage.status === 'complete' ? 'var(--accent)' : 'var(--border)' }}></div>
-                )}
+        
+        <div className="move-narrative-container" style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+          gap: '24px',
+          position: 'relative'
+        }}>
+          {confirmedMilestones.map((m, idx) => (
+            <NarrativeCard 
+              key={m.key} 
+              milestone={m} 
+              onClick={() => openDateModal(m.key, m.label)} 
+            />
+          ))}
+          
+          {unsetMilestones.length > 0 && (
+            <div style={{ 
+              gridColumn: '1 / -1', 
+              marginTop: '16px',
+              borderTop: '1px solid var(--border)',
+              paddingTop: '32px'
+            }}>
+              <h3 style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '24px' }}>To Be Scheduled</h3>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                {unsetMilestones.map(m => (
+                  <button 
+                    key={m.key} 
+                    onClick={() => openDateModal(m.key, m.label)}
+                    style={{ 
+                      padding: '12px 20px', 
+                      borderRadius: '10px', 
+                      background: '#fff', 
+                      border: '1px solid var(--border)',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    className="card-hover-effect"
+                  >
+                    + {m.label}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-stack justify-between items-end" style={{ marginTop: '100px', paddingTop: '48px', borderTop: '1px solid var(--border)' }}>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '16px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Overall Progress</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
-              <span style={{ fontSize: '72px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, letterSpacing: '-0.02em' }}>{progress}%</span>
-              <span style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Complete</span>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+      <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'start' }}>
+        
+        {/* Inventory Resolution Card */}
         <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', backgroundColor: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              <CalendarIcon size={18} color="var(--accent)" />
-              Relocation Milestones
+              <Box size={18} color="var(--accent)" />
+              Inventory Resolution
             </h2>
+            <Link href="/packing" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
+            </Link>
           </div>
-          <div style={{ padding: '32px' }}>
-            <MilestoneGrid milestones={milestones} onEdit={openDateModal} />
+          <div style={{ padding: '40px 32px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
+                {inventorySummary.map(item => (
+                  <div key={item.label}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                        <span style={{ color: item.color }}>{item.icon}</span>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>{item.label}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                        <span style={{ fontSize: '32px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>{item.resolved}/{item.count}</span>
+                        <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>RESOLVED</span>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            <div style={{ padding: '32px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <div className="flex justify-between items-center mb-4">
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Resolution Progress</div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{resolutionProgress}%</div>
+                </div>
+                <div style={{ height: '8px', background: '#fff', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <div style={{ height: '100%', width: `${resolutionProgress}%`, background: 'var(--accent)', transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
+                </div>
+            </div>
           </div>
         </div>
 
-        <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'start' }}>
-          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                <Box size={18} color="var(--accent)" />
-                Inventory Resolution
-              </h2>
-              <Link href="/packing" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
-              </Link>
-            </div>
-            <div style={{ padding: '40px 32px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
-                 {inventorySummary.map(item => (
-                   <div key={item.label}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                         <span style={{ color: item.color }}>{item.icon}</span>
-                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>{item.label}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                         <span style={{ fontSize: '32px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>{item.resolved}/{item.count}</span>
-                         <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>RESOLVED</span>
-                      </div>
-                   </div>
-                 ))}
-              </div>
-              <div style={{ padding: '32px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                 <div className="flex justify-between items-center mb-4">
-                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Resolution Progress</div>
-                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{resolutionProgress}%</div>
-                 </div>
-                 <div style={{ height: '8px', background: '#fff', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <div style={{ height: '100%', width: `${resolutionProgress}%`, background: 'var(--accent)', transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
-                 </div>
-              </div>
-            </div>
+        {/* Priority Actions Card */}
+        <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <Sparkles size={18} color="var(--accent)" />
+              Focus
+            </h2>
+            <Link href="/tasks" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
+            </Link>
           </div>
-
-          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                <Sparkles size={18} color="var(--accent)" />
-                Focus
-              </h2>
-              <Link href="/tasks" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
-              </Link>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task, idx) => (
-                <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '20px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
-                  <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
-                  </button>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
-                  </div>
-                  <ChevronRight size={14} color="var(--border)" />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task, idx) => (
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '20px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
+                <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}>
+                  <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
                 </div>
-              ))}
-            </div>
+                <ChevronRight size={14} color="var(--border)" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -351,22 +352,82 @@ export default function Dashboard() {
   );
 }
 
+function NarrativeCard({ milestone, onClick }: { milestone: Milestone, onClick: () => void }) {
+  const isConfirmed = milestone.status === 'confirmed';
+  const date = parseISO(milestone.date!);
+  
+  return (
+    <div 
+      onClick={onClick}
+      style={{ 
+        padding: '32px', 
+        borderRadius: '16px', 
+        background: isConfirmed ? 'var(--accent-soft)' : '#fff',
+        border: isConfirmed ? '1px solid var(--accent)' : '1px dashed var(--border)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: 'pointer',
+        boxShadow: isConfirmed ? 'var(--shadow-sm)' : 'none',
+        position: 'relative'
+      }} 
+      className="card-hover-effect"
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div style={{ 
+          fontSize: '10px', 
+          fontWeight: 700, 
+          color: isConfirmed ? 'var(--accent)' : 'var(--text-secondary)', 
+          textTransform: 'uppercase', 
+          letterSpacing: '0.15em' 
+        }}>
+          {milestone.label}
+        </div>
+        {isConfirmed ? (
+          <CheckCircle2 size={16} color="var(--accent)" fill="white" />
+        ) : (
+          <Clock size={16} color="var(--text-secondary)" />
+        )}
+      </div>
+      
+      <div style={{ 
+        fontSize: '24px', 
+        fontWeight: isConfirmed ? 600 : 500, 
+        color: 'var(--foreground)',
+        fontFamily: 'var(--font-headings)'
+      }}>
+        {format(date, 'MMM d, yyyy')}
+      </div>
+      
+      <div style={{ 
+        fontSize: '11px', 
+        fontWeight: 600, 
+        color: isConfirmed ? 'var(--accent)' : 'var(--text-secondary)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.05em'
+      }}>
+        {isConfirmed ? 'FINALIZED' : 'ESTIMATED'}
+      </div>
+    </div>
+  );
+}
+
+// Wrapper for reusing TaskModal logic from Tasks page
 function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial<Task>, onClose: () => void, onSave: (t: Partial<Task>) => void, categories: Category[] }) {
   const [editing, setEditing] = useState(task);
-
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
       <div className="card" style={{ width: '100%', maxWidth: '500px', padding: 0, overflow: 'hidden', borderRadius: '16px' }}>
         <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
-          <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>{task.id ? 'Edit Task' : 'New Task'}</h2>
+          <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, letterSpacing: '0.1em' }}>EDIT TASK</h2>
           <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
         </div>
         <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff', maxHeight: '70vh', overflowY: 'auto' }}>
           <div>
             <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Title</label>
-            <input value={editing.title || ''} onChange={e => setEditing({...editing, title: e.target.value})} placeholder="e.g. Schedule move-out help" />
+            <input value={editing.title || ''} onChange={e => setEditing({...editing, title: e.target.value})} />
           </div>
-          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Category</label>
@@ -383,7 +444,6 @@ function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial
               </select>
             </div>
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Due Date</label>
@@ -394,7 +454,6 @@ function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial
               <input type="date" value={editing.completionDate || ''} onChange={e => setEditing({...editing, completionDate: e.target.value || null})} />
             </div>
           </div>
-
           <div style={{ padding: '20px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Scheduled Event</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
@@ -408,7 +467,6 @@ function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial
               </div>
             </div>
           </div>
-
           <div>
             <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
             <textarea value={editing.notes || ''} onChange={e => setEditing({...editing, notes: e.target.value})} style={{ height: '80px', resize: 'none' }} />

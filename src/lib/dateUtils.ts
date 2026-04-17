@@ -1,4 +1,4 @@
-import { parseISO, addDays, isBefore, isEqual, differenceInDays } from 'date-fns';
+import { parseISO, isBefore, differenceInDays } from 'date-fns';
 import { MoveSettings } from './types';
 
 export const getStatus = (date: string | null, isConfirmed: boolean) => {

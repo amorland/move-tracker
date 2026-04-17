@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings, Task, Category } from '@/lib/types';
-import { addDays, format, parseISO, differenceInDays } from 'date-fns';
-import { CheckCircle2, ChevronRight, Calendar as CalendarIcon, MapPin, Star, Bell, Clock, Info, X } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { CheckCircle2, ChevronRight, Calendar as CalendarIcon, MapPin, Star, Bell, Clock, X } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 
 export default function TimelinePage() {
@@ -24,9 +24,6 @@ export default function TimelinePage() {
   }, []);
 
   if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Timeline...</div>;
-
-  const confirmedDateStr = settings.confirmedMoveDate;
-  const moveDate = parseISO(confirmedDateStr || settings.earliestMoveDate);
 
   const milestones = getMilestones(settings);
   const anchorDatesTimeline = milestones
@@ -70,13 +67,13 @@ export default function TimelinePage() {
     ...anchorDatesTimeline
   ].sort((a, b) => a.calculatedDate.getTime() - b.calculatedDate.getTime());
 
-  const windows = [
-    { label: 'Strategy', filter: (d: number) => d <= -60, icon: 'assignment' },
-    { label: 'Packing', filter: (d: number) => d > -60 && d <= -14, icon: 'package_2' },
-    { label: 'Transit', filter: (d: number) => d > -14 && d < 0, icon: 'local_shipping' },
-    { label: confirmedDateStr ? 'Move Day' : 'Target Move Window', filter: (d: number) => d === 0, icon: 'local_shipping' },
-    { label: 'Settling', filter: (d: number) => d > 0, icon: 'celebration' }
-  ];
+  // Group chronologically by Month/Year
+  const groupedItems = allTimelineItems.reduce((acc, item) => {
+    const monthYear = format(item.calculatedDate, 'MMMM yyyy');
+    if (!acc[monthYear]) acc[monthYear] = [];
+    acc[monthYear].push(item);
+    return acc;
+  }, {} as Record<string, any[]>);
 
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '80px' }}>
@@ -101,25 +98,19 @@ export default function TimelinePage() {
             </p>
           </div>
         </div>
-        <div className="badge badge-info" style={{ height: '48px', padding: '0 24px', display: 'flex', alignItems: 'center', gap: '12px', borderRadius: 'var(--radius)', fontSize: '14px', background: 'var(--accent-soft)', color: 'var(--foreground)', border: 'none' }}>
-           <CalendarIcon size={18} />
-           <span style={{ fontWeight: 600, letterSpacing: '0.05em' }}>{confirmedDateStr ? format(moveDate, 'MMMM d, yyyy').toUpperCase() : 'DATE UNSET'}</span>
-        </div>
       </div>
 
-      <div style={{ position: 'relative', paddingLeft: '64px' }}>
-        <div style={{ position: 'absolute', left: '26px', top: '0', bottom: '0', width: '2px', background: 'var(--border)', opacity: 0.8 }}></div>
+      {Object.keys(groupedItems).length === 0 ? (
+        <div style={{ padding: '80px 32px', textAlign: 'center', background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+          <CalendarIcon size={48} color="var(--border)" style={{ margin: '0 auto 24px' }} />
+          <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Your timeline is empty. Set anchor dates or task due dates to build your roadmap.</p>
+        </div>
+      ) : (
+        <div style={{ position: 'relative', paddingLeft: '64px' }}>
+          <div style={{ position: 'absolute', left: '26px', top: '0', bottom: '0', width: '2px', background: 'var(--border)', opacity: 0.8 }}></div>
 
-        {windows.map((window) => {
-          const itemsInWindow = allTimelineItems.filter(item => {
-            const diff = differenceInDays(item.calculatedDate, moveDate);
-            return window.filter(diff);
-          });
-
-          if (itemsInWindow.length === 0) return null;
-
-          return (
-            <div key={window.label} style={{ marginBottom: '80px' }}>
+          {Object.keys(groupedItems).map((monthYear) => (
+            <div key={monthYear} style={{ marginBottom: '80px' }}>
               <div style={{ position: 'relative', marginBottom: '32px' }}>
                 <div style={{ 
                   position: 'absolute', 
@@ -136,20 +127,20 @@ export default function TimelinePage() {
                   zIndex: 2,
                   boxShadow: 'var(--shadow-sm)'
                 }}>
-                  <span className="material-symbols-outlined" style={{ fontSize: '24px', color: 'var(--accent)' }}>{window.icon}</span>
+                  <CalendarIcon size={24} color="var(--accent)" />
                 </div>
-                <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--foreground)', fontFamily: 'var(--font-headings)' }}>{window.label}</h2>
+                <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--foreground)', fontFamily: 'var(--font-headings)' }}>{monthYear}</h2>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {itemsInWindow.map((item) => (
+                {groupedItems[monthYear].map((item) => (
                   <TimelineRow key={item.id} item={item} onClick={() => setSelectedItem(item)} />
                 ))}
               </div>
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
       {selectedItem && (
         <TimelineDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
@@ -173,7 +164,7 @@ function TimelineRow({ item, onClick }: { item: any, onClick: () => void }) {
         border: isEvent ? '1px solid var(--accent)' : '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
-        gap: '20px',
+        gap: '24px',
         opacity: isComplete ? 0.7 : 1,
         cursor: 'pointer',
         transition: 'all 0.2s ease',

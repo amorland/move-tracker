@@ -5,7 +5,6 @@ import { validateDates } from '@/lib/dateUtils';
 const mapToDB = (s: any) => ({
   earliest_move_date: s.earliestMoveDate,
   latest_move_date: s.latestMoveDate,
-  confirmed_move_date: s.confirmedMoveDate,
   closing_date: s.closingDate,
   is_closing_date_confirmed: s.isClosingDateConfirmed,
   upack_dropoff_date: s.upackDropoffDate,
@@ -26,7 +25,6 @@ const mapFromDB = (s: any) => ({
   id: s.id,
   earliestMoveDate: s.earliest_move_date,
   latestMoveDate: s.latest_move_date,
-  confirmedMoveDate: s.confirmed_move_date,
   closingDate: s.closing_date,
   isClosingDateConfirmed: s.is_closing_date_confirmed,
   upackDropoffDate: s.upack_dropoff_date,

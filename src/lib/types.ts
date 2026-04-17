@@ -7,7 +7,6 @@ export interface MoveSettings {
   id: number;
   earliestMoveDate: string;
   latestMoveDate: string;
-  confirmedMoveDate: string | null;
   closingDate: string | null;
   isClosingDateConfirmed: boolean;
   

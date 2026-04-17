@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
-import { Calendar, CheckCircle2, Info, Save, Clock, AlertCircle, X, Star } from 'lucide-react';
+import { Calendar, CheckCircle2, Save, X, Star } from 'lucide-react';
 import { validateDates } from '@/lib/dateUtils';
 
 export default function SettingsPage() {
@@ -26,14 +25,6 @@ export default function SettingsPage() {
     setValidationError(null);
 
     const projectedSettings = { ...settings };
-    if (projectedSettings.isClosingDateConfirmed && !projectedSettings.closingDate) projectedSettings.isClosingDateConfirmed = false;
-    if (projectedSettings.isUpackDropoffConfirmed && !projectedSettings.upackDropoffDate) projectedSettings.isUpackDropoffConfirmed = false;
-    if (projectedSettings.isUpackPickupConfirmed && !projectedSettings.upackPickupDate) projectedSettings.isUpackPickupConfirmed = false;
-    if (projectedSettings.isDriveStartConfirmed && !projectedSettings.driveStartDate) projectedSettings.isDriveStartConfirmed = false;
-    if (projectedSettings.isArrivalConfirmed && !projectedSettings.arrivalDate) projectedSettings.isArrivalConfirmed = false;
-    if (projectedSettings.isUpackDeliveryConfirmed && !projectedSettings.upackDeliveryDate) projectedSettings.isUpackDeliveryConfirmed = false;
-    if (projectedSettings.isUpackFinalPickupConfirmed && !projectedSettings.upackFinalPickupDate) projectedSettings.isUpackFinalPickupConfirmed = false;
-
     const error = validateDates(projectedSettings);
     if (error) {
       setValidationError(error);
@@ -78,12 +69,12 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 style={{ marginBottom: '4px' }}>Settings</h1>
-            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Global Configuration</p>
+            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Configurations</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           {lastSaved && (
-            <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em' }}>
+            <div style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em' }}>
               <CheckCircle2 size={18} /> SAVED
             </div>
           )}
@@ -105,35 +96,32 @@ export default function SettingsPage() {
         </div>
       )}
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
         <section>
           <div className="flex items-center gap-4 mb-8">
              <Calendar size={20} color="var(--accent)" />
-             <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Target Move Window</h2>
+             <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Move Window</h2>
           </div>
-          <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', padding: '32px', borderRadius: '16px' }}>
+          <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', padding: '32px', borderRadius: '16px', background: '#fff', border: '1px solid var(--border)' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Earliest Possible Date</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Earliest Possible</label>
               <input 
                 type="date" 
-                value={settings.earliestMoveDate} 
+                value={settings.earliestMoveDate || ''} 
                 onChange={e => setSettings({...settings, earliestMoveDate: e.target.value})} 
-                style={{ background: 'var(--background)', border: '1px solid var(--border)', height: '48px' }}
+                style={{ background: 'var(--background)', border: '1px solid var(--border)', height: '48px', width: '100%', padding: '0 16px', borderRadius: '8px' }}
               />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Latest Possible Date</label>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Latest Possible</label>
               <input 
                 type="date" 
-                value={settings.latestMoveDate} 
+                value={settings.latestMoveDate || ''} 
                 onChange={e => setSettings({...settings, latestMoveDate: e.target.value})} 
-                style={{ background: 'var(--background)', border: '1px solid var(--border)', height: '48px' }}
+                style={{ background: 'var(--background)', border: '1px solid var(--border)', height: '48px', width: '100%', padding: '0 16px', borderRadius: '8px' }}
               />
             </div>
           </div>
-          <p style={{ marginTop: '24px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
-            The target move window defines the broadest range for your relocation. Specific milestones and logistics can be managed directly from the Overview dashboard.
-          </p>
         </section>
       </div>
     </div>
