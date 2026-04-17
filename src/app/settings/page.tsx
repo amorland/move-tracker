@@ -3,10 +3,6 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-
-import { useEffect, useState } from 'react';
-import { MoveSettings } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
 import { Calendar, CheckCircle2, Info, Save, Clock, AlertCircle } from 'lucide-react';
 
 export default function SettingsPage() {
