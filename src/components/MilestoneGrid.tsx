@@ -20,7 +20,7 @@ export default function MilestoneGrid({ milestones, onEdit }: MilestoneGridProps
             padding: '24px', 
             borderRadius: 'var(--radius)', 
             background: ad.status === 'confirmed' ? 'var(--success-soft)' : ad.status === 'estimated' ? 'var(--accent-soft)' : '#fff',
-            border: ad.status === 'confirmed' ? '1px solid rgba(107, 142, 123, 0.2)' : ad.status === 'estimated' ? '1px solid rgba(212, 122, 106, 0.15)' : '1px solid var(--border)',
+            border: ad.status === 'confirmed' ? '1px solid rgba(107, 142, 123, 0.2)' : ad.status === 'estimated' ? '1px solid rgba(107, 142, 123, 0.15)' : '1px solid var(--border)',
             display: 'flex',
             flexDirection: 'column',
             gap: '10px',

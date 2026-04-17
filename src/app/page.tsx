@@ -179,9 +179,9 @@ export default function Dashboard() {
 
   const inventorySummary = [
     { label: 'TO BRING', count: bringItems.length, percent: getInventoryPercent(bringItems.length), color: 'var(--accent)', icon: <Box size={14} /> },
-    { label: 'TO SELL', count: sellItems, percent: getInventoryPercent(sellItems), color: '#8DA399', icon: <Star size={14} /> },
-    { label: 'TO DONATE', count: donateItems, percent: getInventoryPercent(donateItems), color: '#C99452', icon: <MapPin size={14} /> },
-    { label: 'TO TRASH', count: trashItems, percent: getInventoryPercent(trashItems), color: '#B07D62', icon: <Clock size={14} /> }
+    { label: 'TO SELL', count: sellItems, percent: getInventoryPercent(sellItems), color: '#8BA18E', icon: <Star size={14} /> },
+    { label: 'TO DONATE', count: donateItems, percent: getInventoryPercent(donateItems), color: '#A38C6B', icon: <MapPin size={14} /> },
+    { label: 'TO TRASH', count: trashItems, percent: getInventoryPercent(trashItems), color: '#8C7B6D', icon: <Clock size={14} /> }
   ];
 
   const milestones = getMilestones(settings);
@@ -200,12 +200,12 @@ export default function Dashboard() {
           <div style={{ 
             width: '64px', 
             height: '64px', 
-            borderRadius: '18px', 
+            borderRadius: 'var(--radius)', 
             background: 'var(--accent)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 8px 16px rgba(212, 122, 106, 0.25)'
+            boxShadow: '0 8px 16px rgba(107, 142, 123, 0.25)'
           }}>
             <Heart size={32} color="white" fill="white" />
           </div>
@@ -217,14 +217,14 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="flex gap-4">
-          <Link href="/settings" className="btn btn-secondary" style={{ gap: '8px', padding: '0 24px', height: '48px', borderRadius: '14px' }}>
+          <Link href="/settings" className="btn btn-secondary" style={{ gap: '8px', padding: '0 24px', height: '48px', borderRadius: '12px' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>settings</span>
             Settings
           </Link>
           <div 
             onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
             className="badge badge-info card-hover-effect" 
-            style={{ height: '48px', padding: '0 24px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderRadius: '14px' }}
+            style={{ height: '48px', padding: '0 24px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderRadius: '12px' }}
           >
              <CalendarIcon size={18} />
              <span style={{ fontWeight: 700 }}>{format(parseISO(moveDateStr), 'MMMM d, yyyy')}</span>
@@ -243,12 +243,12 @@ export default function Dashboard() {
             {stages.map((stage, idx) => (
               <div key={stage.name} style={{ display: 'flex', alignItems: 'center', flex: idx === stages.length - 1 ? 'none' : 1 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', position: 'relative' }}>
-                  <div className={`progress-node ${stage.status === 'complete' ? 'complete' : stage.status === 'current' ? 'current' : ''}`} style={{ width: '64px', height: '64px' }}>
+                  <div className={`progress-node ${stage.status === 'complete' ? 'complete' : stage.status === 'current' ? 'current' : ''}`} style={{ width: '64px', height: '64px', borderRadius: '14px' }}>
                     <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>{stage.icon}</span>
                   </div>
                   <span style={{ 
                     fontSize: '14px', 
-                    fontWeight: 700, 
+                    fontWeight: 600, 
                     fontFamily: 'var(--font-headings)',
                     color: stage.status === 'pending' ? 'var(--text-secondary)' : 'var(--foreground)', 
                     letterSpacing: '0.02em', 

@@ -1,22 +1,22 @@
 :root {
-  --background: #fdfbf7;
-  --foreground: #3a3533;
+  --background: #faf9f6;
+  --foreground: #2c2e2c;
   --sidebar-bg: #ffffff;
   --card-bg: #ffffff;
-  --accent: #d47a6a;
-  --accent-soft: #f5e9e4;
-  --success: #6b8e7b;
-  --success-soft: #e8f0ea;
-  --warning: #c99452;
-  --text-secondary: #7a7471;
-  --border: #e8e0d5;
+  --accent: #6b8e7b;
+  --accent-soft: #eff4f1;
+  --success: #5a7d6a;
+  --success-soft: #e9f0ec;
+  --warning: #b59a6d;
+  --text-secondary: #6d736d;
+  --border: #e2e6e2;
   --sidebar-width: 280px;
   --header-height: 72px;
-  --radius: 16px;
-  --shadow-sm: 0 2px 4px rgba(58, 53, 51, 0.04);
-  --shadow-md: 0 6px 16px rgba(58, 53, 51, 0.08);
+  --radius: 12px;
+  --shadow-sm: 0 2px 4px rgba(44, 46, 44, 0.04);
+  --shadow-md: 0 6px 16px rgba(44, 46, 44, 0.08);
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-headings: 'Quicksand', 'Inter', sans-serif;
+  --font-headings: 'Lora', 'serif';
 }
 
 * {
@@ -59,7 +59,7 @@ body {
 /* Header */
 .header {
   height: var(--header-height);
-  background: rgba(253, 251, 247, 0.85);
+  background: rgba(250, 249, 246, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -219,20 +219,20 @@ body {
 
 h1 {
   font-family: var(--font-headings);
-  font-size: 38px;
-  font-weight: 700;
+  font-size: 34px;
+  font-weight: 600;
   color: var(--foreground);
   margin-bottom: 8px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 h2 {
   font-family: var(--font-headings);
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 600;
   color: var(--foreground);
   margin-bottom: 16px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 
 .section-subtitle {

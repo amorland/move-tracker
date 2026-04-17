@@ -89,7 +89,7 @@ export default function TimelinePage() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 8px 16px rgba(212, 122, 106, 0.25)'
+            boxShadow: '0 8px 16px rgba(107, 142, 123, 0.25)'
           }}>
             <Heart size={32} color="white" fill="white" />
           </div>
@@ -147,7 +147,7 @@ export default function TimelinePage() {
                 }}>
                   <span className="material-symbols-outlined" style={{ fontSize: '22px', color: 'var(--accent)' }}>{window.icon}</span>
                 </div>
-                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--accent)', fontFamily: 'var(--font-headings)' }}>{window.label}</h2>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--accent)', fontFamily: 'var(--font-headings)' }}>{window.label}</h2>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -160,14 +160,14 @@ export default function TimelinePage() {
                   return (
                     <div key={item.id} style={{ 
                       padding: isAnchor ? '20px 24px' : '16px 24px', 
-                      borderRadius: '16px',
-                      background: isAnchor ? (isConfirmed ? 'var(--success-soft)' : '#fff') : (isComplete ? 'rgba(232, 224, 213, 0.2)' : 'white'),
+                      borderRadius: 'var(--radius)',
+                      background: isAnchor ? (isConfirmed ? 'var(--success-soft)' : '#fff') : (isComplete ? 'rgba(107, 142, 123, 0.08)' : 'white'),
                       border: isAnchor ? (isConfirmed ? '1px solid rgba(107, 142, 123, 0.2)' : '1px solid var(--border)') : (isComplete ? '1px solid transparent' : '1px solid var(--border)'),
                       boxShadow: (isAnchor || isComplete) ? 'none' : 'var(--shadow-sm)',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '20px',
-                      opacity: isComplete ? 0.5 : 1,
+                      opacity: isComplete ? 0.6 : 1,
                       transition: 'all 0.2s ease'
                     }}>
                       <div style={{ flex: 1, minWidth: 0 }}>

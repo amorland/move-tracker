@@ -148,7 +148,7 @@ export default function SettingsPage() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 8px 16px rgba(212, 122, 106, 0.25)'
+            boxShadow: '0 8px 16px rgba(107, 142, 123, 0.25)'
           }}>
             <Heart size={32} color="white" fill="white" />
           </div>
@@ -296,7 +296,7 @@ export default function SettingsPage() {
             <div>
               <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--foreground)', fontFamily: 'var(--font-headings)' }}>Logistics Management</div>
               <div style={{ fontSize: '15px', color: 'var(--text-secondary)', marginTop: '10px', lineHeight: '1.7', maxWidth: '850px' }}>
-                Type dates directly in <strong>YYYY-MM-DD</strong> format for speed, or click the terracotta calendar icon to select. Toggle <strong>Set as Confirmed</strong> once you have definitive dates to lock them in across your Starland Moving hub and Timeline.
+                Type dates directly in <strong>YYYY-MM-DD</strong> format for speed, or click the sage calendar icon to select. Toggle <strong>Set as Confirmed</strong> once you have definitive dates to lock them in across your Starland Moving hub and Timeline.
               </div>
             </div>
           </div>
