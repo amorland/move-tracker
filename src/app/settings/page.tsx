@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings } from '@/lib/types';
-import { Calendar, CheckCircle2, Save, X, Star } from 'lucide-react';
+import { CheckCircle2, Save, X, Star, Info } from 'lucide-react';
 import { validateDates } from '@/lib/dateUtils';
 
 export default function SettingsPage() {
@@ -24,8 +24,7 @@ export default function SettingsPage() {
     setSaving(true);
     setValidationError(null);
 
-    const projectedSettings = { ...settings };
-    const error = validateDates(projectedSettings);
+    const error = validateDates(settings);
     if (error) {
       setValidationError(error);
       setSaving(false);
@@ -49,7 +48,7 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading settings...</div>;
+  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Settings...</div>;
 
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '100px' }}>
@@ -74,7 +73,7 @@ export default function SettingsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           {lastSaved && (
-            <div style={{ fontSize: '13px', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em' }}>
+            <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', letterSpacing: '0.05em' }}>
               <CheckCircle2 size={18} /> SAVED
             </div>
           )}
@@ -97,32 +96,17 @@ export default function SettingsPage() {
       )}
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
-        <section>
-          <div className="flex items-center gap-4 mb-8">
-             <Calendar size={20} color="var(--accent)" />
-             <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Move Window</h2>
-          </div>
-          <div className="card" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', padding: '32px', borderRadius: '16px', background: '#fff', border: '1px solid var(--border)' }}>
+        <div className="card" style={{ background: '#fff', border: '1px solid var(--border)', padding: '48px', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
+          <div className="flex items-start gap-8">
+            <Info size={32} color="var(--accent)" />
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Earliest Possible</label>
-              <input 
-                type="date" 
-                value={settings.earliestMoveDate || ''} 
-                onChange={e => setSettings({...settings, earliestMoveDate: e.target.value})} 
-                style={{ background: 'var(--background)', border: '1px solid var(--border)', height: '48px', width: '100%', padding: '0 16px', borderRadius: '8px' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.1em' }}>Latest Possible</label>
-              <input 
-                type="date" 
-                value={settings.latestMoveDate || ''} 
-                onChange={e => setSettings({...settings, latestMoveDate: e.target.value})} 
-                style={{ background: 'var(--background)', border: '1px solid var(--border)', height: '48px', width: '100%', padding: '0 16px', borderRadius: '8px' }}
-              />
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', fontFamily: 'var(--font-headings)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>System Status</div>
+              <div style={{ fontSize: '15px', color: 'var(--text-secondary)', marginTop: '16px', lineHeight: '1.8', maxWidth: '850px', fontWeight: 400 }}>
+                All move milestones, U-Pack dates, and house closing logistics are now managed directly through the <strong>Narrative Timeline</strong> on the Overview dashboard. No further global configuration is required here.
+              </div>
             </div>
           </div>
-        </section>
+        </div>
       </div>
     </div>
   );

@@ -1,26 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
-const mapToDB = (item: any) => ({
-  room: item.room,
-  item_name: item.itemName,
-  action: item.action,
-  status: item.status,
-  notes: item.notes,
-  priority: item.priority
-});
-
-const mapFromDB = (item: any) => ({
-  id: item.id,
-  room: item.room,
-  itemName: item.item_name,
-  action: item.action,
-  status: item.status,
-  notes: item.notes,
-  priority: item.priority,
-  createdAt: item.created_at
-});
-
 export async function GET() {
   const { data, error } = await supabase
     .from('packing_items')
@@ -28,22 +8,23 @@ export async function GET() {
     .order('room', { ascending: true });
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data.map(mapFromDB));
+  return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const dbItem = mapToDB(body);
-    
     const { data, error } = await supabase
       .from('packing_items')
-      .insert([dbItem])
+      .insert([{
+        ...body,
+        createdAt: new Date().toISOString()
+      }])
       .select()
       .single();
       
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(mapFromDB(data));
+    return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
@@ -52,18 +33,17 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id } = body;
-    const dbItem = mapToDB(body);
+    const { id, ...updateData } = body;
 
     const { data, error } = await supabase
       .from('packing_items')
-      .update(dbItem)
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();
       
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json(mapFromDB(data));
+    return NextResponse.json(data);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

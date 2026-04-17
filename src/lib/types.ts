@@ -5,8 +5,6 @@ export type TimingType = 'Fixed' | 'Before Move' | 'After Move' | 'Before Closin
 
 export interface MoveSettings {
   id: number;
-  earliestMoveDate: string;
-  latestMoveDate: string;
   closingDate: string | null;
   isClosingDateConfirmed: boolean;
   
