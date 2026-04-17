@@ -42,7 +42,6 @@ export const validateDates = (settings: Partial<MoveSettings>): string | null =>
   const arrivalDate = settings.arrivalDate || null;
   const upackDeliveryDate = settings.upackDeliveryDate || null;
   const upackFinalPickupDate = settings.upackFinalPickupDate || null;
-  const confirmedMoveDate = settings.confirmedMoveDate || null;
 
   // Rule: A date cannot be confirmed if it is not set.
   if (settings.isClosingDateConfirmed && !closingDate) return "House Closing date must be set before it can be confirmed.";
@@ -53,45 +52,34 @@ export const validateDates = (settings: Partial<MoveSettings>): string | null =>
   if (settings.isUpackDeliveryConfirmed && !upackDeliveryDate) return "U-Pack Delivery date must be set before it can be confirmed.";
   if (settings.isUpackFinalPickupConfirmed && !upackFinalPickupDate) return "Final Pickup date must be set before it can be confirmed.";
 
+  // TRANSITIVE RULES: Only enforced if BOTH sides are confirmed.
+  
   // U-Pack rules
-  if (upackDropoffDate && upackPickupDate) {
+  if (settings.isUpackDropoffConfirmed && settings.isUpackPickupConfirmed && upackDropoffDate && upackPickupDate) {
     const dropoff = parseISO(upackDropoffDate);
     const pickup = parseISO(upackPickupDate);
-    
-    // Rule: U-Pack dropoff must be before U-Pack pickup.
-    if (!isBefore(dropoff, pickup)) return "U-Pack dropoff must be before U-Pack pickup.";
-    
-    // Rule: U-Pack pickup must be 3 days after U-Pack dropoff.
-    if (differenceInDays(pickup, dropoff) !== 3) return "U-Pack pickup must be exactly 3 days after U-Pack dropoff.";
+    if (!isBefore(dropoff, pickup)) return "CONFIRMED ERROR: U-Pack dropoff must be before U-Pack pickup.";
+    if (differenceInDays(pickup, dropoff) !== 3) return "CONFIRMED ERROR: U-Pack pickup must be exactly 3 days after U-Pack dropoff.";
   }
 
   // Drive & Closing rules
-  if (driveStartDate && closingDate) {
-    // Rule: Drive start must be before house closing.
-    if (!isBefore(parseISO(driveStartDate), parseISO(closingDate))) return "Drive start must be before house closing.";
+  if (settings.isDriveStartConfirmed && settings.isClosingDateConfirmed && driveStartDate && closingDate) {
+    if (!isBefore(parseISO(driveStartDate), parseISO(closingDate))) return "CONFIRMED ERROR: Drive start must be before house closing.";
   }
 
-  if (arrivalDate && closingDate) {
-    // Rule: Arrival must be before house closing.
-    if (!isBefore(parseISO(arrivalDate), parseISO(closingDate))) return "Arrival must be before house closing.";
+  if (settings.isArrivalConfirmed && settings.isClosingDateConfirmed && arrivalDate && closingDate) {
+    if (!isBefore(parseISO(arrivalDate), parseISO(closingDate))) return "CONFIRMED ERROR: Arrival must be before house closing.";
   }
 
   // Delivery rules
-  if (upackDeliveryDate && closingDate) {
-    // Rule: U-Pack delivery must be after house closing.
-    if (!isBefore(parseISO(closingDate), parseISO(upackDeliveryDate)) && !isEqual(parseISO(closingDate), parseISO(upackDeliveryDate))) {
-       // Allow same day? Prompt says "after", usually means strictly after or same day is okay? 
-       // "U-Pack delivery must be after house closing" - usually means closing first.
-    }
-    if (isBefore(parseISO(upackDeliveryDate), parseISO(closingDate))) return "U-Pack delivery must be after house closing.";
+  if (settings.isUpackDeliveryConfirmed && settings.isClosingDateConfirmed && upackDeliveryDate && closingDate) {
+    if (isBefore(parseISO(upackDeliveryDate), parseISO(closingDate))) return "CONFIRMED ERROR: U-Pack delivery must be after house closing.";
   }
 
-  if (upackFinalPickupDate && upackDeliveryDate) {
+  if (settings.isUpackFinalPickupConfirmed && settings.isUpackDeliveryConfirmed && upackFinalPickupDate && upackDeliveryDate) {
     const delivery = parseISO(upackDeliveryDate);
     const finalPickup = parseISO(upackFinalPickupDate);
-    
-    // Rule: Final pickup must be 3 days after U-Pack delivery (NY).
-    if (differenceInDays(finalPickup, delivery) !== 3) return "Final pickup must be exactly 3 days after U-Pack delivery.";
+    if (differenceInDays(finalPickup, delivery) !== 3) return "CONFIRMED ERROR: Final pickup must be exactly 3 days after U-Pack delivery.";
   }
 
   return null;
