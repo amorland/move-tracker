@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
-import { format, parseISO, differenceInDays, addDays, isValid } from 'date-fns';
+import { format, parseISO, differenceInDays, addDays } from 'date-fns';
 import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -29,7 +29,8 @@ export default function Dashboard() {
       fetch('/api/categories'),
       fetch('/api/packing')
     ]);
-    setSettings(await settingsRes.json());
+    const settingsData = await settingsRes.json();
+    setSettings(settingsData);
     setData(await categoriesRes.json());
     setPackingItems(await packingRes.json());
     setLoading(false);
@@ -48,7 +49,6 @@ export default function Dashboard() {
       setTempConfirmed(!!settings[key]);
     } else {
       const confirmKey = `is${key.charAt(0).toUpperCase()}${key.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
-      // Special mapping for field names that don't follow the pattern exactly
       let actualConfirmKey = confirmKey;
       if (key === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
       if (key === 'upackDropoffDate') actualConfirmKey = 'isUpackDropoffConfirmed';
@@ -67,10 +67,10 @@ export default function Dashboard() {
   const saveQuickDate = async () => {
     if (!settings || !activeDateKey) return;
     
-    const updatedSettings = { ...settings, [activeDateKey]: tempDate || null };
+    // Create update object
+    const updatePayload: any = { [activeDateKey]: tempDate || null };
     
     if (activeDateKey !== 'confirmedMoveDate') {
-      // Map confirmation key
       let actualConfirmKey = `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
       if (activeDateKey === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
       if (activeDateKey === 'upackDropoffDate') actualConfirmKey = 'isUpackDropoffConfirmed';
@@ -80,19 +80,22 @@ export default function Dashboard() {
       if (activeDateKey === 'upackDeliveryDate') actualConfirmKey = 'isUpackDeliveryConfirmed';
       if (activeDateKey === 'upackFinalPickupDate') actualConfirmKey = 'isUpackFinalPickupConfirmed';
       
-      // @ts-ignore
-      updatedSettings[actualConfirmKey] = tempConfirmed;
+      updatePayload[actualConfirmKey] = tempConfirmed;
     }
 
     const res = await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedSettings)
+      body: JSON.stringify(updatePayload)
     });
 
     if (res.ok) {
-      setSettings(updatedSettings);
+      // Update local state by merging
+      setSettings({ ...settings, ...updatePayload });
       setIsDateModalOpen(false);
+    } else {
+      const err = await res.json();
+      alert(`Error saving date: ${err.error || 'Unknown error'}`);
     }
   };
 
@@ -314,7 +317,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '32px', alignItems: 'start' }}>
+        <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'start' }}>
           
           {/* Inventory Summary Card */}
           <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-md)' }}>
@@ -415,7 +418,6 @@ export default function Dashboard() {
                   <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
                     <CheckCircle2 size={32} color="var(--success)" />
                   </div>
-
                   <div style={{ fontSize: '18px', color: 'var(--foreground)', fontWeight: 800, marginBottom: '8px' }}>Move Plan Clear!</div>
                   <div style={{ fontSize: '15px', color: 'var(--text-secondary)', fontWeight: 500 }}>All active priorities have been completed.</div>
                 </div>
