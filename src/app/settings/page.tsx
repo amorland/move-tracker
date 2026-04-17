@@ -25,7 +25,16 @@ export default function SettingsPage() {
     setSaving(true);
     setValidationError(null);
 
-    const error = validateDates(settings);
+    const projectedSettings = { ...settings };
+    if (projectedSettings.isClosingDateConfirmed && !projectedSettings.closingDate) projectedSettings.isClosingDateConfirmed = false;
+    if (projectedSettings.isUpackDropoffConfirmed && !projectedSettings.upackDropoffDate) projectedSettings.isUpackDropoffConfirmed = false;
+    if (projectedSettings.isUpackPickupConfirmed && !projectedSettings.upackPickupDate) projectedSettings.isUpackPickupConfirmed = false;
+    if (projectedSettings.isDriveStartConfirmed && !projectedSettings.driveStartDate) projectedSettings.isDriveStartConfirmed = false;
+    if (projectedSettings.isArrivalConfirmed && !projectedSettings.arrivalDate) projectedSettings.isArrivalConfirmed = false;
+    if (projectedSettings.isUpackDeliveryConfirmed && !projectedSettings.upackDeliveryDate) projectedSettings.isUpackDeliveryConfirmed = false;
+    if (projectedSettings.isUpackFinalPickupConfirmed && !projectedSettings.upackFinalPickupDate) projectedSettings.isUpackFinalPickupConfirmed = false;
+
+    const error = validateDates(projectedSettings);
     if (error) {
       setValidationError(error);
       setSaving(false);

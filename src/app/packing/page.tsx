@@ -42,6 +42,9 @@ export default function InventoryPage() {
     if (res.ok) {
       setIsModalOpen(false);
       fetchItems();
+    } else {
+      const err = await res.json();
+      alert(`Error saving item: ${err.error || 'Unknown error'}`);
     }
   };
 

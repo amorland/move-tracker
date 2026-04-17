@@ -37,6 +37,16 @@ export default function Dashboard() {
       fetch('/api/packing')
     ]);
     const settingsData = await settingsRes.json();
+    
+    // EMERGENCY CLEANUP (Frontend): Sanitize state to avoid validation deadlock
+    if (settingsData.isClosingDateConfirmed && !settingsData.closingDate) settingsData.isClosingDateConfirmed = false;
+    if (settingsData.isUpackDropoffConfirmed && !settingsData.upackDropoffDate) settingsData.isUpackDropoffConfirmed = false;
+    if (settingsData.isUpackPickupConfirmed && !settingsData.upackPickupDate) settingsData.isUpackPickupConfirmed = false;
+    if (settingsData.isDriveStartConfirmed && !settingsData.driveStartDate) settingsData.isDriveStartConfirmed = false;
+    if (settingsData.isArrivalConfirmed && !settingsData.arrivalDate) settingsData.isArrivalConfirmed = false;
+    if (settingsData.isUpackDeliveryConfirmed && !settingsData.upackDeliveryDate) settingsData.isUpackDeliveryConfirmed = false;
+    if (settingsData.isUpackFinalPickupConfirmed && !settingsData.upackFinalPickupDate) settingsData.isUpackFinalPickupConfirmed = false;
+
     setSettings(settingsData);
     setData(await categoriesRes.json());
     setPackingItems(await packingRes.json());
@@ -99,6 +109,16 @@ export default function Dashboard() {
     }
 
     const projectedSettings = { ...settings, ...updatePayload };
+    
+    // Sanitize projected settings before validation to avoid being blocked by other invalid dates
+    if (projectedSettings.isClosingDateConfirmed && !projectedSettings.closingDate) projectedSettings.isClosingDateConfirmed = false;
+    if (projectedSettings.isUpackDropoffConfirmed && !projectedSettings.upackDropoffDate) projectedSettings.isUpackDropoffConfirmed = false;
+    if (projectedSettings.isUpackPickupConfirmed && !projectedSettings.upackPickupDate) projectedSettings.isUpackPickupConfirmed = false;
+    if (projectedSettings.isDriveStartConfirmed && !projectedSettings.driveStartDate) projectedSettings.isDriveStartConfirmed = false;
+    if (projectedSettings.isArrivalConfirmed && !projectedSettings.arrivalDate) projectedSettings.isArrivalConfirmed = false;
+    if (projectedSettings.isUpackDeliveryConfirmed && !projectedSettings.upackDeliveryDate) projectedSettings.isUpackDeliveryConfirmed = false;
+    if (projectedSettings.isUpackFinalPickupConfirmed && !projectedSettings.upackFinalPickupDate) projectedSettings.isUpackFinalPickupConfirmed = false;
+
     const ruleError = validateDates(projectedSettings);
     if (ruleError) {
       setValidationError(ruleError);
