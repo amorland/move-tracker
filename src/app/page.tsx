@@ -73,14 +73,9 @@ export default function Dashboard() {
     setValidationError(null);
     // @ts-ignore
     setTempDate(settings[key] || '');
-    if (key === 'confirmedMoveDate') {
-      // @ts-ignore
-      setTempConfirmed(!!settings[key]);
-    } else {
-      const actualConfirmKey = getActualConfirmKey(key);
-      // @ts-ignore
-      setTempConfirmed(!!settings[actualConfirmKey]);
-    }
+    const actualConfirmKey = getActualConfirmKey(key);
+    // @ts-ignore
+    setTempConfirmed(!!settings[actualConfirmKey]);
     setIsDateModalOpen(true);
   };
 
@@ -88,25 +83,17 @@ export default function Dashboard() {
     if (!settings || !activeDateKey) return;
     const normalizedDate = (tempDate && tempDate.trim()) ? tempDate.trim() : null;
     const updatePayload: any = { [activeDateKey]: normalizedDate };
+    const actualConfirmKey = getActualConfirmKey(activeDateKey);
     
-    if (activeDateKey === 'confirmedMoveDate') {
-      if (tempConfirmed && !normalizedDate) {
-        setValidationError("Final move date cannot be confirmed without a date.");
-        return;
-      }
-      updatePayload[activeDateKey] = tempConfirmed ? normalizedDate : null;
-    } else {
-      const actualConfirmKey = getActualConfirmKey(activeDateKey);
-      if (tempConfirmed && !normalizedDate) {
-        setValidationError(`${activeDateLabel} cannot be confirmed without a date.`);
-        return;
-      }
-      updatePayload[actualConfirmKey] = tempConfirmed;
+    if (tempConfirmed && !normalizedDate) {
+      setValidationError(`${activeDateLabel} cannot be confirmed without a date.`);
+      return;
     }
+    updatePayload[actualConfirmKey] = tempConfirmed;
 
     const projectedSettings = { ...settings, ...updatePayload };
     
-    // Sanitize projected settings before validation to avoid being blocked by other invalid dates
+    // Sanitize projected settings before validation
     if (projectedSettings.isClosingDateConfirmed && !projectedSettings.closingDate) projectedSettings.isClosingDateConfirmed = false;
     if (projectedSettings.isUpackDropoffConfirmed && !projectedSettings.upackDropoffDate) projectedSettings.isUpackDropoffConfirmed = false;
     if (projectedSettings.isUpackPickupConfirmed && !projectedSettings.upackPickupDate) projectedSettings.isUpackPickupConfirmed = false;
@@ -157,21 +144,15 @@ export default function Dashboard() {
     fetchData();
   };
 
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland hub...</div>;
+  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Hub...</div>;
 
   const completedTasks = data.tasks.filter(t => t.status === 'Complete').length;
   const totalTasks = data.tasks.length;
   const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
   
-  const moveDateStr = settings.confirmedMoveDate;
-  const daysToMove = moveDateStr ? differenceInDays(parseISO(moveDateStr), new Date()) : null;
-
   const bringItems = packingItems.filter(i => i.action === 'Bring');
   const resolvedItems = packingItems.filter(i => i.status === 'Resolved');
   const resolutionProgress = packingItems.length > 0 ? Math.round((resolvedItems.length / packingItems.length) * 100) : 0;
-
-  const totalItems = packingItems.length;
-  const getInventoryPercent = (count: number) => totalItems > 0 ? Math.round((count / totalItems) * 100) : 0;
 
   const inventorySummary = [
     { label: 'BRING', count: bringItems.length, resolved: bringItems.filter(i => i.status === 'Resolved').length, color: 'var(--accent)', icon: <Box size={14} /> },
@@ -212,16 +193,6 @@ export default function Dashboard() {
             <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Andrew & Tory’s Relocation Hub</p>
           </div>
         </div>
-        <div className="flex gap-4">
-          <div 
-            onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
-            className="badge badge-info card-hover-effect" 
-            style={{ height: '48px', padding: '0 24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderRadius: 'var(--radius)', background: 'var(--accent-soft)', color: 'var(--foreground)', border: 'none' }}
-          >
-             <CalendarIcon size={18} />
-             <span style={{ fontWeight: 600, letterSpacing: '0.05em' }}>{moveDateStr ? format(parseISO(moveDateStr), 'MMMM d, yyyy').toUpperCase() : 'DATE TBD'}</span>
-          </div>
-        </div>
       </div>
       
       <div className="card" style={{ padding: '80px 48px', marginBottom: '64px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', position: 'relative', overflow: 'hidden', background: '#fff', borderRadius: 'var(--radius)' }}>
@@ -253,15 +224,6 @@ export default function Dashboard() {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
               <span style={{ fontSize: '72px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, letterSpacing: '-0.02em' }}>{progress}%</span>
               <span style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Complete</span>
-            </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div onClick={() => openDateModal('confirmedMoveDate', 'Move Date')} style={{ fontSize: '32px', fontWeight: 600, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, marginBottom: '12px', letterSpacing: '0.05em', textTransform: 'uppercase', cursor: 'pointer' }} className="hover-opacity">
-              {daysToMove !== null ? (daysToMove > 0 ? `${daysToMove} Days` : daysToMove === 0 ? "Move Day" : 'Complete') : 'DATE UNSET'}
-            </div>
-            <div onClick={() => openDateModal('confirmedMoveDate', 'Move Date')} className="flex items-center gap-2 justify-end" style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              {settings.confirmedMoveDate ? <CheckCircle2 size={14} color="var(--accent)" /> : <Clock size={14} />}
-              <span>{settings.confirmedMoveDate ? 'Confirmed' : 'Estimated'}</span>
             </div>
           </div>
         </div>
@@ -389,51 +351,72 @@ export default function Dashboard() {
   );
 }
 
-// Wrapper for reusing TaskModal logic from Tasks page but with some customization if needed
 function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial<Task>, onClose: () => void, onSave: (t: Partial<Task>) => void, categories: Category[] }) {
   const [editing, setEditing] = useState(task);
+
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
       <div className="card" style={{ width: '100%', maxWidth: '500px', padding: 0, overflow: 'hidden', borderRadius: '16px' }}>
         <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
-          <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, letterSpacing: '0.1em' }}>EDIT TASK</h2>
+          <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>{task.id ? 'Edit Task' : 'New Task'}</h2>
           <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
         </div>
         <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff', maxHeight: '70vh', overflowY: 'auto' }}>
           <div>
             <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Title</label>
-            <input value={editing.title || ''} onChange={e => setEditing({...editing, title: e.target.value})} />
+            <input value={editing.title || ''} onChange={e => setEditing({...editing, title: e.target.value})} placeholder="e.g. Schedule move-out help" />
           </div>
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Status</label>
-              <select value={editing.status} onChange={e => setEditing({...editing, status: e.target.value as any})}>
-                <option value="Not Started">Not Started</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Complete">Complete</option>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Category</label>
+              <select value={editing.categoryId} onChange={e => setEditing({...editing, categoryId: parseInt(e.target.value)})}>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Phase</label>
-              <select value={editing.phase} onChange={e => setEditing({...editing, phase: e.target.value as any})}>
-                <option value="Move Out">Move Out</option>
-                <option value="Move In">Move In</option>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Owner</label>
+              <select value={editing.owner} onChange={e => setEditing({...editing, owner: e.target.value as any})}>
+                <option value="Andrew">Andrew</option>
+                <option value="Tory">Tory</option>
                 <option value="Both">Both</option>
               </select>
             </div>
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Due Date</label>
+              <input type="date" value={editing.dueDate || ''} onChange={e => setEditing({...editing, dueDate: e.target.value || null})} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Completion Date</label>
+              <input type="date" value={editing.completionDate || ''} onChange={e => setEditing({...editing, completionDate: e.target.value || null})} />
+            </div>
+          </div>
+
+          <div style={{ padding: '20px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Scheduled Event</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Event Date</label>
+                <input type="date" value={editing.scheduledEventDate || ''} onChange={e => setEditing({...editing, scheduledEventDate: e.target.value || null})} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Time Window</label>
+                <input value={editing.scheduledEventTimeWindow || ''} onChange={e => setEditing({...editing, scheduledEventTimeWindow: e.target.value})} placeholder="e.g. 12pm - 4pm" />
+              </div>
+            </div>
+          </div>
+
           <div>
-            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Owner</label>
-            <select value={editing.owner} onChange={e => setEditing({...editing, owner: e.target.value as any})}>
-              <option value="Andrew">Andrew</option>
-              <option value="Tory">Tory</option>
-              <option value="Both">Both</option>
-            </select>
+            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
+            <textarea value={editing.notes || ''} onChange={e => setEditing({...editing, notes: e.target.value})} style={{ height: '80px', resize: 'none' }} />
           </div>
         </div>
         <div style={{ padding: '24px 32px', background: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => onSave(editing)}>Save</button>
+          <button className="btn btn-primary" onClick={() => onSave(editing)}>Save Task</button>
         </div>
       </div>
     </div>

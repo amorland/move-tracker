@@ -1,58 +1,64 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
+const mapToDB = (loc: any) => ({
+  name: loc.name,
+  address: loc.address,
+  notes: loc.notes,
+  category: loc.category,
+  lat: loc.lat,
+  lng: loc.lng
+});
+
+const mapFromDB = (loc: any) => ({
+  id: loc.id,
+  name: loc.name,
+  address: loc.address,
+  notes: loc.notes,
+  category: loc.category,
+  lat: loc.lat,
+  lng: loc.lng,
+  createdAt: loc.created_at
+});
+
 export async function GET() {
   const { data, error } = await supabase
     .from('locations')
     .select('*')
-    .order('createdAt', { ascending: true });
+    .order('id', { ascending: true });
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(data.map(mapFromDB));
 }
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { name, address, notes, category, lat, lng } = body;
+  const dbLoc = mapToDB(body);
   
   const { data, error } = await supabase
     .from('locations')
-    .insert([{
-      name,
-      address,
-      notes: notes || null,
-      category,
-      lat: lat || null,
-      lng: lng || null,
-      createdAt: new Date().toISOString()
-    }])
+    .insert([dbLoc])
     .select()
     .single();
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(mapFromDB(data));
 }
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { id, name, address, notes, category, lat, lng } = body;
+  const { id } = body;
+  const dbLoc = mapToDB(body);
   
   const { data, error } = await supabase
     .from('locations')
-    .update({
-      name,
-      address,
-      notes,
-      category,
-      lat,
-      lng
-    })
+    .update(dbLoc)
     .eq('id', id)
     .select()
     .single();
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(mapFromDB(data));
 }
 
 export async function DELETE(request: Request) {

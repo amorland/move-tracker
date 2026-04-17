@@ -1,6 +1,26 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
+const mapToDB = (item: any) => ({
+  room: item.room,
+  item_name: item.itemName,
+  action: item.action,
+  status: item.status,
+  notes: item.notes,
+  priority: item.priority
+});
+
+const mapFromDB = (item: any) => ({
+  id: item.id,
+  room: item.room,
+  itemName: item.item_name,
+  action: item.action,
+  status: item.status,
+  notes: item.notes,
+  priority: item.priority,
+  createdAt: item.created_at
+});
+
 export async function GET() {
   const { data, error } = await supabase
     .from('packing_items')
@@ -8,37 +28,23 @@ export async function GET() {
     .order('room', { ascending: true });
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(data.map(mapFromDB));
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { room, itemName, action, status, notes, priority } = body;
+    const dbItem = mapToDB(body);
     
-    console.log('API: Creating inventory item:', body);
-
     const { data, error } = await supabase
       .from('packing_items')
-      .insert([{
-        room,
-        itemName: itemName, // Quoted internally by Supabase JS if using this key
-        action: action || 'Bring',
-        status: status || 'Unresolved',
-        notes: notes || null,
-        priority: priority || 'Medium',
-        createdAt: new Date().toISOString()
-      }])
+      .insert([dbItem])
       .select()
       .single();
       
-    if (error) {
-      console.error('Supabase error creating item:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json(data);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(mapFromDB(data));
   } catch (err: any) {
-    console.error('API Error in POST /api/packing:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
@@ -46,31 +52,19 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id, room, itemName, action, status, notes, priority } = body;
-    
-    console.log('API: Updating inventory item:', id, body);
+    const { id } = body;
+    const dbItem = mapToDB(body);
 
     const { data, error } = await supabase
       .from('packing_items')
-      .update({
-        room,
-        itemName,
-        action,
-        status,
-        notes,
-        priority
-      })
+      .update(dbItem)
       .eq('id', id)
       .select()
       .single();
       
-    if (error) {
-      console.error('Supabase error updating item:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    return NextResponse.json(data);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(mapFromDB(data));
   } catch (err: any) {
-    console.error('API Error in PATCH /api/packing:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

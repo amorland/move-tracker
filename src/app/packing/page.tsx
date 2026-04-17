@@ -28,13 +28,7 @@ export default function InventoryPage() {
   const fetchItems = async () => {
     const res = await fetch('/api/packing');
     const data = await res.json();
-    // Normalize keys in case API returns snake_case
-    const normalized = data.map((i: any) => ({
-      ...i,
-      itemName: i.itemName || i.item_name,
-      createdAt: i.createdAt || i.created_at
-    }));
-    setItems(normalized);
+    setItems(data);
     setLoading(false);
   };
 

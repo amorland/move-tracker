@@ -7,7 +7,7 @@ export const getStatus = (date: string | null, isConfirmed: boolean) => {
 };
 
 export interface Milestone {
-  key: keyof MoveSettings | 'confirmedMoveDate';
+  key: keyof MoveSettings;
   label: string;
   date: string | null;
   confirmed: boolean;
@@ -43,14 +43,13 @@ export const validateDates = (settings: Partial<MoveSettings>): string | null =>
   const upackFinalPickupDate = settings.upackFinalPickupDate || null;
 
   // Rule: A date cannot be confirmed if it is not set.
-  // We use strict true check to avoid issues with undefined/null or truthy strings
   if (settings.isClosingDateConfirmed === true && !closingDate) return "House Closing date must be set before it can be confirmed.";
   if (settings.isUpackDropoffConfirmed === true && !upackDropoffDate) return "U-Pack Dropoff date must be set before it can be confirmed.";
   if (settings.isUpackPickupConfirmed === true && !upackPickupDate) return "U-Pack Pickup date must be set before it can be confirmed.";
   if (settings.isDriveStartConfirmed === true && !driveStartDate) return "Drive Start date must be set before it can be confirmed.";
   if (settings.isArrivalConfirmed === true && !arrivalDate) return "Arrival date must be set before it can be confirmed.";
   if (settings.isUpackDeliveryConfirmed === true && !upackDeliveryDate) return "U-Pack Delivery date must be set before it can be confirmed.";
-  if (settings.isUpackFinalPickupConfirmed === true && !upackFinalPickupDate) return "Final Pickup date must be set before it can be confirmed.";
+  if (settings.isUpackFinalPickupConfirmed === true && !upackFinalPickupDate) return "U-Pack Final Pickup date must be set before it can be confirmed.";
 
   // TRANSITIVE RULES: Only enforced if BOTH sides are confirmed.
   
