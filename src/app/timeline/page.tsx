@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Task, Category } from '@/lib/types';
 import { addDays, format, parseISO, differenceInDays } from 'date-fns';
-import { CheckCircle2, ChevronRight, Calendar as CalendarIcon, MapPin, Star, Bell, Clock, Info } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Calendar as CalendarIcon, MapPin, Star, Bell, Clock, Info, X } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 
 export default function TimelinePage() {

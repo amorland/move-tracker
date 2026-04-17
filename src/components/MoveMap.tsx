@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, Tooltip } fro
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MoveLocation } from '@/lib/types';
-import { MapPin, Navigation, Plus, Trash2, Info, UtilityPole, ShoppingBag, Truck, ChevronRight, Search } from 'lucide-react';
+import { MapPin, Navigation, Plus, Trash2, Info, UtilityPole, ShoppingBag, Truck, ChevronRight, Search, X } from 'lucide-react';
 
 // Fix Leaflet icon issue
 const DefaultIcon = L.icon({
