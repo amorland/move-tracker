@@ -81,9 +81,9 @@ export default function InventoryPage() {
 
   return (
     <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '80px' }}>
-      <div className="flex flex-stack items-center justify-between mb-12">
+      <div className="flex flex-stack items-center justify-between" style={{ marginBottom: '48px' }}>
         <div>
-          <h1 style={{ marginBottom: '4px' }}>Inventory Resolution</h1>
+          <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>Inventory Resolution</h1>
           <p className="section-subtitle" style={{ marginBottom: 0 }}>Decide the fate of every item in your home.</p>
         </div>
         <button className="btn btn-primary" style={{ gap: '10px', height: '48px', padding: '0 24px', borderRadius: '12px' }} onClick={() => { setEditingItem({ action: activeTab, status: 'Unresolved', priority: 'Medium', room: 'Kitchen' }); setIsModalOpen(true); }}>

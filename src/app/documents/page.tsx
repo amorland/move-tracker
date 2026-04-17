@@ -67,10 +67,10 @@ export default function DocumentsPage() {
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading documents...</div>;
 
   return (
-    <div style={{ width: '100%', paddingBottom: '40px' }}>
-      <div className="flex flex-stack items-center justify-between mb-12">
+    <div style={{ width: '100%', paddingBottom: '80px' }}>
+      <div className="flex flex-stack items-center justify-between" style={{ marginBottom: '48px' }}>
         <div>
-          <h1>Documents</h1>
+          <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>Documents</h1>
           <p className="section-subtitle" style={{ marginBottom: 0 }}>Essential files and links for your relocation.</p>
         </div>
         <button className="btn btn-primary" style={{ gap: '10px' }} onClick={() => setIsAdding(!isAdding)}>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
 import { format, parseISO, isBefore } from 'date-fns';
-import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Sparkles, Navigation } from 'lucide-react';
+import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Sparkles, Navigation, DollarSign, Heart, Trash } from 'lucide-react';
 import Link from 'next/link';
 import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
 
@@ -153,9 +153,9 @@ export default function Dashboard() {
 
   const inventorySummary = [
     { label: 'BRING', count: bringItems.length, resolved: bringItems.filter(i => i.status === 'Resolved').length, color: 'var(--accent)', icon: <Box size={14} /> },
-    { label: 'SELL', count: packingItems.filter(i => i.action === 'Sell').length, resolved: packingItems.filter(i => i.action === 'Sell' && i.status === 'Resolved').length, color: '#d1cdc4', icon: <Star size={14} /> },
-    { label: 'DONATE', count: packingItems.filter(i => i.action === 'Donate').length, resolved: packingItems.filter(i => i.action === 'Donate' && i.status === 'Resolved').length, color: '#e0dbd5', icon: <MapPin size={14} /> },
-    { label: 'TRASH', count: packingItems.filter(i => i.action === 'Trash').length, resolved: packingItems.filter(i => i.action === 'Trash' && i.status === 'Resolved').length, color: '#e5e1da', icon: <Clock size={14} /> }
+    { label: 'SELL', count: packingItems.filter(i => i.action === 'Sell').length, resolved: packingItems.filter(i => i.action === 'Sell' && i.status === 'Resolved').length, color: '#d1cdc4', icon: <DollarSign size={14} /> },
+    { label: 'DONATE', count: packingItems.filter(i => i.action === 'Donate').length, resolved: packingItems.filter(i => i.action === 'Donate' && i.status === 'Resolved').length, color: '#e0dbd5', icon: <Heart size={14} /> },
+    { label: 'TRASH', count: packingItems.filter(i => i.action === 'Trash').length, resolved: packingItems.filter(i => i.action === 'Trash' && i.status === 'Resolved').length, color: '#e5e1da', icon: <Trash size={14} /> }
   ];
 
   return (
@@ -183,20 +183,19 @@ export default function Dashboard() {
         </div>
       </div>
       
-      <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '48px', alignItems: 'start' }}>
+      <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '48px', alignItems: 'start' }}>
         
         {/* Move Narrative Card */}
         <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              <Navigation size={18} color="var(--accent)" />
+            <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
               Move Narrative
             </h2>
             <Link href="/timeline" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
               <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
             </Link>
           </div>
-          <div className="timeline-container" style={{ position: 'relative', padding: '32px', overflowY: 'auto', maxHeight: '600px' }}>
+          <div className="timeline-container" style={{ position: 'relative', padding: '32px' }}>
             {milestones.map((m, index) => (
               <div key={m.key} style={{ display: 'flex', gap: '20px', position: 'relative' }}>
                 {/* Timeline Connector Column */}
@@ -234,67 +233,67 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Inventory Resolution Card */}
-        <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              <Box size={18} color="var(--accent)" />
-              Inventory Resolution
-            </h2>
-            <Link href="/packing" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
-            </Link>
-          </div>
-          <div style={{ padding: '32px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
-                {inventorySummary.map(item => (
-                  <div key={item.label}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                        <span style={{ color: item.color }}>{item.icon}</span>
-                        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>{item.label}</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                        <span style={{ fontSize: '32px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>{item.resolved}/{item.count}</span>
-                        <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>RESOLVED</span>
-                    </div>
-                  </div>
-                ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+          {/* Inventory Resolution Card */}
+          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
+              <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Inventory Resolution
+              </h2>
+              <Link href="/packing" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
+              </Link>
             </div>
-            <div style={{ padding: '32px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                <div className="flex justify-between items-center mb-4">
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Resolution Progress</div>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{resolutionProgress}%</div>
-                </div>
-                <div style={{ height: '8px', background: '#fff', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <div style={{ height: '100%', width: `${resolutionProgress}%`, background: 'var(--accent)', transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
-                </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Priority Actions Card */}
-        <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              <Sparkles size={18} color="var(--accent)" />
-              Focus
-            </h2>
-            <Link href="/tasks" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
-            </Link>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task) => (
-              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
-                <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}>
-                  <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
-                </button>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
-                </div>
-                <ChevronRight size={14} color="var(--border)" />
+            <div style={{ padding: '32px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
+                  {inventorySummary.map(item => (
+                    <div key={item.label}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                          <span style={{ color: item.color }}>{item.icon}</span>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>{item.label}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+                          <span style={{ fontSize: '32px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>{item.resolved}/{item.count}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>RESOLVED</span>
+                      </div>
+                    </div>
+                  ))}
               </div>
-            ))}
+              <div style={{ padding: '32px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                  <div className="flex justify-between items-center mb-4">
+                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Resolution Progress</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{resolutionProgress}%</div>
+                  </div>
+                  <div style={{ height: '8px', background: '#fff', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <div style={{ height: '100%', width: `${resolutionProgress}%`, background: 'var(--accent)', transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
+                  </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Priority Actions Card */}
+          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
+              <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                Focus
+              </h2>
+              <Link href="/tasks" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
+              </Link>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task) => (
+                <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
+                  <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}>
+                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
+                  </div>
+                  <ChevronRight size={14} color="var(--border)" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

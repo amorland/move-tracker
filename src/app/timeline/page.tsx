@@ -77,7 +77,7 @@ export default function TimelinePage() {
 
   return (
     <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '80px' }}>
-      <div className="flex flex-stack items-center justify-between mb-16">
+      <div className="flex flex-stack items-center justify-between" style={{ marginBottom: '48px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ 
             width: '64px', 
@@ -92,10 +92,8 @@ export default function TimelinePage() {
             <Star size={32} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '4px' }}>Timeline</h1>
-            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Chronological Roadmap
-            </p>
+            <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>Move Narrative</h1>
+            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chronology</p>
           </div>
         </div>
       </div>

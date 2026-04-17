@@ -92,9 +92,9 @@ export default function TasksPage() {
 
   return (
     <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '80px' }}>
-      <div className="flex flex-stack items-center justify-between mb-12">
+      <div className="flex flex-stack items-center justify-between" style={{ marginBottom: '48px' }}>
         <div>
-          <h1 style={{ marginBottom: '4px' }}>Move Tasks</h1>
+          <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>Move Tasks</h1>
           <p className="section-subtitle" style={{ marginBottom: 0 }}>Every action required for a successful transition.</p>
         </div>
         <button className="btn btn-primary" style={{ gap: '10px', height: '48px', padding: '0 24px', borderRadius: '12px' }} onClick={() => openAddModal(data.categories[0]?.id)}>
