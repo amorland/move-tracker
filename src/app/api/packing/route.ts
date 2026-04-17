@@ -15,16 +15,19 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Explicit mapping to ensure database consistency
+    // Explicitly mapping to exact database column names
+    // Hardcoding 'Unresolved' to test if the check constraint is the issue
     const insertData = {
-      room: body.room,
-      itemName: body.itemName,
-      action: body.action,
-      status: body.status || 'Unresolved',
-      notes: body.notes,
+      room: body.room || 'Other',
+      itemName: body.itemName || 'Unnamed Item',
+      action: body.action || 'Bring',
+      status: 'Unresolved', 
+      notes: body.notes || '',
       priority: body.priority || 'Medium',
       createdAt: new Date().toISOString()
     };
+    
+    console.log('Attempting to insert:', insertData);
     
     const { data, error } = await supabase
       .from('packing_items')
@@ -33,12 +36,12 @@ export async function POST(request: Request) {
       .single();
       
     if (error) {
-      console.error('Supabase error:', error);
+      console.error('Supabase insert error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json(data);
   } catch (err: any) {
-    console.error('API error:', err);
+    console.error('API POST error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
