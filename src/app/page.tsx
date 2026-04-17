@@ -71,29 +71,33 @@ export default function Dashboard() {
   const saveQuickDate = async () => {
     if (!settings || !activeDateKey) return;
     
+    // Normalize date: empty string or whitespace should be null
+    const normalizedDate = (tempDate && tempDate.trim()) ? tempDate.trim() : null;
+    
     // Create update object
-    const updatePayload: any = { [activeDateKey]: tempDate || null };
+    const updatePayload: any = { [activeDateKey]: normalizedDate };
     
     if (activeDateKey === 'confirmedMoveDate') {
-      if (tempConfirmed && !tempDate) {
+      if (tempConfirmed && !normalizedDate) {
         setValidationError("Final move date cannot be confirmed without a date.");
         return;
       }
       // Rule: If confirmed, must have date. If unconfirmed, date MUST be null.
-      if (!tempConfirmed) {
-        updatePayload[activeDateKey] = null;
-      }
+      updatePayload[activeDateKey] = tempConfirmed ? normalizedDate : null;
     } else {
-      let actualConfirmKey = `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
-      if (activeDateKey === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
-      if (activeDateKey === 'upackDropoffDate') actualConfirmKey = 'isUpackDropoffConfirmed';
-      if (activeDateKey === 'upackPickupDate') actualConfirmKey = 'isUpackPickupConfirmed';
-      if (activeDateKey === 'driveStartDate') actualConfirmKey = 'isDriveStartConfirmed';
-      if (activeDateKey === 'arrivalDate') actualConfirmKey = 'isArrivalConfirmed';
-      if (activeDateKey === 'upackDeliveryDate') actualConfirmKey = 'isUpackDeliveryConfirmed';
-      if (activeDateKey === 'upackFinalPickupDate') actualConfirmKey = 'isUpackFinalPickupConfirmed';
+      const confirmKeyMap: Record<string, string> = {
+        'closingDate': 'isClosingDateConfirmed',
+        'upackDropoffDate': 'isUpackDropoffConfirmed',
+        'upackPickupDate': 'isUpackPickupConfirmed',
+        'driveStartDate': 'isDriveStartConfirmed',
+        'arrivalDate': 'isArrivalConfirmed',
+        'upackDeliveryDate': 'isUpackDeliveryConfirmed',
+        'upackFinalPickupDate': 'isUpackFinalPickupConfirmed'
+      };
       
-      if (tempConfirmed && !tempDate) {
+      const actualConfirmKey = confirmKeyMap[activeDateKey] || `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
+      
+      if (tempConfirmed && !normalizedDate) {
         setValidationError(`${activeDateLabel} cannot be confirmed without a date.`);
         return;
       }
@@ -102,8 +106,9 @@ export default function Dashboard() {
     }
 
     // Client-side validation for business rules
-    const mergedSettings = { ...settings, ...updatePayload };
-    const ruleError = validateDates(mergedSettings);
+    // Use the updated values in a temporary object to validate the intended state
+    const projectedSettings = { ...settings, ...updatePayload };
+    const ruleError = validateDates(projectedSettings);
     if (ruleError) {
       setValidationError(ruleError);
       return;
@@ -305,10 +310,10 @@ export default function Dashboard() {
             </h2>
             <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--success)' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: 'var(--success)' }}></div> CONFIRMED
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }}></div> CONFIRMED
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 800, color: '#94a3b8' }}>
-                <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: '1px solid #94a3b8' }}></div> ESTIMATED
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1px solid #94a3b8', background: 'transparent' }}></div> ESTIMATED
               </div>
             </div>
           </div>

@@ -66,7 +66,16 @@ export default function SettingsPage() {
     onConfirmedChange?: (val: boolean) => void 
   }) => (
     <div className="card" style={{ margin: 0, padding: '24px', border: 'none', boxShadow: 'var(--shadow-sm)', background: confirmedValue ? 'var(--success-soft)' : '#fff', transition: 'all 0.2s ease' }}>
-      <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div style={{ 
+          width: '8px', 
+          height: '8px', 
+          borderRadius: '50%', 
+          background: confirmedValue ? 'var(--success)' : (dateValue ? 'transparent' : '#e2e8f0'),
+          border: confirmedValue ? 'none' : (dateValue ? '1.5px solid #94a3b8' : 'none')
+        }}></div>
+        <div style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <div style={{ position: 'relative' }}>
           <input 
@@ -203,6 +212,7 @@ export default function SettingsPage() {
                      setValidationError("Final move date cannot be confirmed without a date.");
                      return;
                    }
+                   setSettings({...settings, confirmedMoveDate: settings.confirmedMoveDate});
                  } else {
                    setSettings({...settings, confirmedMoveDate: null});
                  }
