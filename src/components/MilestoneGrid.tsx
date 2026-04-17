@@ -19,8 +19,8 @@ export default function MilestoneGrid({ milestones, onEdit }: MilestoneGridProps
           style={{ 
             padding: '20px', 
             borderRadius: '16px', 
-            background: ad.status === 'confirmed' ? 'var(--success-soft)' : '#fcfcfd',
-            border: ad.status === 'confirmed' ? '2px solid rgba(26, 138, 95, 0.1)' : '2px solid #f1f5f9',
+            background: ad.status === 'confirmed' ? 'var(--success-soft)' : ad.status === 'estimated' ? 'rgba(0, 95, 184, 0.03)' : '#fcfcfd',
+            border: ad.status === 'confirmed' ? '2px solid rgba(26, 138, 95, 0.1)' : ad.status === 'estimated' ? '2px solid rgba(0, 95, 184, 0.08)' : '2px solid #f1f5f9',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
