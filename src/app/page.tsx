@@ -53,6 +53,19 @@ export default function Dashboard() {
     setLoading(false);
   };
 
+  const getActualConfirmKey = (key: string) => {
+    const confirmKeyMap: Record<string, string> = {
+      'closingDate': 'isClosingDateConfirmed',
+      'upackDropoffDate': 'isUpackDropoffConfirmed',
+      'upackPickupDate': 'isUpackPickupConfirmed',
+      'driveStartDate': 'isDriveStartConfirmed',
+      'arrivalDate': 'isArrivalConfirmed',
+      'upackDeliveryDate': 'isUpackDeliveryConfirmed',
+      'upackFinalPickupDate': 'isUpackFinalPickupConfirmed'
+    };
+    return confirmKeyMap[key] || `is${key.charAt(0).toUpperCase()}${key.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
+  };
+
   const openDateModal = (key: string, label: string) => {
     if (!settings) return;
     setActiveDateKey(key);
@@ -64,16 +77,7 @@ export default function Dashboard() {
       // @ts-ignore
       setTempConfirmed(!!settings[key]);
     } else {
-      const confirmKeyMap: Record<string, string> = {
-        'closingDate': 'isClosingDateConfirmed',
-        'upackDropoffDate': 'isUpackDropoffConfirmed',
-        'upackPickupDate': 'isUpackPickupConfirmed',
-        'driveStartDate': 'isDriveStartConfirmed',
-        'arrivalDate': 'isArrivalConfirmed',
-        'upackDeliveryDate': 'isUpackDeliveryConfirmed',
-        'upackFinalPickupDate': 'isUpackFinalPickupConfirmed'
-      };
-      const actualConfirmKey = confirmKeyMap[key] || `is${key.charAt(0).toUpperCase()}${key.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
+      const actualConfirmKey = getActualConfirmKey(key);
       // @ts-ignore
       setTempConfirmed(!!settings[actualConfirmKey]);
     }
@@ -84,6 +88,7 @@ export default function Dashboard() {
     if (!settings || !activeDateKey) return;
     const normalizedDate = (tempDate && tempDate.trim()) ? tempDate.trim() : null;
     const updatePayload: any = { [activeDateKey]: normalizedDate };
+    
     if (activeDateKey === 'confirmedMoveDate') {
       if (tempConfirmed && !normalizedDate) {
         setValidationError("Final move date cannot be confirmed without a date.");
@@ -91,16 +96,7 @@ export default function Dashboard() {
       }
       updatePayload[activeDateKey] = tempConfirmed ? normalizedDate : null;
     } else {
-      const confirmKeyMap: Record<string, string> = {
-        'closingDate': 'isClosingDateConfirmed',
-        'upackDropoffDate': 'isUpackDropoffConfirmed',
-        'upackPickupDate': 'isUpackPickupConfirmed',
-        'driveStartDate': 'isDriveStartConfirmed',
-        'arrivalDate': 'isArrivalConfirmed',
-        'upackDeliveryDate': 'isUpackDeliveryConfirmed',
-        'upackFinalPickupDate': 'isUpackFinalPickupConfirmed'
-      };
-      const actualConfirmKey = confirmKeyMap[activeDateKey] || `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
+      const actualConfirmKey = getActualConfirmKey(activeDateKey);
       if (tempConfirmed && !normalizedDate) {
         setValidationError(`${activeDateLabel} cannot be confirmed without a date.`);
         return;
@@ -132,7 +128,7 @@ export default function Dashboard() {
     });
 
     if (res.ok) {
-      setSettings({ ...settings, ...updatePayload });
+      setSettings(projectedSettings);
       setIsDateModalOpen(false);
       setValidationError(null);
     } else {

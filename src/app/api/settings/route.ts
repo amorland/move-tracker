@@ -11,6 +11,23 @@ export async function GET() {
     .single();
     
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // FORCE SANITIZE: Fix existing bad data in DB
+  let needsFix = false;
+  const updates: any = {};
+  if (data.isClosingDateConfirmed && !data.closingDate) { updates.isClosingDateConfirmed = false; needsFix = true; }
+  if (data.isUpackDropoffConfirmed && !data.upackDropoffDate) { updates.isUpackDropoffConfirmed = false; needsFix = true; }
+  if (data.isUpackPickupConfirmed && !data.upackPickupDate) { updates.isUpackPickupConfirmed = false; needsFix = true; }
+  if (data.isDriveStartConfirmed && !data.driveStartDate) { updates.isDriveStartConfirmed = false; needsFix = true; }
+  if (data.isArrivalConfirmed && !data.arrivalDate) { updates.isArrivalConfirmed = false; needsFix = true; }
+  if (data.isUpackDeliveryConfirmed && !data.upackDeliveryDate) { updates.isUpackDeliveryConfirmed = false; needsFix = true; }
+  if (data.isUpackFinalPickupConfirmed && !data.upackFinalPickupDate) { updates.isUpackFinalPickupConfirmed = false; needsFix = true; }
+
+  if (needsFix) {
+    await supabase.from('settings').update(updates).eq('id', 1);
+    return NextResponse.json({ ...data, ...updates });
+  }
+
   return NextResponse.json(data);
 }
 

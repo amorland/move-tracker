@@ -232,7 +232,21 @@ function InventoryRow({ item, onResolve, onDelete, onMove, onEdit }: { item: Pac
 }
 
 function InventoryModal({ item, onClose, onSave }: { item: Partial<PackingItem>, onClose: () => void, onSave: (i: Partial<PackingItem>) => void }) {
-  const [editing, setEditing] = useState(item);
+  const [itemName, setItemName] = useState(item.itemName || '');
+  const [room, setRoom] = useState(item.room || COMMON_ROOMS[0]);
+  const [action, setAction] = useState(item.action || 'Bring');
+  const [notes, setNotes] = useState(item.notes || '');
+
+  const handleSave = () => {
+    onSave({
+      ...item,
+      itemName,
+      room,
+      action,
+      notes,
+      status: item.status || 'Unresolved'
+    });
+  };
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
@@ -244,18 +258,18 @@ function InventoryModal({ item, onClose, onSave }: { item: Partial<PackingItem>,
         <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff' }}>
           <div>
             <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Item Name</label>
-            <input value={editing.itemName || ''} onChange={e => setEditing({...editing, itemName: e.target.value})} placeholder="e.g. Dining Table" />
+            <input value={itemName} onChange={e => setItemName(e.target.value)} placeholder="e.g. Dining Table" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Room</label>
-              <select value={editing.room} onChange={e => setEditing({...editing, room: e.target.value})}>
+              <select value={room} onChange={e => setRoom(e.target.value)}>
                 {COMMON_ROOMS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Action</label>
-              <select value={editing.action} onChange={e => setEditing({...editing, action: e.target.value as PackingAction})}>
+              <select value={action} onChange={e => setAction(e.target.value as PackingAction)}>
                 <option value="Bring">Bring</option>
                 <option value="Sell">Sell</option>
                 <option value="Donate">Donate</option>
@@ -265,12 +279,12 @@ function InventoryModal({ item, onClose, onSave }: { item: Partial<PackingItem>,
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
-            <textarea value={editing.notes || ''} onChange={e => setEditing({...editing, notes: e.target.value})} style={{ height: '80px', resize: 'none' }} />
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} style={{ height: '80px', resize: 'none' }} />
           </div>
         </div>
         <div style={{ padding: '24px 32px', background: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => onSave(editing)}>Save Item</button>
+          <button className="btn btn-primary" onClick={handleSave}>Save Item</button>
         </div>
       </div>
     </div>
