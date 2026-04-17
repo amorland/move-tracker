@@ -67,7 +67,7 @@ export default function SettingsPage() {
   );
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', paddingBottom: '60px' }}>
+    <div style={{ width: '100%', paddingBottom: '60px' }}>
       <div className="flex flex-stack items-center justify-between mb-8">
         <div>
           <h1>Settings</h1>

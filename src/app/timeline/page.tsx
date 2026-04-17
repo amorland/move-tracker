@@ -83,7 +83,7 @@ export default function TimelinePage() {
   ];
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div style={{ width: '100%', paddingBottom: '40px' }}>
       <div className="flex flex-stack items-center justify-between mb-12">
         <div>
           <h1>Timeline</h1>

@@ -67,7 +67,7 @@ export default function DocumentsPage() {
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading documents...</div>;
 
   return (
-    <div>
+    <div style={{ width: '100%', paddingBottom: '40px' }}>
       <div className="flex flex-stack items-center justify-between mb-12">
         <div>
           <h1>Documents</h1>

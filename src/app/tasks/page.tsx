@@ -112,7 +112,7 @@ export default function TasksPage() {
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading tasks...</div>;
 
   return (
-    <div>
+    <div style={{ width: '100%', paddingBottom: '40px' }}>
       <div className="flex flex-stack items-center justify-between mb-8">
         <div>
           <h1>Tasks</h1>
