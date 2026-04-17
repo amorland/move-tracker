@@ -233,7 +233,7 @@ export default function PackingPage() {
                 </div>
               </div>
             );
-          ) : (
+          }) : (
             <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', borderRadius: '16px', boxShadow: 'var(--shadow-sm)' }}>
               <Box size={48} color="var(--border)" style={{ margin: '0 auto 16px' }} />
               <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No inventory items</h3>
