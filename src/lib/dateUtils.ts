@@ -22,8 +22,7 @@ export const getMilestones = (settings: MoveSettings): Milestone[] => {
     { key: 'closingDate', label: 'House Closing', date: settings.closingDate, confirmed: settings.isClosingDateConfirmed, status: getStatus(settings.closingDate, settings.isClosingDateConfirmed) },
     { key: 'arrivalDate', label: 'Arrival (NY)', date: settings.arrivalDate, confirmed: settings.isArrivalConfirmed, status: getStatus(settings.arrivalDate, settings.isArrivalConfirmed) },
     { key: 'upackDeliveryDate', label: 'U-Pack Delivery (NY)', date: settings.upackDeliveryDate, confirmed: settings.isUpackDeliveryConfirmed, status: getStatus(settings.upackDeliveryDate, settings.isUpackDeliveryConfirmed) },
-    { key: 'upackFinalPickupDate', label: 'Final Pickup (NY)', date: settings.upackFinalPickupDate, confirmed: settings.isUpackFinalPickupConfirmed, status: getStatus(settings.upackFinalPickupDate, settings.isUpackFinalPickupConfirmed) },
-    { key: 'confirmedMoveDate', label: 'Final Move Date', date: settings.confirmedMoveDate, confirmed: !!settings.confirmedMoveDate, status: settings.confirmedMoveDate ? 'confirmed' : 'unset' }
+    { key: 'upackFinalPickupDate', label: 'U-Pack Final Pickup (NY)', date: settings.upackFinalPickupDate, confirmed: settings.isUpackFinalPickupConfirmed, status: getStatus(settings.upackFinalPickupDate, settings.isUpackFinalPickupConfirmed) }
   ];
 
   return milestones.sort((a, b) => {

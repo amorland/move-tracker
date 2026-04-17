@@ -25,7 +25,8 @@ export default function TimelinePage() {
 
   if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Timeline...</div>;
 
-  const moveDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
+  const confirmedDateStr = settings.confirmedMoveDate;
+  const moveDate = parseISO(confirmedDateStr || settings.earliestMoveDate);
 
   const milestones = getMilestones(settings);
   const anchorDatesTimeline = milestones
@@ -73,7 +74,7 @@ export default function TimelinePage() {
     { label: 'Strategy', filter: (d: number) => d <= -60, icon: 'assignment' },
     { label: 'Packing', filter: (d: number) => d > -60 && d <= -14, icon: 'package_2' },
     { label: 'Transit', filter: (d: number) => d > -14 && d < 0, icon: 'local_shipping' },
-    { label: 'Move Day', filter: (d: number) => d === 0, icon: 'local_shipping' },
+    { label: confirmedDateStr ? 'Move Day' : 'Target Move Window', filter: (d: number) => d === 0, icon: 'local_shipping' },
     { label: 'Settling', filter: (d: number) => d > 0, icon: 'celebration' }
   ];
 
@@ -102,7 +103,7 @@ export default function TimelinePage() {
         </div>
         <div className="badge badge-info" style={{ height: '48px', padding: '0 24px', display: 'flex', alignItems: 'center', gap: '12px', borderRadius: 'var(--radius)', fontSize: '14px', background: 'var(--accent-soft)', color: 'var(--foreground)', border: 'none' }}>
            <CalendarIcon size={18} />
-           <span style={{ fontWeight: 600, letterSpacing: '0.05em' }}>{format(moveDate, 'MMMM d, yyyy').toUpperCase()}</span>
+           <span style={{ fontWeight: 600, letterSpacing: '0.05em' }}>{confirmedDateStr ? format(moveDate, 'MMMM d, yyyy').toUpperCase() : 'DATE UNSET'}</span>
         </div>
       </div>
 
