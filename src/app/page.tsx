@@ -324,7 +324,7 @@ export default function Dashboard() {
                 Belongings & Inventory
               </h2>
               <Link href="/packing" className="badge badge-info card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 800 }}>VIEW FULL LIST</span> <ChevronRight size size={14} />
+                <span style={{ fontSize: '11px', fontWeight: 800 }}>VIEW FULL LIST</span> <ChevronRight size={14} />
               </Link>
             </div>
             <div style={{ padding: '32px 28px' }}>
@@ -415,6 +415,7 @@ export default function Dashboard() {
                   <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
                     <CheckCircle2 size={32} color="var(--success)" />
                   </div>
+
                   <div style={{ fontSize: '18px', color: 'var(--foreground)', fontWeight: 800, marginBottom: '8px' }}>Move Plan Clear!</div>
                   <div style={{ fontSize: '15px', color: 'var(--text-secondary)', fontWeight: 500 }}>All active priorities have been completed.</div>
                 </div>
