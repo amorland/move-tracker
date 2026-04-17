@@ -9,6 +9,21 @@ export interface MoveSettings {
   latestMoveDate: string;
   confirmedMoveDate: string | null;
   closingDate: string | null;
+  isClosingDateConfirmed: boolean;
+  
+  // Anchor Dates
+  upackDropoffDate: string | null;
+  isUpackDropoffConfirmed: boolean;
+  upackPickupDate: string | null;
+  isUpackPickupConfirmed: boolean;
+  driveStartDate: string | null;
+  isDriveStartConfirmed: boolean;
+  arrivalDate: string | null;
+  isArrivalConfirmed: boolean;
+  upackDeliveryDate: string | null;
+  isUpackDeliveryConfirmed: boolean;
+  upackFinalPickupDate: string | null;
+  isUpackFinalPickupConfirmed: boolean;
 }
 
 export interface Category {

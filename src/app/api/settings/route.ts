@@ -14,11 +14,47 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { earliestMoveDate, latestMoveDate, confirmedMoveDate, closingDate } = body;
+  const { 
+    earliestMoveDate, 
+    latestMoveDate, 
+    confirmedMoveDate, 
+    closingDate, 
+    isClosingDateConfirmed,
+    upackDropoffDate,
+    isUpackDropoffConfirmed,
+    upackPickupDate,
+    isUpackPickupConfirmed,
+    driveStartDate,
+    isDriveStartConfirmed,
+    arrivalDate,
+    isArrivalConfirmed,
+    upackDeliveryDate,
+    isUpackDeliveryConfirmed,
+    upackFinalPickupDate,
+    isUpackFinalPickupConfirmed
+  } = body;
   
   const { data, error } = await supabase
     .from('settings')
-    .update({ earliestMoveDate, latestMoveDate, confirmedMoveDate, closingDate })
+    .update({ 
+      earliestMoveDate, 
+      latestMoveDate, 
+      confirmedMoveDate, 
+      closingDate,
+      isClosingDateConfirmed,
+      upackDropoffDate,
+      isUpackDropoffConfirmed,
+      upackPickupDate,
+      isUpackPickupConfirmed,
+      driveStartDate,
+      isDriveStartConfirmed,
+      arrivalDate,
+      isArrivalConfirmed,
+      upackDeliveryDate,
+      isUpackDeliveryConfirmed,
+      upackFinalPickupDate,
+      isUpackFinalPickupConfirmed
+    })
     .eq('id', 1)
     .select()
     .single();
