@@ -246,8 +246,21 @@ h2 {
 }
 
 /* Unified Task & Item Row Styles */
+.task-row {
+  transition: all 0.2s ease;
+}
+
 .task-row:hover {
   background-color: #fcfcfd !important;
+}
+
+.task-row.clickable {
+  cursor: pointer;
+}
+
+.task-row.clickable:hover {
+  background-color: #f9f7f2 !important;
+  transform: translateX(4px);
 }
 
 .task-row .hover\:text-red-500:hover {

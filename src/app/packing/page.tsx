@@ -2,37 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { PackingItem, PackingAction, PackingStatus, PackingPriority } from '@/lib/types';
-import { Plus, Trash2, Box, X, Save, Filter, Search, Tag, AlertCircle, CheckCircle2, MoreVertical } from 'lucide-react';
+import { Plus, Trash2, Box, X, Save, Search, Tag, AlertCircle, CheckCircle2, MoreVertical, ExternalLink, MoveRight, DollarSign, Heart, Trash } from 'lucide-react';
 
 const COMMON_ROOMS = [
-  'Kitchen',
-  'Living Room',
-  'Master Bedroom',
-  'Bedroom 2',
-  'Bedroom 3',
-  'Bathroom 1',
-  'Bathroom 2',
-  'Garage',
-  'Storage',
-  'Office',
-  'Dining Room',
-  'Outdoor/Patio',
-  'Closet',
-  'Other'
+  'Kitchen', 'Living Room', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3',
+  'Bathroom 1', 'Bathroom 2', 'Garage', 'Storage', 'Office', 'Dining Room',
+  'Outdoor/Patio', 'Closet', 'Other'
 ];
 
-export default function PackingPage() {
+type TabType = PackingAction;
+
+export default function InventoryPage() {
   const [items, setItems] = useState<PackingItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>('Bring');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<PackingItem> | null>(null);
-  const [showCustomRoom, setShowCustomRoom] = useState(false);
-  
-  // Filters
-  const [roomFilter, setRoomFilter] = useState<string>('All');
-  const [actionFilter, setActionFilter] = useState<PackingAction | 'All'>('All');
-  const [statusFilter, setStatusFilter] = useState<PackingStatus | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showResolved, setShowResolved] = useState(false);
 
   useEffect(() => {
     fetchItems();
@@ -45,419 +32,243 @@ export default function PackingPage() {
     setLoading(false);
   };
 
-  const deleteItem = async (id: number) => {
-    if (!confirm('Delete this item?')) return;
-    const res = await fetch(`/api/packing?id=${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      fetchItems();
-    } else {
-      const err = await res.json();
-      alert(`Error deleting item: ${err.error || 'Unknown error'}`);
-    }
-  };
-
-  const openAddModal = (room?: string) => {
-    setEditingItem({
-      room: room || COMMON_ROOMS[0],
-      itemName: '',
-      action: 'Bring',
-      status: 'Not Packed',
-      priority: 'Medium',
-      notes: ''
-    });
-    setShowCustomRoom(false);
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (item: PackingItem) => {
-    setEditingItem(item);
-    setShowCustomRoom(false);
-    setIsModalOpen(true);
-  };
-
-  const saveItem = async () => {
-    if (!editingItem || !editingItem.itemName || !editingItem.room) {
-      alert('Please fill in Item Name and Room.');
-      return;
-    }
-
-    const method = editingItem.id ? 'PATCH' : 'POST';
+  const saveItem = async (item: Partial<PackingItem>) => {
+    const method = item.id ? 'PATCH' : 'POST';
     const res = await fetch('/api/packing', {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editingItem)
+      body: JSON.stringify(item)
     });
-
     if (res.ok) {
       setIsModalOpen(false);
-      setEditingItem(null);
       fetchItems();
-    } else {
-      const err = await res.json();
-      alert(`Error saving item: ${err.error || 'Unknown error'}`);
     }
   };
 
-  const togglePacked = async (item: PackingItem) => {
-    const newStatus: PackingStatus = item.status === 'Packed' ? 'Not Packed' : 'Packed';
-    await fetch('/api/packing', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...item, status: newStatus })
-    });
+  const deleteItem = async (id: number) => {
+    if (!confirm('Delete this item?')) return;
+    await fetch(`/api/packing?id=${id}`, { method: 'DELETE' });
     fetchItems();
   };
 
-  const rooms = Array.from(new Set(items.map(i => i.room))).sort();
-  
+  const resolveItem = async (item: PackingItem) => {
+    await saveItem({ ...item, status: 'Resolved' });
+  };
+
+  const moveItem = async (item: PackingItem, newAction: PackingAction) => {
+    await saveItem({ ...item, action: newAction, status: 'Unresolved' });
+  };
+
   const filteredItems = items.filter(i => {
-    const matchesRoom = roomFilter === 'All' || i.room === roomFilter;
-    const matchesAction = actionFilter === 'All' || i.action === actionFilter;
-    const matchesStatus = statusFilter === 'All' || i.status === statusFilter;
-    const matchesSearch = i.itemName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         (i.notes && i.notes.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesRoom && matchesAction && matchesStatus && matchesSearch;
+    const matchesTab = i.action === activeTab;
+    const matchesSearch = i.itemName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesResolution = showResolved ? i.status === 'Resolved' : i.status === 'Unresolved';
+    return matchesTab && matchesSearch && matchesResolution;
   });
 
-  const getActionColor = (action: PackingAction) => {
-    switch (action) {
-      case 'Bring': return '#005fb8';
-      case 'Trash': return '#ef4444';
-      case 'Sell': return '#10b981';
-      case 'Donate': return '#f59e0b';
-      default: return 'var(--text-secondary)';
-    }
+  const stats = {
+    Bring: items.filter(i => i.action === 'Bring' && i.status === 'Unresolved').length,
+    Sell: items.filter(i => i.action === 'Sell' && i.status === 'Unresolved').length,
+    Donate: items.filter(i => i.action === 'Donate' && i.status === 'Unresolved').length,
+    Trash: items.filter(i => i.action === 'Trash' && i.status === 'Unresolved').length,
+    Resolved: items.filter(i => i.status === 'Resolved').length
   };
 
-  const getPriorityColor = (priority: PackingPriority) => {
-    switch (priority) {
-      case 'High': return '#ef4444';
-      case 'Medium': return '#f59e0b';
-      case 'Low': return '#10b981';
-      default: return 'var(--text-secondary)';
-    }
-  };
-
-  if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '20px' }}>Loading inventory...</div>;
+  if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Inventory...</div>;
 
   return (
-    <div style={{ width: '100%', paddingBottom: '40px' }}>
-      <div className="flex flex-stack items-center justify-between mb-8">
+    <div style={{ width: '100%', maxWidth: '1200px', margin: '0 auto', paddingBottom: '80px' }}>
+      <div className="flex flex-stack items-center justify-between mb-12">
         <div>
-          <h1>Inventory List</h1>
-          <p className="section-subtitle" style={{ marginBottom: 0 }}>Decide what to bring, sell, donate, or trash.</p>
+          <h1 style={{ marginBottom: '4px' }}>Inventory Resolution</h1>
+          <p className="section-subtitle" style={{ marginBottom: 0 }}>Decide the fate of every item in your home.</p>
         </div>
-        <button className="btn btn-primary" style={{ gap: '10px' }} onClick={() => openAddModal()}>
+        <button className="btn btn-primary" style={{ gap: '10px', height: '48px', padding: '0 24px', borderRadius: '12px' }} onClick={() => { setEditingItem({ action: activeTab, status: 'Unresolved', priority: 'Medium', room: 'Kitchen' }); setIsModalOpen(true); }}>
           <Plus size={20} /> Add Item
         </button>
       </div>
 
-      {/* Filters Bar */}
-      <div className="card" style={{ padding: '20px 24px', marginBottom: '32px', border: 'none', boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <div className="flex items-center gap-4" style={{ flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '200px' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
-            <input 
-              placeholder="Search items or notes..." 
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '40px' }}
-            />
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>ROOM</label>
-            <select value={roomFilter} onChange={e => setRoomFilter(e.target.value)} style={{ padding: '4px 12px', fontSize: '12px', height: '32px', minWidth: '120px' }}>
-              <option value="All">All Rooms</option>
-              {rooms.map(room => <option key={room} value={room}>{room}</option>)}
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>ACTION</label>
-            <select value={actionFilter} onChange={e => setActionFilter(e.target.value as any)} style={{ padding: '4px 12px', fontSize: '12px', height: '32px', minWidth: '100px' }}>
-              <option value="All">All Actions</option>
-              <option value="Bring">Bring</option>
-              <option value="Trash">Trash</option>
-              <option value="Sell">Sell</option>
-              <option value="Donate">Donate</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)' }}>STATUS</label>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)} style={{ padding: '4px 12px', fontSize: '12px', height: '32px', minWidth: '120px' }}>
-              <option value="All">All Status</option>
-              <option value="Not Packed">Not Packed</option>
-              <option value="Packed">Packed</option>
-            </select>
-          </div>
-        </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '32px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+        {(['Bring', 'Sell', 'Donate', 'Trash'] as TabType[]).map(tab => (
+          <button 
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{ 
+              padding: '12px 24px', 
+              borderRadius: '10px', 
+              fontSize: '13px', 
+              fontWeight: 600, 
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              background: activeTab === tab ? 'var(--accent)' : 'transparent',
+              color: activeTab === tab ? '#fff' : 'var(--text-secondary)',
+              border: 'none',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px'
+            }}
+          >
+            {tab === 'Bring' && <Box size={16} />}
+            {tab === 'Sell' && <DollarSign size={16} />}
+            {tab === 'Donate' && <Heart size={16} />}
+            {tab === 'Trash' && <Trash size={16} />}
+            {tab}
+            {stats[tab] > 0 && <span style={{ opacity: 0.8, fontSize: '11px' }}>({stats[tab]})</span>}
+          </button>
+        ))}
+        <div style={{ flex: 1 }}></div>
+        <button 
+          onClick={() => setShowResolved(!showResolved)}
+          style={{ 
+            fontSize: '11px', 
+            fontWeight: 700, 
+            color: showResolved ? 'var(--accent)' : 'var(--text-secondary)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          {showResolved ? 'VIEW UNRESOLVED' : `VIEW RESOLVED (${stats.Resolved})`}
+        </button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        {roomFilter === 'All' ? (
-          rooms.length > 0 ? rooms.map(room => {
-            const roomItems = filteredItems.filter(i => i.room === room);
-            if (roomItems.length === 0) return null;
-            const packedCount = roomItems.filter(i => i.status === 'Packed').length;
-            const roomProgress = (packedCount / roomItems.length) * 100;
+      <div style={{ position: 'relative', marginBottom: '32px' }}>
+        <Search size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+        <input 
+          placeholder={`Search in ${activeTab}...`} 
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{ paddingLeft: '48px', height: '52px', background: '#fff', border: '1px solid var(--border)', borderRadius: '12px' }}
+        />
+      </div>
 
-            return (
-              <div key={room} style={{ marginBottom: '16px' }}>
-                <div className="flex justify-between items-end mb-3 px-1">
-                  <div>
-                    <h3 style={{ fontSize: '14px', fontWeight: 800, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <Box size={16} color="var(--accent)" />
-                      {room.toUpperCase()}
-                    </h3>
-                  </div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                    {packedCount} / {roomItems.filter(i => i.action === 'Bring').length} ITEMS PACKED
-                  </div>
-                </div>
-                <div style={{ height: '4px', background: '#f1f5f9', borderRadius: '2px', marginBottom: '12px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${roomProgress}%`, background: 'var(--accent)', transition: 'width 0.4s ease' }}></div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {roomItems.map(item => (
-                    <ItemCard key={item.id} item={item} onToggle={() => togglePacked(item)} onEdit={() => openEditModal(item)} onDelete={() => deleteItem(item.id)} />
-                  ))}
-                  <button 
-                    onClick={() => openAddModal(room)}
-                    className="card hover:border-accent-soft transition-all"
-                    style={{ border: '1px dashed var(--border)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-secondary)', padding: '20px', minHeight: '100px' }}
-                  >
-                    <Plus size={18} /> Add to {room}
-                  </button>
-                </div>
-              </div>
-            );
-          }) : (
-            <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', borderRadius: '16px', boxShadow: 'var(--shadow-sm)' }}>
-              <Box size={48} color="var(--border)" style={{ margin: '0 auto 16px' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No inventory items</h3>
-              <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', margin: '0 auto 24px' }}>
-                Start tracking your items and deciding their fate.
-              </p>
-              <button className="btn btn-primary" onClick={() => openAddModal()}>Add Your First Item</button>
-            </div>
-          )
-
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredItems.map(item => (
-              <ItemCard key={item.id} item={item} onToggle={() => togglePacked(item)} onEdit={() => openEditModal(item)} onDelete={() => deleteItem(item.id)} />
-            ))}
-            <button 
-              onClick={() => openAddModal(roomFilter === 'All' ? undefined : roomFilter)}
-              className="card hover:border-accent-soft transition-all"
-              style={{ border: '1px dashed var(--border)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-secondary)', padding: '20px', minHeight: '100px' }}
-            >
-              <Plus size={18} /> Add New Item
-            </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', background: 'var(--border)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+        {filteredItems.length > 0 ? filteredItems.map(item => (
+          <InventoryRow 
+            key={item.id} 
+            item={item} 
+            onResolve={() => resolveItem(item)} 
+            onDelete={() => deleteItem(item.id)} 
+            onMove={(action) => moveItem(item, action)}
+            onEdit={() => { setEditingItem(item); setIsModalOpen(true); }}
+          />
+        )) : (
+          <div style={{ padding: '80px 32px', textAlign: 'center', background: '#fff' }}>
+            <Box size={48} color="var(--border)" style={{ margin: '0 auto 24px' }} />
+            <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>No {showResolved ? 'resolved' : 'unresolved'} items in {activeTab}.</p>
           </div>
         )}
       </div>
 
       {/* Item Modal */}
       {isModalOpen && editingItem && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '450px', padding: 0, overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="justify-between">
-              <h2 style={{ margin: 0, fontSize: '18px' }}>{editingItem.id ? 'Edit Item' : 'New Packing Item'}</h2>
-              <button onClick={() => setIsModalOpen(false)} style={{ color: 'var(--text-secondary)' }}><X size={20} /></button>
-            </div>
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Room / Category</label>
-                {!showCustomRoom ? (
-                  <select 
-                    value={COMMON_ROOMS.includes(editingItem.room || '') ? editingItem.room : 'CUSTOM'} 
-                    onChange={e => {
-                      if (e.target.value === 'CUSTOM') {
-                        setShowCustomRoom(true);
-                        setEditingItem({...editingItem, room: ''});
-                      } else {
-                        setEditingItem({...editingItem, room: e.target.value});
-                      }
-                    }}
-                  >
-                    {COMMON_ROOMS.map(r => <option key={r} value={r}>{r}</option>)}
-                    {/* Include any custom rooms already in the database that aren't in COMMON_ROOMS */}
-                    {Array.from(new Set(items.map(i => i.room)))
-                      .filter(r => !COMMON_ROOMS.includes(r))
-                      .map(r => <option key={r} value={r}>{r}</option>)
-                    }
-                    {!COMMON_ROOMS.includes(editingItem.room || '') && editingItem.room && !Array.from(new Set(items.map(i => i.room))).includes(editingItem.room) && (
-                      <option value={editingItem.room}>{editingItem.room}</option>
-                    )}
-                    <option value="CUSTOM">+ Add Custom Room...</option>
-                  </select>
-                ) : (
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input 
-                      value={editingItem.room || ''} 
-                      onChange={e => setEditingItem({...editingItem, room: e.target.value})}
-                      placeholder="Enter room name"
-                      autoFocus
-                    />
-                    <button 
-                      className="btn btn-secondary" 
-                      onClick={() => {
-                        setShowCustomRoom(false);
-                        setEditingItem({...editingItem, room: COMMON_ROOMS[0]});
-                      }}
-                      style={{ padding: '0 12px' }}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Item Name</label>
-                <input 
-                  value={editingItem.itemName || ''} 
-                  onChange={e => setEditingItem({...editingItem, itemName: e.target.value})}
-                  placeholder="What is this item?"
-                  autoFocus
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Action</label>
-                  <select 
-                    value={editingItem.action || 'Bring'} 
-                    onChange={e => setEditingItem({...editingItem, action: e.target.value as PackingAction})}
-                  >
-                    <option value="Bring">Bring</option>
-                    <option value="Trash">Trash</option>
-                    <option value="Sell">Sell</option>
-                    <option value="Donate">Donate</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Priority</label>
-                  <select 
-                    value={editingItem.priority || 'Medium'} 
-                    onChange={e => setEditingItem({...editingItem, priority: e.target.value as PackingPriority})}
-                  >
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase' }}>Notes</label>
-                <textarea 
-                  value={editingItem.notes || ''} 
-                  onChange={e => setEditingItem({...editingItem, notes: e.target.value})}
-                  placeholder="Location in box, condition, or price..."
-                  style={{ height: '60px', resize: 'none' }}
-                />
-              </div>
-            </div>
-            <div style={{ padding: '16px 24px', backgroundColor: '#fcfcfd', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{ gap: '8px' }} onClick={saveItem}>
-                <Save size={16} /> {editingItem.id ? 'Update Item' : 'Add Item'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <InventoryModal 
+          item={editingItem} 
+          onClose={() => setIsModalOpen(false)} 
+          onSave={saveItem} 
+        />
       )}
     </div>
   );
 }
 
-function ItemCard({ item, onToggle, onEdit, onDelete }: { item: PackingItem, onToggle: () => void, onEdit: () => void, onDelete: () => void }) {
-  const isBring = item.action === 'Bring';
-  const isPacked = item.status === 'Packed';
-
+function InventoryRow({ item, onResolve, onDelete, onMove, onEdit }: { item: PackingItem, onResolve: () => void, onDelete: () => void, onMove: (a: PackingAction) => void, onEdit: () => void }) {
+  const isResolved = item.status === 'Resolved';
+  
   return (
-    <div className={`card ${isPacked ? 'opacity-70' : ''}`} style={{ 
-      margin: 0, 
-      padding: '20px', 
-      border: 'none', 
-      boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
-      background: isPacked ? '#fcfcfd' : '#ffffff', 
-      position: 'relative',
-      transition: 'all 0.2s ease',
-      borderLeft: isBring ? (isPacked ? '4px solid var(--success-soft)' : '4px solid var(--accent)') : '4px solid #f1f5f9'
-    }}>
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-2">
-          <div style={{ 
-            fontSize: '9px', 
-            fontWeight: 800, 
-            padding: '2px 8px', 
-            borderRadius: '4px', 
-            background: item.action === 'Bring' ? '#e0f2fe' : 
-                        item.action === 'Sell' ? '#dcfce7' :
-                        item.action === 'Donate' ? '#fef3c7' : '#fee2e2',
-            color: item.action === 'Bring' ? '#0369a1' : 
-                   item.action === 'Sell' ? '#15803d' :
-                   item.action === 'Donate' ? '#b45309' : '#b91c1c',
-            textTransform: 'uppercase',
-            letterSpacing: '0.02em'
-          }}>
-            {item.action}
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '20px', 
+      padding: '16px 24px', 
+      background: '#fff',
+      opacity: isResolved ? 0.6 : 1
+    }} className="task-row">
+      <button 
+        onClick={onResolve}
+        style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
+      >
+        {isResolved ? 
+          <CheckCircle2 size={24} color="var(--accent)" /> : 
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--border)' }}></div>
+        }
+      </button>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {item.room}
           </div>
-          {item.priority === 'High' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', color: '#ef4444', fontSize: '9px', fontWeight: 800 }}>
-              <AlertCircle size={10} /> HIGH
-            </div>
+          {item.notes && (
+            <>
+              <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--border)' }}></div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.notes}</div>
+            </>
           )}
         </div>
-        <div className="flex gap-1">
-          <button onClick={onEdit} style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', padding: '4px' }} className="hover:text-accent transition-colors">
-            <MoreVertical size={14} />
-          </button>
-        </div>
-      </div>
-      
-      <div className="flex items-start gap-3">
-        {isBring && (
-          <button onClick={onToggle} style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer', marginTop: '2px' }}>
-            {isPacked ? 
-              <span className="material-symbols-outlined" style={{ color: 'var(--success)', fontSize: '24px' }}>check_circle</span> : 
-              <span className="material-symbols-outlined" style={{ color: '#d1d5db', fontSize: '24px' }}>radio_button_unchecked</span>
-            }
-          </button>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ 
-            fontSize: '14px', 
-            fontWeight: 700, 
-            textDecoration: isPacked ? 'line-through' : 'none', 
-            color: isPacked ? 'var(--text-secondary)' : 'var(--foreground)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}>
-            {item.itemName}
-          </div>
-          {item.notes && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.5' }}>{item.notes}</div>}
-        </div>
       </div>
 
-      <div className="mt-5 pt-3 flex justify-between items-center" style={{ borderTop: '1px solid #f8fafc' }}>
-        <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px', textTransform: 'uppercase' }}>
-          <Tag size={10} /> {item.room}
+      <div style={{ display: 'flex', gap: '8px' }}>
+        {item.action === 'Sell' && !isResolved && (
+          <button className="btn btn-secondary" style={{ fontSize: '10px', padding: '6px 12px' }} onClick={() => onMove('Donate')}>MOVE TO DONATE</button>
+        )}
+        {item.action === 'Donate' && !isResolved && (
+          <button className="btn btn-secondary" style={{ fontSize: '10px', padding: '6px 12px' }} onClick={() => onMove('Trash')}>MOVE TO TRASH</button>
+        )}
+        <button onClick={onEdit} style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}><MoreVertical size={18} /></button>
+        <button onClick={onDelete} style={{ border: 'none', background: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }} className="hover:text-red-500"><Trash2 size={18} /></button>
+      </div>
+    </div>
+  );
+}
+
+function InventoryModal({ item, onClose, onSave }: { item: Partial<PackingItem>, onClose: () => void, onSave: (i: Partial<PackingItem>) => void }) {
+  const [editing, setEditing] = useState(item);
+
+  return (
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '440px', padding: 0, overflow: 'hidden', borderRadius: '16px' }}>
+        <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
+          <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>{item.id ? 'Edit Item' : 'New Inventory Item'}</h2>
+          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
         </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); onDelete(); }} 
-          style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', padding: '4px' }} 
-          className="hover:text-red-500 transition-colors"
-          title="Delete item"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Item Name</label>
+            <input value={editing.itemName || ''} onChange={e => setEditing({...editing, itemName: e.target.value})} placeholder="e.g. Dining Table" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Room</label>
+              <select value={editing.room} onChange={e => setEditing({...editing, room: e.target.value})}>
+                {COMMON_ROOMS.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Action</label>
+              <select value={editing.action} onChange={e => setEditing({...editing, action: e.target.value as PackingAction})}>
+                <option value="Bring">Bring</option>
+                <option value="Sell">Sell</option>
+                <option value="Donate">Donate</option>
+                <option value="Trash">Trash</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
+            <textarea value={editing.notes || ''} onChange={e => setEditing({...editing, notes: e.target.value})} style={{ height: '80px', resize: 'none' }} />
+          </div>
+        </div>
+        <div style={{ padding: '24px 32px', background: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => onSave(editing)}>Save Item</button>
+        </div>
       </div>
     </div>
   );

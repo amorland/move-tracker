@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       room,
       itemName,
       action: action || 'Bring',
-      status: status || 'Not Packed',
+      status: status || 'Unresolved',
       notes: notes || null,
       priority: priority || 'Medium',
       createdAt: new Date().toISOString()

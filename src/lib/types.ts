@@ -41,14 +41,15 @@ export interface Task {
   owner: TaskOwner;
   phase: TaskPhase;
   dueDate: string | null;
-  timingType: TimingType;
-  timingOffsetDays: number;
+  completionDate: string | null;
+  scheduledEventDate: string | null;
+  scheduledEventTimeWindow: string | null;
   notes: string | null;
   orderIndex: number;
 }
 
 export type PackingAction = 'Bring' | 'Trash' | 'Sell' | 'Donate';
-export type PackingStatus = 'Not Packed' | 'Packed' | 'Unpacked';
+export type PackingStatus = 'Unresolved' | 'Resolved';
 export type PackingPriority = 'Low' | 'Medium' | 'High';
 
 export interface PackingItem {

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { categoryId, title, description, status, owner, phase, timingType, timingOffsetDays, notes, orderIndex } = body;
+  const { categoryId, title, description, status, owner, phase, dueDate, completionDate, scheduledEventDate, scheduledEventTimeWindow, notes, orderIndex } = body;
   
   const { data, error } = await supabase
     .from('tasks')
@@ -14,8 +14,10 @@ export async function POST(request: Request) {
       status: status || 'Not Started',
       owner: owner || 'Both',
       phase: phase || 'Both',
-      timingType: timingType || 'Flexible',
-      timingOffsetDays: timingOffsetDays || 0,
+      dueDate: dueDate || null,
+      completionDate: completionDate || null,
+      scheduledEventDate: scheduledEventDate || null,
+      scheduledEventTimeWindow: scheduledEventTimeWindow || null,
       notes: notes || null,
       orderIndex: orderIndex || 0
     }])
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const body = await request.json();
-  const { id, categoryId, title, description, status, owner, phase, timingType, timingOffsetDays, notes, orderIndex } = body;
+  const { id, categoryId, title, description, status, owner, phase, dueDate, completionDate, scheduledEventDate, scheduledEventTimeWindow, notes, orderIndex } = body;
   
   const { data, error } = await supabase
     .from('tasks')
@@ -39,8 +41,10 @@ export async function PATCH(request: Request) {
       status,
       owner,
       phase,
-      timingType,
-      timingOffsetDays,
+      dueDate,
+      completionDate,
+      scheduledEventDate,
+      scheduledEventTimeWindow,
       notes,
       orderIndex
     })

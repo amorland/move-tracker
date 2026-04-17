@@ -22,8 +22,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   owner TEXT NOT NULL CHECK (owner IN ('Andrew', 'Tory', 'Both')),
   phase TEXT NOT NULL DEFAULT 'Both' CHECK (phase IN ('Move Out', 'Move In', 'Both')),
   dueDate TEXT,
-  timingType TEXT NOT NULL CHECK (timingType IN ('Fixed', 'Before Move', 'After Move', 'Before Closing', 'After Closing', 'Flexible')),
-  timingOffsetDays INTEGER DEFAULT 0,
+  completionDate TEXT,
+  scheduledEventDate TEXT,
+  scheduledEventTimeWindow TEXT,
   notes TEXT,
   orderIndex INTEGER NOT NULL
 );
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS packing_items (
   room TEXT NOT NULL,
   "itemName" TEXT NOT NULL,
   action TEXT NOT NULL CHECK (action IN ('Bring', 'Trash', 'Sell', 'Donate')),
-  status TEXT NOT NULL DEFAULT 'Not Packed' CHECK (status IN ('Not Packed', 'Packed', 'Unpacked')),
+  status TEXT NOT NULL DEFAULT 'Unresolved' CHECK (status IN ('Unresolved', 'Resolved')),
   notes TEXT,
   priority TEXT NOT NULL DEFAULT 'Medium' CHECK (priority IN ('Low', 'Medium', 'High')),
   "createdAt" TEXT NOT NULL
