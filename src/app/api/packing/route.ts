@@ -16,18 +16,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     // Explicitly mapping to exact database column names
-    // Hardcoding 'Unresolved' to test if the check constraint is the issue
-    const insertData = {
+    // OMITTING status and priority to let the database DEFAULTs take over
+    // This is the safest way to satisfy check constraints if they are out of sync
+    const insertData: any = {
       room: body.room || 'Other',
-      itemName: body.itemName || 'Unnamed Item',
+      "itemName": body.itemName || 'Unnamed Item',
       action: body.action || 'Bring',
-      status: 'Unresolved', 
       notes: body.notes || '',
-      priority: body.priority || 'Medium',
-      createdAt: new Date().toISOString()
+      "createdAt": new Date().toISOString()
     };
     
-    console.log('Attempting to insert:', insertData);
+    console.log('Final insert attempt (letting DB handle status/priority):', insertData);
     
     const { data, error } = await supabase
       .from('packing_items')
@@ -36,12 +35,12 @@ export async function POST(request: Request) {
       .single();
       
     if (error) {
-      console.error('Supabase insert error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('CRITICAL: Supabase insert error:', error);
+      return NextResponse.json({ error: error.message, details: error }, { status: 500 });
     }
     return NextResponse.json(data);
   } catch (err: any) {
-    console.error('API POST error:', err);
+    console.error('API POST catch error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
