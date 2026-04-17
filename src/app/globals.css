@@ -275,13 +275,23 @@ h2 {
 /* Layout improvements for overview cards on small screens */
 @media (max-width: 1200px) {
   .overview-grid {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 24px !important;
   }
 }
-@media (max-width: 800px) {
+@media (max-width: 900px) {
   .overview-grid {
     grid-template-columns: 1fr !important;
   }
+}
+
+/* Polished Card Hover */
+.card-hover-effect {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover-effect:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
 }
 
 /* Mobile Task Row adjustments */
