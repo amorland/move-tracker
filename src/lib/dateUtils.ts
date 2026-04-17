@@ -35,16 +35,14 @@ export const getMilestones = (settings: MoveSettings): Milestone[] => {
 };
 
 export const validateDates = (settings: Partial<MoveSettings>): string | null => {
-  const {
-    upackDropoffDate,
-    upackPickupDate,
-    driveStartDate,
-    closingDate,
-    arrivalDate,
-    upackDeliveryDate,
-    upackFinalPickupDate,
-    confirmedMoveDate
-  } = settings;
+  const upackDropoffDate = settings.upackDropoffDate || null;
+  const upackPickupDate = settings.upackPickupDate || null;
+  const driveStartDate = settings.driveStartDate || null;
+  const closingDate = settings.closingDate || null;
+  const arrivalDate = settings.arrivalDate || null;
+  const upackDeliveryDate = settings.upackDeliveryDate || null;
+  const upackFinalPickupDate = settings.upackFinalPickupDate || null;
+  const confirmedMoveDate = settings.confirmedMoveDate || null;
 
   // Rule: A date cannot be confirmed if it is not set.
   if (settings.isClosingDateConfirmed && !closingDate) return "House Closing date must be set before it can be confirmed.";

@@ -79,9 +79,8 @@ export default function Dashboard() {
         setValidationError("Final move date cannot be confirmed without a date.");
         return;
       }
-      if (!tempConfirmed) {
-        updatePayload[activeDateKey] = null;
-      }
+      // If NOT confirmed, ensure date is null. If confirmed, use tempDate.
+      updatePayload[activeDateKey] = tempConfirmed ? (tempDate || null) : null;
     } else {
       let actualConfirmKey = `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
       if (activeDateKey === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
