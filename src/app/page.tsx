@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
 import { format, parseISO, differenceInDays, addDays } from 'date-fns';
-import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Heart } from 'lucide-react';
+import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import MilestoneGrid from '@/components/MilestoneGrid';
 import { getMilestones, validateDates } from '@/lib/dateUtils';
@@ -52,16 +52,16 @@ export default function Dashboard() {
       // @ts-ignore
       setTempConfirmed(!!settings[key]);
     } else {
-      const confirmKey = `is${key.charAt(0).toUpperCase()}${key.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
-      let actualConfirmKey = confirmKey;
-      if (key === 'closingDate') actualConfirmKey = 'isClosingDateConfirmed';
-      if (key === 'upackDropoffDate') actualConfirmKey = 'isUpackDropoffConfirmed';
-      if (key === 'upackPickupDate') actualConfirmKey = 'isUpackPickupConfirmed';
-      if (key === 'driveStartDate') actualConfirmKey = 'isDriveStartConfirmed';
-      if (key === 'arrivalDate') actualConfirmKey = 'isArrivalConfirmed';
-      if (key === 'upackDeliveryDate') actualConfirmKey = 'isUpackDeliveryConfirmed';
-      if (key === 'upackFinalPickupDate') actualConfirmKey = 'isUpackFinalPickupConfirmed';
-      
+      const confirmKeyMap: Record<string, string> = {
+        'closingDate': 'isClosingDateConfirmed',
+        'upackDropoffDate': 'isUpackDropoffConfirmed',
+        'upackPickupDate': 'isUpackPickupConfirmed',
+        'driveStartDate': 'isDriveStartConfirmed',
+        'arrivalDate': 'isArrivalConfirmed',
+        'upackDeliveryDate': 'isUpackDeliveryConfirmed',
+        'upackFinalPickupDate': 'isUpackFinalPickupConfirmed'
+      };
+      const actualConfirmKey = confirmKeyMap[key] || `is${key.charAt(0).toUpperCase()}${key.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
       // @ts-ignore
       setTempConfirmed(!!settings[actualConfirmKey]);
     }
@@ -71,10 +71,7 @@ export default function Dashboard() {
   const saveQuickDate = async () => {
     if (!settings || !activeDateKey) return;
     
-    // Normalize date: empty string or whitespace should be null
     const normalizedDate = (tempDate && tempDate.trim()) ? tempDate.trim() : null;
-    
-    // Create update object
     const updatePayload: any = { [activeDateKey]: normalizedDate };
     
     if (activeDateKey === 'confirmedMoveDate') {
@@ -82,7 +79,6 @@ export default function Dashboard() {
         setValidationError("Final move date cannot be confirmed without a date.");
         return;
       }
-      // Rule: If confirmed, must have date. If unconfirmed, date MUST be null.
       updatePayload[activeDateKey] = tempConfirmed ? normalizedDate : null;
     } else {
       const confirmKeyMap: Record<string, string> = {
@@ -94,19 +90,15 @@ export default function Dashboard() {
         'upackDeliveryDate': 'isUpackDeliveryConfirmed',
         'upackFinalPickupDate': 'isUpackFinalPickupConfirmed'
       };
-      
       const actualConfirmKey = confirmKeyMap[activeDateKey] || `is${activeDateKey.charAt(0).toUpperCase()}${activeDateKey.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
       
       if (tempConfirmed && !normalizedDate) {
         setValidationError(`${activeDateLabel} cannot be confirmed without a date.`);
         return;
       }
-
       updatePayload[actualConfirmKey] = tempConfirmed;
     }
 
-    // Client-side validation for business rules
-    // Use the updated values in a temporary object to validate the intended state
     const projectedSettings = { ...settings, ...updatePayload };
     const ruleError = validateDates(projectedSettings);
     if (ruleError) {
@@ -121,7 +113,6 @@ export default function Dashboard() {
     });
 
     if (res.ok) {
-      // Update local state by merging
       setSettings({ ...settings, ...updatePayload });
       setIsDateModalOpen(false);
       setValidationError(null);
@@ -153,10 +144,8 @@ export default function Dashboard() {
   const getTaskDate = (task: Task) => {
     if (task.dueDate) return parseISO(task.dueDate);
     if (!settings) return null;
-    
     const moveBaseDate = parseISO(settings.confirmedMoveDate || settings.earliestMoveDate);
     const closingDate = settings.closingDate ? parseISO(settings.closingDate) : null;
-
     let baseDate = moveBaseDate;
     if (task.timingType === 'Before Closing' || task.timingType === 'After Closing') {
       if (!closingDate) return null;
@@ -169,19 +158,14 @@ export default function Dashboard() {
   const packedItems = bringItems.filter(i => i.status === 'Packed').length;
   const packingProgress = bringItems.length > 0 ? Math.round((packedItems / bringItems.length) * 100) : 0;
 
-  // Inventory Decisions Metrics
   const totalItems = packingItems.length;
-  const sellItems = packingItems.filter(i => i.action === 'Sell').length;
-  const donateItems = packingItems.filter(i => i.action === 'Donate').length;
-  const trashItems = packingItems.filter(i => i.action === 'Trash').length;
-
   const getInventoryPercent = (count: number) => totalItems > 0 ? Math.round((count / totalItems) * 100) : 0;
 
   const inventorySummary = [
     { label: 'TO BRING', count: bringItems.length, percent: getInventoryPercent(bringItems.length), color: 'var(--accent)', icon: <Box size={14} /> },
-    { label: 'TO SELL', count: sellItems, percent: getInventoryPercent(sellItems), color: '#8BA18E', icon: <Star size={14} /> },
-    { label: 'TO DONATE', count: donateItems, percent: getInventoryPercent(donateItems), color: '#A38C6B', icon: <MapPin size={14} /> },
-    { label: 'TO TRASH', count: trashItems, percent: getInventoryPercent(trashItems), color: '#8C7B6D', icon: <Clock size={14} /> }
+    { label: 'TO SELL', count: packingItems.filter(i => i.action === 'Sell').length, percent: getInventoryPercent(packingItems.filter(i => i.action === 'Sell').length), color: '#d1cdc4', icon: <Star size={14} /> },
+    { label: 'TO DONATE', count: packingItems.filter(i => i.action === 'Donate').length, percent: getInventoryPercent(packingItems.filter(i => i.action === 'Donate').length), color: '#e0dbd5', icon: <MapPin size={14} /> },
+    { label: 'TO TRASH', count: packingItems.filter(i => i.action === 'Trash').length, percent: getInventoryPercent(packingItems.filter(i => i.action === 'Trash').length), color: '#e5e1da', icon: <Clock size={14} /> }
   ];
 
   const milestones = getMilestones(settings);
@@ -194,9 +178,9 @@ export default function Dashboard() {
   ];
 
   return (
-    <div style={{ width: '100%', paddingBottom: '60px' }}>
-      <div className="flex flex-stack items-center justify-between mb-12">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+    <div style={{ width: '100%', paddingBottom: '80px' }}>
+      <div className="flex flex-stack items-center justify-between mb-16">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ 
             width: '64px', 
             height: '64px', 
@@ -205,56 +189,56 @@ export default function Dashboard() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
-            boxShadow: '0 8px 16px rgba(107, 142, 123, 0.25)'
+            boxShadow: 'var(--shadow-md)'
           }}>
-            <Heart size={32} color="white" fill="white" />
+            <Star size={32} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 style={{ marginBottom: '4px' }}>
               Starland Moving
             </h1>
-            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '16px', fontWeight: 600 }}>Tory & Andrew's Relocation Hub</p>
+            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Andrew & Tory’s Relocation Hub</p>
           </div>
         </div>
         <div className="flex gap-4">
-          <Link href="/settings" className="btn btn-secondary" style={{ gap: '8px', padding: '0 24px', height: '48px', borderRadius: '12px' }}>
+          <Link href="/settings" className="btn btn-secondary" style={{ gap: '8px', padding: '0 24px', height: '48px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'transparent' }}>
             <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>settings</span>
             Settings
           </Link>
           <div 
             onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
             className="badge badge-info card-hover-effect" 
-            style={{ height: '48px', padding: '0 24px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderRadius: '12px' }}
+            style={{ height: '48px', padding: '0 24px', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', borderRadius: 'var(--radius)', background: 'var(--accent-soft)', color: 'var(--foreground)', border: 'none' }}
           >
              <CalendarIcon size={18} />
-             <span style={{ fontWeight: 700 }}>{format(parseISO(moveDateStr), 'MMMM d, yyyy')}</span>
+             <span style={{ fontWeight: 600, letterSpacing: '0.05em' }}>{format(parseISO(moveDateStr), 'MMMM d, yyyy').toUpperCase()}</span>
           </div>
         </div>
       </div>
       
       {/* Visual Progression Section */}
-      <div className="card" style={{ padding: '64px 40px', marginBottom: '48px', border: 'none', boxShadow: 'var(--shadow-md)', position: 'relative', overflow: 'hidden', background: '#fff' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '6px', background: 'var(--accent-soft)' }}>
+      <div className="card" style={{ padding: '80px 48px', marginBottom: '64px', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', position: 'relative', overflow: 'hidden', background: '#fff', borderRadius: 'var(--radius)' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'var(--accent-soft)' }}>
           <div style={{ height: '100%', width: `${progress}%`, background: 'var(--accent)', transition: 'width 1s ease-in-out' }}></div>
         </div>
 
-        <div className="flex items-center" style={{ width: '100%', marginBottom: '80px', justifyContent: 'center' }}>
+        <div className="flex items-center" style={{ width: '100%', marginBottom: '100px', justifyContent: 'center' }}>
           <div style={{ display: 'flex', width: '100%', maxWidth: '1200px', alignItems: 'center' }}>
             {stages.map((stage, idx) => (
               <div key={stage.name} style={{ display: 'flex', alignItems: 'center', flex: idx === stages.length - 1 ? 'none' : 1 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', position: 'relative' }}>
-                  <div className={`progress-node ${stage.status === 'complete' ? 'complete' : stage.status === 'current' ? 'current' : ''}`} style={{ width: '64px', height: '64px', borderRadius: '14px' }}>
-                    <span className="material-symbols-outlined" style={{ fontSize: '32px' }}>{stage.icon}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', position: 'relative' }}>
+                  <div className={`progress-node ${stage.status === 'complete' ? 'complete' : stage.status === 'current' ? 'current' : ''}`} style={{ width: '56px', height: '56px', borderRadius: '12px', border: '1.5px solid' }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: '24px' }}>{stage.icon}</span>
                   </div>
                   <span style={{ 
-                    fontSize: '14px', 
+                    fontSize: '12px', 
                     fontWeight: 600, 
                     fontFamily: 'var(--font-headings)',
                     color: stage.status === 'pending' ? 'var(--text-secondary)' : 'var(--foreground)', 
-                    letterSpacing: '0.02em', 
+                    letterSpacing: '0.15em', 
                     textTransform: 'uppercase',
                     position: 'absolute',
-                    top: '80px',
+                    top: '75px',
                     whiteSpace: 'nowrap'
                   }}>
                     {stage.name}
@@ -262,9 +246,9 @@ export default function Dashboard() {
                 </div>
                 {idx < stages.length - 1 && (
                   <div className={`progress-connector ${stage.status === 'complete' ? 'filled' : ''}`} style={{ 
-                    marginTop: '-32px',
-                    height: '4px',
-                    background: stage.status === 'complete' ? 'var(--success)' : 'var(--border)'
+                    marginTop: '-40px',
+                    height: '1.5px',
+                    background: stage.status === 'complete' ? 'var(--accent)' : 'var(--border)'
                   }}></div>
                 )}
               </div>
@@ -272,114 +256,114 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex flex-stack justify-between items-end" style={{ marginTop: '80px', paddingTop: '40px', borderTop: '1px solid var(--border)' }}>
+        <div className="flex flex-stack justify-between items-end" style={{ marginTop: '100px', paddingTop: '48px', borderTop: '1px solid var(--border)' }}>
           <div>
-            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-secondary)', marginBottom: '12px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Overall Move Progress</div>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '16px', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Progress</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
-              <span style={{ fontSize: '64px', fontWeight: 800, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, letterSpacing: '-0.02em' }}>{progress}%</span>
-              <span style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-secondary)' }}>Complete</span>
+              <span style={{ fontSize: '72px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, letterSpacing: '-0.02em' }}>{progress}%</span>
+              <span style={{ fontSize: '16px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Complete</span>
             </div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div 
               onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
-              style={{ fontSize: '36px', fontWeight: 700, fontFamily: 'var(--font-headings)', color: 'var(--accent)', lineHeight: 1, marginBottom: '10px', letterSpacing: '-0.01em', cursor: 'pointer' }}
+              style={{ fontSize: '32px', fontWeight: 600, fontFamily: 'var(--font-headings)', color: 'var(--foreground)', lineHeight: 1, marginBottom: '12px', letterSpacing: '0.05em', textTransform: 'uppercase', cursor: 'pointer' }}
               className="hover-opacity"
             >
-              {daysToMove > 0 ? `${daysToMove} Days to Move` : daysToMove === 0 ? "Today is Move Day!" : 'Relocation Complete'}
+              {daysToMove > 0 ? `${daysToMove} Days` : daysToMove === 0 ? "Move Day" : 'Complete'}
             </div>
             <div 
               onClick={() => openDateModal('confirmedMoveDate', 'Move Date')}
               className="flex items-center gap-2 justify-end" 
-              style={{ color: 'var(--text-secondary)', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}
+              style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', letterSpacing: '0.05em', textTransform: 'uppercase' }}
             >
-              {settings.confirmedMoveDate ? <CheckCircle2 size={18} color="var(--success)" /> : <Clock size={18} />}
-              <span>{settings.confirmedMoveDate ? 'Final date confirmed' : 'Target date estimated'}</span>
+              {settings.confirmedMoveDate ? <CheckCircle2 size={14} color="var(--accent)" /> : <Clock size={14} />}
+              <span>{settings.confirmedMoveDate ? 'Confirmed' : 'Estimated'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
         
-        {/* Full-width Logistics Anchor Dates */}
-        <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-md)' }}>
-          <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--border)', backgroundColor: '#fafbfc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              <CalendarIcon size={20} color="var(--accent)" />
-              Relocation Milestones & Logistics
+        {/* Logistics Anchor Dates */}
+        <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', backgroundColor: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <CalendarIcon size={18} color="var(--accent)" />
+              Relocation Milestones
             </h2>
-            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--success)' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--success)' }}></div> CONFIRMED
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)' }}></div> CONFIRMED
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 800, color: '#94a3b8' }}>
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', border: '1px solid #94a3b8', background: 'transparent' }}></div> ESTIMATED
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', border: '1px solid var(--text-secondary)' }}></div> ESTIMATED
               </div>
             </div>
           </div>
-          <div style={{ padding: '28px' }}>
+          <div style={{ padding: '32px' }}>
             <MilestoneGrid milestones={milestones} onEdit={openDateModal} />
           </div>
         </div>
 
-        <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', alignItems: 'start' }}>
+        <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'start' }}>
           
           {/* Inventory Summary Card */}
-          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-md)' }}>
-            <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafbfc' }}>
-              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <Box size={20} color="var(--accent)" />
-                Belongings & Inventory
+          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
+              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <Box size={18} color="var(--accent)" />
+                Inventory
               </h2>
-              <Link href="/packing" className="badge badge-info card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 800 }}>VIEW FULL LIST</span> <ChevronRight size={14} />
+              <Link href="/packing" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
               </Link>
             </div>
-            <div style={{ padding: '32px 28px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginBottom: '40px' }}>
+            <div style={{ padding: '40px 32px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
                  {inventorySummary.map(item => (
                    <div key={item.label}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                          <span style={{ color: item.color }}>{item.icon}</span>
-                         <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>{item.label}</span>
+                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>{item.label}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                         <span style={{ fontSize: '32px', fontWeight: 800, color: 'var(--foreground)' }}>{item.percent}%</span>
-                         <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)' }}>({item.count})</span>
+                         <span style={{ fontSize: '32px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>{item.percent}%</span>
+                         <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>({item.count})</span>
                       </div>
-                      <div style={{ height: '6px', width: '100%', background: '#f1f5f9', borderRadius: '3px', marginTop: '16px', overflow: 'hidden' }}>
-                         <div style={{ height: '100%', width: `${item.percent}%`, background: item.color, borderRadius: '3px' }}></div>
+                      <div style={{ height: '4px', width: '100%', background: 'var(--accent-soft)', borderRadius: '2px', marginTop: '16px', overflow: 'hidden' }}>
+                         <div style={{ height: '100%', width: `${item.percent}%`, background: item.color, borderRadius: '2px' }}></div>
                       </div>
                    </div>
                  ))}
               </div>
 
-              <div style={{ padding: '24px', background: '#f8fafc', borderRadius: '20px', border: '2px solid #f1f5f9' }}>
+              <div style={{ padding: '32px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
                  <div className="flex justify-between items-center mb-4">
-                   <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--foreground)' }}>Packing Progress (to bring)</div>
-                   <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--accent)' }}>{packingProgress}%</div>
+                   <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Packing Progress</div>
+                   <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{packingProgress}%</div>
                  </div>
-                 <div style={{ height: '12px', background: 'white', borderRadius: '6px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                 <div style={{ height: '8px', background: '#fff', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
                     <div style={{ height: '100%', width: `${packingProgress}%`, background: 'var(--accent)', transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
                  </div>
-                 <div className="flex items-center gap-2 mt-4" style={{ color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600 }}>
+                 <div className="flex items-center gap-2 mt-4" style={{ color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 500 }}>
                    <CheckCircle2 size={14} />
-                   <span>{packedItems} of {bringItems.length} items to bring are packed and ready.</span>
+                   <span>{packedItems} of {bringItems.length} items packed.</span>
                  </div>
               </div>
             </div>
           </div>
 
           {/* Priority Actions Card */}
-          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: 'none', boxShadow: 'var(--shadow-md)' }}>
-            <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafbfc' }}>
-              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                <Star size={20} fill="var(--warning)" color="var(--warning)" />
-                Focus Tasks
+          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
+            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
+              <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <Sparkles size={18} color="var(--accent)" />
+                Focus
               </h2>
-              <Link href="/tasks" className="badge badge-info card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 800 }}>VIEW ALL TASKS</span> <ChevronRight size={14} />
+              <Link href="/tasks" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
               </Link>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -387,45 +371,44 @@ export default function Dashboard() {
                 <div key={task.id} style={{ 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '16px', 
-                  padding: '20px 28px', 
-                  borderBottom: idx === 9 || idx === data.tasks.filter(t => t.status !== 'Complete').slice(0, 10).length - 1 ? 'none' : '1px solid #f8f9fa',
+                  gap: '20px', 
+                  padding: '24px 32px', 
+                  borderBottom: idx === 9 || idx === data.tasks.filter(t => t.status !== 'Complete').slice(0, 10).length - 1 ? 'none' : '1px solid var(--border)',
                   transition: 'background-color 0.2s ease'
                 }} className="task-row">
                   <button 
                     onClick={() => toggleTaskStatus(task)}
                     style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
                   >
-                    <span className="material-symbols-outlined" style={{ color: '#cbd5e1', fontSize: '26px' }}>radio_button_unchecked</span>
+                    <span className="material-symbols-outlined" style={{ color: 'var(--border)', fontSize: '24px' }}>radio_button_unchecked</span>
                   </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                    <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {data.categories.find(c => c.id === task.categoryId)?.name}
                       </div>
                       {getTaskDate(task) && (
                         <>
                           <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--border)' }}></div>
-                          <div style={{ fontSize: '12px', color: 'var(--accent)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <CalendarIcon size={12} />
-                            <span>{format(getTaskDate(task)!, 'MMM d')}</span>
-                            {!task.dueDate && <span style={{ fontSize: '9px', opacity: 0.6, fontWeight: 800 }}>• TARGET</span>}
+                            <span>{format(getTaskDate(task)!, 'MMM d').toUpperCase()}</span>
                           </div>
                         </>
                       )}
                     </div>
                   </div>
-                  <div className="badge badge-neutral" style={{ fontSize: '10px', padding: '4px 10px', borderRadius: '8px', fontWeight: 800, flexShrink: 0 }}>{task.owner.toUpperCase()}</div>
+                  <div className="badge badge-neutral" style={{ fontSize: '9px', padding: '4px 10px', borderRadius: '6px', fontWeight: 600, flexShrink: 0, background: 'var(--accent-soft)', color: 'var(--foreground)', border: 'none' }}>{task.owner.toUpperCase()}</div>
                 </div>
               ))}
               {data.tasks.filter(t => t.status !== 'Complete').length === 0 && (
-                <div style={{ padding: '80px 32px', textAlign: 'center' }}>
-                  <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--success-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-                    <CheckCircle2 size={32} color="var(--success)" />
+                <div style={{ padding: '100px 32px', textAlign: 'center' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+                    <CheckCircle2 size={24} color="var(--accent)" />
                   </div>
-                  <div style={{ fontSize: '18px', color: 'var(--foreground)', fontWeight: 800, marginBottom: '8px' }}>Move Plan Clear!</div>
-                  <div style={{ fontSize: '15px', color: 'var(--text-secondary)', fontWeight: 500 }}>All active priorities have been completed.</div>
+                  <div style={{ fontSize: '16px', color: 'var(--foreground)', fontWeight: 600, marginBottom: '8px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Plan Clear</div>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: 400 }}>All priorities completed.</div>
                 </div>
               )}
             </div>
@@ -435,35 +418,35 @@ export default function Dashboard() {
 
       {/* Quick Date Edit Modal */}
       {isDateModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
-             <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-               <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Update {activeDateLabel}</h2>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '440px', padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', borderRadius: '16px' }}>
+             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
+               <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, letterSpacing: '0.1em' }}>Update {activeDateLabel}</h2>
                <button onClick={() => setIsDateModalOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={20} /></button>
              </div>
-             <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+             <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px', background: '#fff' }}>
                 {validationError && (
                   <div style={{ 
-                    padding: '12px 16px', 
+                    padding: '16px 20px', 
                     borderRadius: '8px', 
-                    background: '#fef2f2', 
-                    border: '1px solid #fee2e2', 
+                    background: '#fff', 
+                    border: '1px solid #dc2626', 
                     color: '#dc2626', 
                     fontSize: '13px', 
-                    fontWeight: 600,
-                    lineHeight: '1.4'
+                    fontWeight: 500,
+                    lineHeight: '1.5'
                   }}>
                     {validationError}
                   </div>
                 )}
                 <div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Date (YYYY-MM-DD)</label>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Date (YYYY-MM-DD)</label>
                       <button 
                         onClick={() => setTempDate('')}
-                        style={{ border: 'none', background: 'none', color: 'var(--accent)', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                        style={{ border: 'none', background: 'none', color: 'var(--accent)', fontSize: '10px', fontWeight: 700, cursor: 'pointer', letterSpacing: '0.05em' }}
                       >
-                        CLEAR DATE
+                        CLEAR
                       </button>
                    </div>
                    <div style={{ position: 'relative' }}>
@@ -472,9 +455,9 @@ export default function Dashboard() {
                        placeholder="2026-04-16"
                        value={tempDate}
                        onChange={e => setTempDate(e.target.value)}
-                       style={{ paddingRight: '48px', height: '48px', fontSize: '15px', fontWeight: 700, borderRadius: '10px' }}
+                       style={{ paddingRight: '48px', height: '52px', fontSize: '15px', fontWeight: 500, borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)' }}
                      />
-                     <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+                     <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
                         <div style={{ position: 'relative', width: '24px', height: '24px' }}>
                            <input 
                              type="date" 
@@ -486,48 +469,47 @@ export default function Dashboard() {
                         </div>
                      </div>
                    </div>
-                   <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '12px', lineHeight: '1.4' }}>Type dates manually for speed, or click the blue icon for a calendar.</p>
                 </div>
 
                 <div 
                   onClick={() => setTempConfirmed(!tempConfirmed)}
                   style={{ 
-                    padding: '20px', 
-                    borderRadius: '16px', 
-                    border: '2px solid',
-                    borderColor: tempConfirmed ? 'var(--success)' : 'var(--border)',
-                    background: tempConfirmed ? 'var(--success-soft)' : 'transparent',
+                    padding: '24px', 
+                    borderRadius: '12px', 
+                    border: '1px solid',
+                    borderColor: tempConfirmed ? 'var(--accent)' : 'var(--border)',
+                    background: tempConfirmed ? 'var(--accent-soft)' : 'transparent',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '16px',
+                    gap: '20px',
                     transition: 'all 0.2s ease'
                   }}
                 >
                   <div style={{ 
-                    width: '28px', 
-                    height: '28px', 
+                    width: '24px', 
+                    height: '24px', 
                     borderRadius: '50%', 
-                    border: '2px solid',
-                    borderColor: tempConfirmed ? 'var(--success)' : '#d1d5db',
+                    border: '1.5px solid',
+                    borderColor: tempConfirmed ? 'var(--accent)' : 'var(--border)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: tempConfirmed ? 'var(--success)' : 'transparent',
+                    background: tempConfirmed ? 'var(--accent)' : 'transparent',
                     flexShrink: 0
                   }}>
-                    {tempConfirmed && <CheckCircle2 size={18} color="#fff" />}
+                    {tempConfirmed && <CheckCircle2 size={16} color="#fff" />}
                   </div>
                   <div>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--foreground)' }}>Confirmed Date</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Toggle this once the date is finalized.</div>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '0.02em' }}>Confirmed</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>Lock this date in the timeline.</div>
                   </div>
                 </div>
              </div>
-             <div style={{ padding: '20px 24px', backgroundColor: '#fafbfc', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button className="btn btn-secondary" onClick={() => setIsDateModalOpen(false)}>Cancel</button>
-                <button className="btn btn-primary" style={{ gap: '10px', height: '44px', padding: '0 24px' }} onClick={saveQuickDate}>
-                  <Save size={18} /> Update Date
+             <div style={{ padding: '24px 32px', backgroundColor: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+                <button className="btn btn-secondary" style={{ background: 'transparent', border: '1px solid var(--border)', height: '48px', padding: '0 24px' }} onClick={() => setIsDateModalOpen(false)}>Cancel</button>
+                <button className="btn btn-primary" style={{ gap: '10px', height: '48px', padding: '0 32px', fontWeight: 700, letterSpacing: '0.05em' }} onClick={saveQuickDate}>
+                  SAVE
                 </button>
              </div>
           </div>

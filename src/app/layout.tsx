@@ -3,7 +3,7 @@
 import "./globals.css";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Home, Menu, X, Map as MapIcon, Box } from "lucide-react";
+import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Star, Menu, X, Map as MapIcon, Box } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function RootLayout({
@@ -32,6 +32,9 @@ export default function RootLayout({
       <html lang="en">
         <head>
           <title>Login | Starland Move Tracker</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
           <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         </head>
         <body>{children}</body>
@@ -45,7 +48,7 @@ export default function RootLayout({
         <title>Starland Move Tracker</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
       </head>
       <body>
@@ -58,10 +61,10 @@ export default function RootLayout({
             {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
           <div className="header-logo">
-            <Home size={22} strokeWidth={2.5} />
+            <Star size={18} strokeWidth={2.5} fill="currentColor" />
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-              <span style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em', fontFamily: 'var(--font-headings)' }}>Starland Moving</span>
-              <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>ANDREW & TORY’S MOVE</span>
+              <span style={{ fontWeight: 600, fontSize: '15px', letterSpacing: '0.15em', fontFamily: 'var(--font-headings)' }}>Starland Moving</span>
+              <span style={{ fontSize: '9px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: '0.1em', marginTop: '2px' }}>EST. 2026 — RELOCATION HUB</span>
             </div>
           </div>
         </header>
