@@ -244,7 +244,8 @@ function InventoryModal({ item, onClose, onSave }: { item: Partial<PackingItem>,
       room,
       action,
       notes,
-      status: item.status || 'Unresolved'
+      status: (item.status === 'Resolved' ? 'Resolved' : 'Unresolved') as PackingStatus,
+      priority: (item.priority || 'Medium') as PackingPriority
     });
   };
 
