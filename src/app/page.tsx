@@ -160,7 +160,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', paddingBottom: '80px' }}>
-      <div className="flex flex-stack items-center justify-between mb-16">
+      <div className="flex flex-stack items-center justify-between" style={{ marginBottom: '48px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
           <div style={{ 
             width: '64px', 
@@ -175,7 +175,7 @@ export default function Dashboard() {
             <Star size={32} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '4px', letterSpacing: '0.02em' }}>
+            <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>
               Starland Moving
             </h1>
             <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Andrew & Tory’s Relocation Hub</p>
@@ -183,53 +183,57 @@ export default function Dashboard() {
         </div>
       </div>
       
-      {/* Central Chronological Vertical Timeline */}
-      <div style={{ marginBottom: '80px', maxWidth: '800px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '40px' }}>
-          <Navigation size={22} color="var(--accent)" />
-          <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Move Narrative</h2>
-        </div>
+      <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '48px', alignItems: 'start' }}>
         
-        <div className="timeline-container" style={{ position: 'relative' }}>
-          {milestones.map((m, index) => (
-            <div key={m.key} style={{ display: 'flex', gap: '32px', position: 'relative' }}>
-              {/* Timeline Connector Column */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px', flexShrink: 0 }}>
-                <div style={{ 
-                  width: '12px', 
-                  height: '12px', 
-                  borderRadius: '50%', 
-                  background: m.status === 'confirmed' ? 'var(--accent)' : m.status === 'estimated' ? 'var(--text-secondary)' : '#fff', 
-                  border: m.status === 'unset' ? '2px solid var(--border)' : 'none',
-                  zIndex: 2,
-                  marginTop: '12px',
-                  boxShadow: m.status === 'confirmed' ? '0 0 0 4px var(--accent-soft)' : 'none'
-                }} />
-                {index < milestones.length - 1 && (
+        {/* Move Narrative Card */}
+        <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
+          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
+            <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              <Navigation size={18} color="var(--accent)" />
+              Move Narrative
+            </h2>
+            <Link href="/timeline" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
+            </Link>
+          </div>
+          <div className="timeline-container" style={{ position: 'relative', padding: '32px', overflowY: 'auto', maxHeight: '600px' }}>
+            {milestones.map((m, index) => (
+              <div key={m.key} style={{ display: 'flex', gap: '20px', position: 'relative' }}>
+                {/* Timeline Connector Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px', flexShrink: 0 }}>
                   <div style={{ 
-                    width: '1px', 
-                    flex: 1, 
-                    background: 'var(--border)', 
-                    margin: '8px 0',
-                    zIndex: 1
+                    width: '12px', 
+                    height: '12px', 
+                    borderRadius: '50%', 
+                    background: m.status === 'confirmed' ? 'var(--accent)' : m.status === 'estimated' ? 'var(--text-secondary)' : '#fff', 
+                    border: m.status === 'unset' ? '2px solid var(--border)' : 'none',
+                    zIndex: 2,
+                    marginTop: '12px',
+                    boxShadow: m.status === 'confirmed' ? '0 0 0 4px var(--accent-soft)' : 'none'
                   }} />
-                )}
+                  {index < milestones.length - 1 && (
+                    <div style={{ 
+                      width: '1px', 
+                      flex: 1, 
+                      background: 'var(--border)', 
+                      margin: '8px 0',
+                      zIndex: 1
+                    }} />
+                  )}
+                </div>
+                
+                {/* Card Container */}
+                <div style={{ flex: 1, paddingBottom: index === milestones.length - 1 ? 0 : '32px' }}>
+                  <NarrativeCard 
+                    milestone={m} 
+                    onClick={() => openDateModal(m.key, m.label)} 
+                  />
+                </div>
               </div>
-              
-              {/* Card Container */}
-              <div style={{ flex: 1, paddingBottom: index === milestones.length - 1 ? 0 : '40px' }}>
-                <NarrativeCard 
-                  milestone={m} 
-                  onClick={() => openDateModal(m.key, m.label)} 
-                />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
-      <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '48px', alignItems: 'start' }}>
-        
         {/* Inventory Resolution Card */}
         <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
           <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
@@ -241,7 +245,7 @@ export default function Dashboard() {
               <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
             </Link>
           </div>
-          <div style={{ padding: '40px 32px' }}>
+          <div style={{ padding: '32px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
                 {inventorySummary.map(item => (
                   <div key={item.label}>
@@ -281,7 +285,7 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task) => (
-              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '20px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
+              <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
                 <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}>
                   <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
                 </button>
