@@ -130,14 +130,9 @@ export default function OverviewPage() {
 
       {/* Page header */}
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, border: '2px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>SL</span>
-          </div>
-          <div>
-            <h1>Starland Moving</h1>
-            <p className="page-subtitle" style={{ marginTop: 2, fontSize: 13 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</p>
-          </div>
+        <div>
+          <h1>Hi, Starlands.</h1>
+          <p className="page-subtitle">Here's where the move stands.</p>
         </div>
         {daysUntilDrive !== null && daysUntilDrive >= 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>

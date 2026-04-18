@@ -74,7 +74,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div style={{ width: 32, height: 32, borderRadius: 6, border: '1.5px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>SL</span>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'var(--color-foreground)', fontFamily: 'var(--font-serif)' }}>Starland</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'var(--color-foreground)', fontFamily: 'var(--font-serif)' }}>Starland Moving</span>
+                <span style={{ fontSize: 9, color: 'var(--color-secondary)', fontStyle: 'italic', lineHeight: 1 }}>™ Starland Family Ent.</span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--color-secondary)', letterSpacing: '0.03em', lineHeight: 1 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
+            </div>
           </div>
 
           <div style={{ flex: 1 }} />
