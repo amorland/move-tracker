@@ -67,12 +67,14 @@ export default function InventoryPage() {
     const itemNameStr = i.itemName || (i as any).itemName || 'Unnamed Item';
     const itemStatus = i.status || (i as any).status;
 
+    console.log('Filtering item:', { itemNameStr, itemAction, itemStatus, activeTab, showResolved });
+
     // Use case-insensitive matching for more robust filtering
     const matchesTab = String(itemAction).toLowerCase() === String(activeTab).toLowerCase();
     const matchesSearch = itemNameStr.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesResolution = showResolved ? 
       String(itemStatus).toLowerCase() === 'resolved' : 
-      (String(itemStatus).toLowerCase() === 'unresolved' || !itemStatus);
+      (String(itemStatus || 'Unresolved').toLowerCase() === 'unresolved');
     
     return matchesTab && matchesSearch && matchesResolution;
   });
