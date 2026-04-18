@@ -1,14 +1,11 @@
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete';
 export type TaskOwner = 'Andrew' | 'Tory' | 'Both';
 export type TaskPhase = 'Move Out' | 'Move In' | 'Both';
-export type TimingType = 'Fixed' | 'Before Move' | 'After Move' | 'Before Closing' | 'After Closing' | 'Flexible';
 
 export interface MoveSettings {
   id: number;
   closingDate: string | null;
   isClosingDateConfirmed: boolean;
-  
-  // Anchor Dates
   upackDropoffDate: string | null;
   isUpackDropoffConfirmed: boolean;
   upackPickupDate: string | null;
@@ -38,34 +35,21 @@ export interface Task {
   owner: TaskOwner;
   phase: TaskPhase;
   dueDate: string | null;
-  timingType: TimingType;
-  timingOffsetDays: number | null;
+  completedAt: string | null;
   notes: string | null;
   orderIndex: number;
 }
 
-export type PackingAction = 'Bring' | 'Trash' | 'Sell' | 'Donate';
-export type PackingStatus = 'Unresolved' | 'Resolved';
-export type PackingPriority = 'Low' | 'Medium' | 'High';
+export type BelongingAction = 'Bring' | 'Sell' | 'Donate' | 'Trash';
+export type BelongingStatus = 'unresolved' | 'resolved';
 
-export interface PackingItem {
+export interface Belonging {
   id: number;
   room: string;
   itemName: string;
-  action: PackingAction;
-  status: PackingStatus;
+  action: BelongingAction;
+  status: BelongingStatus;
   notes: string | null;
-  priority: PackingPriority;
-  createdAt: string;
-}
-
-export interface Document {
-  id: number;
-  taskId: number | null;
-  categoryId: number | null;
-  name: string;
-  url: string;
-  isLink: boolean;
   createdAt: string;
 }
 
@@ -78,4 +62,14 @@ export interface MoveLocation {
   lat: number | null;
   lng: number | null;
   createdAt: string;
+}
+
+export interface MoveEvent {
+  id: number;
+  title: string;
+  date: string;
+  time: string | null;
+  is_confirmed: boolean;
+  notes: string | null;
+  created_at: string;
 }

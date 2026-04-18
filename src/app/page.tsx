@@ -1,506 +1,365 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Category, Task, PackingItem } from '@/lib/types';
-import { format, parseISO, isBefore } from 'date-fns';
-import { MapPin, Star, Calendar as CalendarIcon, Clock, CheckCircle2, ChevronRight, Box, X, Save, Edit3, Sparkles, Navigation, DollarSign, Heart, Trash } from 'lucide-react';
+import { MoveSettings, Category, Task, Belonging } from '@/lib/types';
+import { format, parseISO, differenceInDays } from 'date-fns';
+import { Star, CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Calendar, X, Save, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
 
-export default function Dashboard() {
+export default function OverviewPage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
-  const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
-  const [packingItems, setPackingItems] = useState<PackingItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [belongings, setBelongings] = useState<Belonging[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Date Editing Modal State
-  const [isDateModalOpen, setIsDateModalOpen] = useState(false);
-  const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
-  const [activeDateLabel, setActiveDateLabel] = useState('');
+
+  // Date modal state
+  const [dateModal, setDateModal] = useState<{ key: string; label: string } | null>(null);
   const [tempDate, setTempDate] = useState('');
   const [tempConfirmed, setTempConfirmed] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  
-  // Task Editing state for interactivity
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Partial<Task> | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [settingsRes, categoriesRes, packingRes] = await Promise.all([
+    const [sRes, cRes, bRes] = await Promise.all([
       fetch('/api/settings'),
       fetch('/api/categories'),
-      fetch('/api/packing')
+      fetch('/api/belongings'),
     ]);
-    const settingsData = await settingsRes.json();
-    
-    // EMERGENCY CLEANUP (Frontend): Sanitize state to avoid validation deadlock
-    if (settingsData.isClosingDateConfirmed && !settingsData.closingDate) settingsData.isClosingDateConfirmed = false;
-    if (settingsData.isUpackDropoffConfirmed && !settingsData.upackDropoffDate) settingsData.isUpackDropoffConfirmed = false;
-    if (settingsData.isUpackPickupConfirmed && !settingsData.upackPickupDate) settingsData.isUpackPickupConfirmed = false;
-    if (settingsData.isDriveStartConfirmed && !settingsData.driveStartDate) settingsData.isDriveStartConfirmed = false;
-    if (settingsData.isArrivalConfirmed && !settingsData.arrivalDate) settingsData.isArrivalConfirmed = false;
-    if (settingsData.isUpackDeliveryConfirmed && !settingsData.upackDeliveryDate) settingsData.isUpackDeliveryConfirmed = false;
-    if (settingsData.isUpackFinalPickupConfirmed && !settingsData.upackFinalPickupDate) settingsData.isUpackFinalPickupConfirmed = false;
-
-    setSettings(settingsData);
-    setData(await categoriesRes.json());
-    setPackingItems(await packingRes.json());
+    const s = await sRes.json();
+    sanitiseSettings(s);
+    setSettings(s);
+    const { categories: cats, tasks: ts } = await cRes.json();
+    setCategories(cats);
+    setTasks(ts);
+    setBelongings(await bRes.json());
     setLoading(false);
   };
 
-  const getActualConfirmKey = (key: string) => {
-    const confirmKeyMap: Record<string, string> = {
-      'closingDate': 'isClosingDateConfirmed',
-      'upackDropoffDate': 'isUpackDropoffConfirmed',
-      'upackPickupDate': 'isUpackPickupConfirmed',
-      'driveStartDate': 'isDriveStartConfirmed',
-      'arrivalDate': 'isArrivalConfirmed',
-      'upackDeliveryDate': 'isUpackDeliveryConfirmed',
-      'upackFinalPickupDate': 'isUpackFinalPickupConfirmed'
-    };
-    return confirmKeyMap[key] || `is${key.charAt(0).toUpperCase()}${key.slice(1)}Confirmed`.replace('DateConfirmed', 'Confirmed');
+  const sanitiseSettings = (s: MoveSettings) => {
+    if (s.isClosingDateConfirmed && !s.closingDate) s.isClosingDateConfirmed = false;
+    if (s.isUpackDropoffConfirmed && !s.upackDropoffDate) s.isUpackDropoffConfirmed = false;
+    if (s.isUpackPickupConfirmed && !s.upackPickupDate) s.isUpackPickupConfirmed = false;
+    if (s.isDriveStartConfirmed && !s.driveStartDate) s.isDriveStartConfirmed = false;
+    if (s.isArrivalConfirmed && !s.arrivalDate) s.isArrivalConfirmed = false;
+    if (s.isUpackDeliveryConfirmed && !s.upackDeliveryDate) s.isUpackDeliveryConfirmed = false;
+    if (s.isUpackFinalPickupConfirmed && !s.upackFinalPickupDate) s.isUpackFinalPickupConfirmed = false;
   };
 
-  const openDateModal = (key: string, label: string) => {
+  const CONFIRM_KEY_MAP: Record<string, string> = {
+    closingDate: 'isClosingDateConfirmed',
+    upackDropoffDate: 'isUpackDropoffConfirmed',
+    upackPickupDate: 'isUpackPickupConfirmed',
+    driveStartDate: 'isDriveStartConfirmed',
+    arrivalDate: 'isArrivalConfirmed',
+    upackDeliveryDate: 'isUpackDeliveryConfirmed',
+    upackFinalPickupDate: 'isUpackFinalPickupConfirmed',
+  };
+
+  const openDateModal = (m: Milestone) => {
     if (!settings) return;
-    setActiveDateKey(key);
-    setActiveDateLabel(label);
-    setValidationError(null);
-    // @ts-ignore
-    setTempDate(settings[key] || '');
-    const actualConfirmKey = getActualConfirmKey(key);
-    // @ts-ignore
-    setTempConfirmed(!!settings[actualConfirmKey]);
-    setIsDateModalOpen(true);
+    setDateModal({ key: m.key as string, label: m.label });
+    setTempDate((settings as any)[m.key] || '');
+    setTempConfirmed(!!(settings as any)[CONFIRM_KEY_MAP[m.key as string]]);
+    setDateError(null);
   };
 
-  const saveQuickDate = async () => {
-    if (!settings || !activeDateKey) return;
-    const normalizedDate = (tempDate && tempDate.trim()) ? tempDate.trim() : null;
-    const updatePayload: any = { [activeDateKey]: normalizedDate };
-    const actualConfirmKey = getActualConfirmKey(activeDateKey);
-    
-    if (tempConfirmed && !normalizedDate) {
-      setValidationError(`${activeDateLabel} cannot be confirmed without a date.`);
+  const saveDateModal = async () => {
+    if (!settings || !dateModal) return;
+    const date = tempDate.trim() || null;
+    const confirmKey = CONFIRM_KEY_MAP[dateModal.key];
+
+    if (tempConfirmed && !date) {
+      setDateError(`${dateModal.label} cannot be confirmed without a date.`);
       return;
     }
-    updatePayload[actualConfirmKey] = tempConfirmed;
 
-    const projectedSettings = { ...settings, ...updatePayload };
-    
-    // Sanitize projected settings before validation
-    if (projectedSettings.isClosingDateConfirmed && !projectedSettings.closingDate) projectedSettings.isClosingDateConfirmed = false;
-    if (projectedSettings.isUpackDropoffConfirmed && !projectedSettings.upackDropoffDate) projectedSettings.isUpackDropoffConfirmed = false;
-    if (projectedSettings.isUpackPickupConfirmed && !projectedSettings.upackPickupDate) projectedSettings.isUpackPickupConfirmed = false;
-    if (projectedSettings.isDriveStartConfirmed && !projectedSettings.driveStartDate) projectedSettings.isDriveStartConfirmed = false;
-    if (projectedSettings.isArrivalConfirmed && !projectedSettings.arrivalDate) projectedSettings.isArrivalConfirmed = false;
-    if (projectedSettings.isUpackDeliveryConfirmed && !projectedSettings.upackDeliveryDate) projectedSettings.isUpackDeliveryConfirmed = false;
-    if (projectedSettings.isUpackFinalPickupConfirmed && !projectedSettings.upackFinalPickupDate) projectedSettings.isUpackFinalPickupConfirmed = false;
-
-    const ruleError = validateDates(projectedSettings);
-    if (ruleError) {
-      setValidationError(ruleError);
-      return;
-    }
+    const projected = { ...settings, [dateModal.key]: date, [confirmKey]: tempConfirmed };
+    sanitiseSettings(projected);
+    const err = validateDates(projected);
+    if (err) { setDateError(err); return; }
 
     const res = await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatePayload)
+      body: JSON.stringify({ [dateModal.key]: date, [confirmKey]: tempConfirmed }),
     });
-
-    if (res.ok) {
-      setSettings(projectedSettings);
-      setIsDateModalOpen(false);
-      setValidationError(null);
-    } else {
-      const err = await res.json();
-      setValidationError(err.error || 'Unknown error');
-    }
+    if (res.ok) { setSettings(projected); setDateModal(null); }
+    else { const e = await res.json(); setDateError(e.error || 'Unknown error'); }
   };
 
-  const toggleTaskStatus = async (task: Task) => {
+  const toggleTask = async (task: Task) => {
     const newStatus = task.status === 'Complete' ? 'Not Started' : 'Complete';
+    const completedAt = newStatus === 'Complete' ? new Date().toISOString().split('T')[0] : null;
     await fetch('/api/tasks', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...task, status: newStatus })
+      body: JSON.stringify({ id: task.id, status: newStatus, completedAt }),
     });
     fetchData();
   };
 
-  const saveTask = async (task: Partial<Task>) => {
-    await fetch('/api/tasks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(task)
-    });
-    setIsTaskModalOpen(false);
-    fetchData();
-  };
-
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Hub...</div>;
+  if (loading || !settings) {
+    return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading Starland Hub…</div>;
+  }
 
   const milestones = getMilestones(settings);
+  const incompleteTasks = tasks.filter(t => t.status !== 'Complete');
+  const completedTasks = tasks.filter(t => t.status === 'Complete');
 
-  const bringItems = packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'bring');
-  const resolvedItems = packingItems.filter(i => {
-    const s = String(i.status || (i as any).status).toLowerCase();
-    return s === 'resolved' || s === 'packed';
-  });
-  const resolutionProgress = packingItems.length > 0 ? Math.round((resolvedItems.length / packingItems.length) * 100) : 0;
+  // Countdown to drive start
+  const driveDate = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
+  const daysUntilDrive = driveDate ? differenceInDays(driveDate, new Date()) : null;
 
-  const inventorySummary = [
-    { label: 'BRING', count: bringItems.length, resolved: bringItems.filter(i => {
-      const s = String(i.status || (i as any).status).toLowerCase();
-      return s === 'resolved' || s === 'packed';
-    }).length, color: 'var(--accent)', icon: <Box size={14} /> },
-    { label: 'SELL', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell' && (String(i.status || (i as any).status).toLowerCase() === 'resolved' || String(i.status || (i as any).status).toLowerCase() === 'packed')).length, color: '#d1cdc4', icon: <DollarSign size={14} /> },
-    { label: 'DONATE', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate' && (String(i.status || (i as any).status).toLowerCase() === 'resolved' || String(i.status || (i as any).status).toLowerCase() === 'packed')).length, color: '#e0dbd5', icon: <Heart size={14} /> },
-    { label: 'TRASH', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash' && (String(i.status || (i as any).status).toLowerCase() === 'resolved' || String(i.status || (i as any).status).toLowerCase() === 'packed')).length, color: '#e5e1da', icon: <Trash size={14} /> }
-  ];
+  // Belonging stats
+  const bStats = {
+    Bring:  { total: 0, done: 0 },
+    Sell:   { total: 0, done: 0 },
+    Donate: { total: 0, done: 0 },
+    Trash:  { total: 0, done: 0 },
+  };
+  for (const b of belongings) {
+    const key = b.action as keyof typeof bStats;
+    if (bStats[key]) {
+      bStats[key].total++;
+      if (b.status === 'resolved') bStats[key].done++;
+    }
+  }
+  const totalDone = belongings.filter(b => b.status === 'resolved').length;
+  const resolvePercent = belongings.length ? Math.round((totalDone / belongings.length) * 100) : 0;
+
+  const BELONGING_ICONS: Record<string, React.ReactNode> = {
+    Bring:  <Box size={14} />,
+    Sell:   <DollarSign size={14} />,
+    Donate: <Heart size={14} />,
+    Trash:  <Trash2 size={14} />,
+  };
 
   return (
-    <div style={{ width: '100%', maxWidth: '1400px', margin: '0 auto', paddingBottom: '80px' }}>
-      <div className="flex flex-stack items-center justify-between" style={{ marginBottom: '48px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ 
-            width: '64px', 
-            height: '64px', 
-            borderRadius: 'var(--radius)', 
-            background: 'var(--accent)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            boxShadow: 'var(--shadow-md)'
-          }}>
-            <Star size={32} color="white" fill="white" />
+    <div style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: 64 }}>
+
+      {/* Page header */}
+      <div style={{ marginBottom: 32, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 12, background: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Star size={24} color="white" fill="white" />
           </div>
           <div>
-            <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>
-              Starland Moving
-            </h1>
-            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Andrew & Tory’s Relocation Hub</p>
+            <h1>Starland Moving</h1>
+            <p className="page-subtitle" style={{ marginTop: 2 }}>Andrew · Tory · Remy · Harper · Winston</p>
           </div>
         </div>
+
+        {/* Countdown chip */}
+        {daysUntilDrive !== null && daysUntilDrive >= 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>
+            <Clock size={16} color="var(--color-accent-dark)" />
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-accent-dark)', lineHeight: 1 }}>{daysUntilDrive}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-accent-dark)', opacity: 0.8 }}>days to drive</div>
+            </div>
+          </div>
+        )}
       </div>
-      
-      <div className="overview-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '48px', alignItems: 'start' }}>
-        
-        {/* Move Narrative Card */}
-        <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-          <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-            <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              Move Narrative
-            </h2>
-            <Link href="/timeline" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
+
+      {/* Stats strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 32 }}>
+        <StatChip label="Tasks Done" value={`${completedTasks.length}/${tasks.length}`} />
+        <StatChip label="Outstanding" value={String(incompleteTasks.length)} accent />
+        <StatChip label="Belongings Resolved" value={`${resolvePercent}%`} />
+      </div>
+
+      {/* Main grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, alignItems: 'start' }} className="overview-grid">
+
+        {/* Key Dates */}
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <div className="card-header">
+            <h2 style={{ margin: 0 }}>Key Dates</h2>
+            <Link href="/timeline" style={{ textDecoration: 'none' }}>
+              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                View Full Timeline <ChevronRight size={12} />
+              </span>
             </Link>
           </div>
-          <div className="timeline-container" style={{ position: 'relative', padding: '32px' }}>
-            {milestones.map((m, index) => (
-              <div key={m.key} style={{ display: 'flex', gap: '20px', position: 'relative' }}>
-                {/* Timeline Connector Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px', flexShrink: 0 }}>
-                  <div style={{ 
-                    width: '12px', 
-                    height: '12px', 
-                    borderRadius: '50%', 
-                    background: m.status === 'confirmed' ? 'var(--accent)' : m.status === 'estimated' ? 'var(--text-secondary)' : '#fff', 
-                    border: m.status === 'unset' ? '2px solid var(--border)' : 'none',
-                    zIndex: 2,
-                    marginTop: '12px',
-                    boxShadow: m.status === 'confirmed' ? '0 0 0 4px var(--accent-soft)' : 'none'
-                  }} />
-                  {index < milestones.length - 1 && (
-                    <div style={{ 
-                      width: '1px', 
-                      flex: 1, 
-                      background: 'var(--border)', 
-                      margin: '8px 0',
-                      zIndex: 1
-                    }} />
-                  )}
-                </div>
-                
-                {/* Card Container */}
-                <div style={{ flex: 1, paddingBottom: index === milestones.length - 1 ? 0 : '32px' }}>
-                  <NarrativeCard 
-                    milestone={m} 
-                    onClick={() => openDateModal(m.key, m.label)} 
-                  />
-                </div>
-              </div>
+          <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {milestones.map((m, i) => (
+              <MilestoneRow key={m.key as string} milestone={m} isLast={i === milestones.length - 1} onClick={() => openDateModal(m)} />
             ))}
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
-          {/* Inventory Resolution Card */}
-          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-              <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                Inventory Resolution
-              </h2>
-              <Link href="/packing" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
-              </Link>
-            </div>
-            <div style={{ padding: '32px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', marginBottom: '48px' }}>
-                  {inventorySummary.map(item => (
-                    <div key={item.label}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                          <span style={{ color: item.color }}>{item.icon}</span>
-                          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.08em' }}>{item.label}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
-                          <span style={{ fontSize: '32px', fontWeight: 500, fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>{item.resolved}/{item.count}</span>
-                          <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-secondary)' }}>RESOLVED</span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-              <div style={{ padding: '32px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                  <div className="flex justify-between items-center mb-4">
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--foreground)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Resolution Progress</div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--foreground)' }}>{resolutionProgress}%</div>
-                  </div>
-                  <div style={{ height: '8px', background: '#fff', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                    <div style={{ height: '100%', width: `${resolutionProgress}%`, background: 'var(--accent)', transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }}></div>
-                  </div>
-              </div>
-            </div>
-          </div>
+        {/* Right column */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-          {/* Priority Actions Card */}
-          <div className="card" style={{ marginBottom: 0, padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', borderRadius: 'var(--radius)' }}>
-            <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff' }}>
-              <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-                Focus
-              </h2>
-              <Link href="/tasks" className="badge badge-neutral card-hover-effect" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)' }}>
-                <span style={{ fontSize: '10px', fontWeight: 600, letterSpacing: '0.05em' }}>VIEW ALL</span> <ChevronRight size={14} />
+          {/* Focus — top incomplete tasks */}
+          <div className="card" style={{ overflow: 'hidden' }}>
+            <div className="card-header">
+              <h2 style={{ margin: 0 }}>Focus</h2>
+              <Link href="/tasks" style={{ textDecoration: 'none' }}>
+                <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  All Tasks <ChevronRight size={12} />
+                </span>
               </Link>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task) => (
-                <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 32px', borderBottom: '1px solid var(--border)', transition: 'all 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} 
-                    style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
-                    title="Mark as complete"
-                  >
-                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff', transition: 'all 0.2s ease' }}></div>
-                  </button>
+            <div>
+              {incompleteTasks.slice(0, 6).map(task => (
+                <div key={task.id} className="item-row" style={{ borderBottom: '1px solid var(--color-border)' }} onClick={() => toggleTask(task)}>
+                  <div className="check-circle" style={{ flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>
+                    <div style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
+                    <div style={{ fontSize: 11, color: 'var(--color-secondary)', marginTop: 2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.owner}</div>
                   </div>
-                  <ChevronRight size={14} color="var(--border)" />
+                  <ChevronRight size={14} color="var(--color-border)" />
                 </div>
               ))}
+              {incompleteTasks.length === 0 && (
+                <div style={{ padding: '32px 24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14 }}>
+                  All tasks complete 🎉
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Belonging resolution */}
+          <div className="card" style={{ overflow: 'hidden' }}>
+            <div className="card-header">
+              <h2 style={{ margin: 0 }}>Belongings</h2>
+              <Link href="/belongings" style={{ textDecoration: 'none' }}>
+                <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  View All <ChevronRight size={12} />
+                </span>
+              </Link>
+            </div>
+            <div className="card-body">
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+                {Object.entries(bStats).map(([action, { total, done }]) => (
+                  <div key={action}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, color: 'var(--color-secondary)' }}>
+                      {BELONGING_ICONS[action]}
+                      <span className="section-label">{action}</span>
+                    </div>
+                    <span style={{ fontSize: 26, fontWeight: 700, color: 'var(--color-foreground)' }}>{done}</span>
+                    <span style={{ fontSize: 13, color: 'var(--color-secondary)', marginLeft: 4 }}>/ {total}</span>
+                  </div>
+                ))}
+              </div>
+              {/* Progress bar */}
+              <div style={{ background: 'var(--color-background)', borderRadius: 8, padding: 16, border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span className="section-label">Resolved</span>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{resolvePercent}%</span>
+                </div>
+                <div style={{ height: 6, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${resolvePercent}%`, background: 'var(--color-accent)', transition: 'width 0.8s ease', borderRadius: 3 }} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {isDateModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
-          <div className="card" style={{ width: '100%', maxWidth: '440px', padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', borderRadius: '16px' }}>
-             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
-               <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, letterSpacing: '0.1em' }}>Update {activeDateLabel}</h2>
-               <button onClick={() => setIsDateModalOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={20} /></button>
-             </div>
-             <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '32px', background: '#fff' }}>
-                {validationError && <div style={{ padding: '16px 20px', borderRadius: '8px', background: '#fff', border: '1px solid #dc2626', color: '#dc2626', fontSize: '13px', fontWeight: 500 }}>{validationError}</div>}
+      {/* Date modal */}
+      {dateModal && (
+        <div className="modal-backdrop" onClick={() => setDateModal(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 style={{ margin: 0 }}>Update — {dateModal.label}</h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setDateModal(null)} style={{ padding: '0 8px' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {dateError && (
+                <div style={{ padding: '12px 16px', borderRadius: 8, background: '#fff0f0', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13, fontWeight: 500 }}>
+                  {dateError}
+                </div>
+              )}
+              <div>
+                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Date</label>
+                <input type="date" value={tempDate} onChange={e => setTempDate(e.target.value)} />
+              </div>
+              <div
+                className={`confirmed-toggle ${tempConfirmed ? 'on' : ''}`}
+                onClick={() => setTempConfirmed(v => !v)}
+              >
+                <div className={`check-circle ${tempConfirmed ? 'checked' : ''}`}>
+                  {tempConfirmed && <CheckCircle2 size={14} color="white" />}
+                </div>
                 <div>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                      <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Date (YYYY-MM-DD)</label>
-                      <button onClick={() => setTempDate('')} style={{ border: 'none', background: 'none', color: 'var(--accent)', fontSize: '10px', fontWeight: 700, cursor: 'pointer' }}>CLEAR</button>
-                   </div>
-                   <div style={{ position: 'relative' }}>
-                     <input type="text" value={tempDate} onChange={e => setTempDate(e.target.value)} style={{ paddingRight: '48px', height: '52px', fontSize: '15px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--background)' }} />
-                     <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
-                        <div style={{ position: 'relative', width: '24px', height: '24px' }}>
-                           <input type="date" value={tempDate} onChange={e => setTempDate(e.target.value)} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', zIndex: 2 }} />
-                           <CalendarIcon size={20} color="var(--accent)" style={{ position: 'absolute', inset: 0, margin: 'auto', zIndex: 1 }} />
-                        </div>
-                     </div>
-                   </div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Confirmed</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 2 }}>Lock this date in the timeline</div>
                 </div>
-                <div onClick={() => setTempConfirmed(!tempConfirmed)} style={{ padding: '24px', borderRadius: '12px', border: '1px solid', borderColor: tempConfirmed ? 'var(--accent)' : 'var(--border)', background: tempConfirmed ? 'var(--accent-soft)' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '1.5px solid', borderColor: tempConfirmed ? 'var(--accent)' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: tempConfirmed ? 'var(--accent)' : 'transparent' }}>{tempConfirmed && <CheckCircle2 size={16} color="#fff" />}</div>
-                  <div><div style={{ fontSize: '14px', fontWeight: 600 }}>Confirmed</div><div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Lock this date in the timeline.</div></div>
-                </div>
-             </div>
-             <div style={{ padding: '24px 32px', backgroundColor: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
-                <button className="btn btn-secondary" onClick={() => setIsDateModalOpen(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={saveQuickDate}>SAVE</button>
-             </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setDateModal(null)}>Cancel</button>
+              <button className="btn btn-primary" onClick={saveDateModal}>
+                <Save size={14} /> Save
+              </button>
+            </div>
           </div>
         </div>
-      )}
-
-      {isTaskModalOpen && editingTask && (
-        <TaskModalWrapper task={editingTask} onClose={() => setIsTaskModalOpen(false)} onSave={saveTask} categories={data.categories} />
       )}
     </div>
   );
 }
 
-function NarrativeCard({ milestone, onClick }: { milestone: Milestone, onClick: () => void }) {
-  const isConfirmed = milestone.status === 'confirmed';
-  const isUnset = milestone.status === 'unset';
-  const date = milestone.date ? parseISO(milestone.date) : null;
-  
+function StatChip({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div 
+    <div style={{
+      padding: '14px 18px',
+      borderRadius: 12,
+      background: accent ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+      border: `1px solid ${accent ? 'var(--color-accent)' : 'var(--color-border)'}`,
+    }}>
+      <div style={{ fontSize: 22, fontWeight: 700, color: accent ? 'var(--color-accent-dark)' : 'var(--color-foreground)' }}>{value}</div>
+      <div className="section-label" style={{ marginTop: 4, color: accent ? 'var(--color-accent-dark)' : undefined }}>{label}</div>
+    </div>
+  );
+}
+
+function MilestoneRow({ milestone: m, isLast, onClick }: { milestone: Milestone; isLast: boolean; onClick: () => void }) {
+  const isConfirmed = m.status === 'confirmed';
+  const isUnset = m.status === 'unset';
+  const dateStr = m.date ? format(parseISO(m.date), 'MMM d, yyyy') : 'Not set';
+
+  return (
+    <div
       onClick={onClick}
-      style={{ 
-        padding: '24px 28px', 
-        borderRadius: '12px', 
-        background: isConfirmed ? 'var(--accent-soft)' : isUnset ? 'transparent' : '#fff',
-        border: isConfirmed ? '1px solid var(--accent)' : isUnset ? '1px dashed var(--border)' : '1px solid var(--border)',
+      style={{
         display: 'flex',
-        flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '24px',
-        transition: 'all 0.2s ease',
+        gap: 12,
+        padding: '14px 0',
+        borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
         cursor: 'pointer',
-        boxShadow: isConfirmed ? 'var(--shadow-sm)' : 'none',
-        opacity: isUnset ? 0.7 : 1
-      }} 
-      className="card-hover-effect"
+        opacity: isUnset ? 0.5 : 1,
+        transition: 'opacity 0.15s',
+      }}
     >
-      <div style={{ flex: 1 }}>
-        <div style={{ 
-          fontSize: '10px', 
-          fontWeight: 700, 
-          color: isConfirmed ? 'var(--accent)' : 'var(--text-secondary)', 
-          textTransform: 'uppercase', 
-          letterSpacing: '0.12em',
-          marginBottom: '8px'
-        }}>
-          {milestone.label}
+      <div style={{
+        width: 10,
+        height: 10,
+        borderRadius: '50%',
+        flexShrink: 0,
+        background: isConfirmed ? 'var(--color-accent)' : isUnset ? 'transparent' : 'var(--color-secondary)',
+        border: isUnset ? '2px solid var(--color-border)' : 'none',
+        boxShadow: isConfirmed ? '0 0 0 4px var(--color-accent-soft)' : 'none',
+      }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: isConfirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)', marginBottom: 2 }}>
+          {m.label}
         </div>
-        <div style={{ 
-          fontSize: '18px', 
-          fontWeight: isConfirmed ? 600 : 500, 
-          color: isUnset ? 'var(--text-secondary)' : 'var(--foreground)',
-          fontFamily: 'var(--font-headings)',
-          letterSpacing: '-0.01em'
-        }}>
-          {date ? format(date, 'MMMM d, yyyy') : 'Not set'}
+        <div style={{ fontSize: 15, fontWeight: isConfirmed ? 600 : 400, color: isUnset ? 'var(--color-secondary)' : 'var(--color-foreground)' }}>
+          {dateStr}
         </div>
       </div>
-      
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-        <div style={{ 
-          fontSize: '9px', 
-          fontWeight: 700, 
-          color: isConfirmed ? 'var(--accent)' : 'var(--text-secondary)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          padding: '4px 8px',
-          background: isConfirmed ? 'rgba(255,255,255,0.5)' : isUnset ? 'transparent' : 'var(--background)',
-          borderRadius: '4px',
-          border: '1px solid',
-          borderColor: isConfirmed ? 'var(--accent)' : 'var(--border)'
-        }}>
-          {isConfirmed ? 'CONFIRMED' : isUnset ? 'UNSET' : 'ESTIMATED'}
-        </div>
-        {isConfirmed ? (
-          <CheckCircle2 size={16} color="var(--accent)" fill="white" />
-        ) : (
-          <Clock size={16} color="var(--text-secondary)" />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// Wrapper for reusing TaskModal logic from Tasks page
-function TaskModalWrapper({ task, onClose, onSave, categories }: { task: Partial<Task>, onClose: () => void, onSave: (t: Partial<Task>) => void, categories: Category[] }) {
-  const [editing, setEditing] = useState(task);
-  return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '500px', padding: 0, overflow: 'hidden', borderRadius: '16px' }}>
-        <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
-          <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, letterSpacing: '0.1em' }}>EDIT TASK</h2>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
-        </div>
-        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff', maxHeight: '70vh', overflowY: 'auto' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Title</label>
-            <input value={editing.title || ''} onChange={e => setEditing({...editing, title: e.target.value})} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Status</label>
-              <select value={editing.status} onChange={e => setEditing({...editing, status: e.target.value as any})}>
-                <option value="Not Started">Not Started</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Complete">Complete</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Owner</label>
-              <select value={editing.owner} onChange={e => setEditing({...editing, owner: e.target.value as any})}>
-                <option value="Andrew">Andrew</option>
-                <option value="Tory">Tory</option>
-                <option value="Both">Both</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Phase</label>
-              <select value={editing.phase} onChange={e => setEditing({...editing, phase: e.target.value as any})}>
-                <option value="Move Out">Move Out</option>
-                <option value="Move In">Move In</option>
-                <option value="Both">Both</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Due Date</label>
-              <input type="date" value={editing.dueDate || ''} onChange={e => setEditing({...editing, dueDate: e.target.value || null})} />
-            </div>
-          </div>
-          <div style={{ padding: '20px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Timing & Relationships</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Timing Type</label>
-                <select value={editing.timingType} onChange={e => setEditing({...editing, timingType: e.target.value as any})}>
-                  <option value="Fixed">Fixed</option>
-                  <option value="Before Move">Before Move</option>
-                  <option value="After Move">After Move</option>
-                  <option value="Before Closing">Before Closing</option>
-                  <option value="After Closing">After Closing</option>
-                  <option value="Flexible">Flexible</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Offset Days</label>
-                <input type="number" value={editing.timingOffsetDays || 0} onChange={e => setEditing({...editing, timingOffsetDays: parseInt(e.target.value) || 0})} />
-              </div>
-            </div>
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Notes</label>
-            <textarea value={editing.notes || ''} onChange={e => setEditing({...editing, notes: e.target.value})} style={{ height: '80px', resize: 'none' }} />
-          </div>
-        </div>
-        <div style={{ padding: '24px 32px', background: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => onSave(editing)}>Save Task</button>
-        </div>
-      </div>
+      <span className={`badge ${isConfirmed ? 'badge-accent' : 'badge-neutral'}`}>
+        {isConfirmed ? 'Confirmed' : isUnset ? 'Unset' : 'Estimated'}
+      </span>
     </div>
   );
 }

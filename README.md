@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Starland Move Tracker
 
-## Getting Started
+A personal relocation hub for the Starland family — Andrew, Tory, Remy, Harper, and Winston — moving from Clearwater, FL to Cold Spring, NY in summer 2026.
 
-First, run the development server:
+## Features
+
+- **Overview** — Command center with key dates, countdown to drive start, task progress, and belongings resolution at a glance
+- **Tasks** — Full to-do list organized by category; assignable to Andrew, Tory, or Both; tracks completion date; completed tasks stay visible with strikethrough
+- **Belongings** — Item-by-item tracker for deciding what to Bring, Sell, Donate, or Trash; items stay visible when resolved
+- **Timeline** — Chronological view of all key dates, custom events (with time + confirmed/estimated), and tasks with due dates; grouped by month
+- **Move Map** — Interactive driving route with distance, estimated drive time, and arrival date based on the Drive Start anchor date
+- **Password-protected** — Simple cookie-based auth; single shared app password
+
+## Stack
+
+- **Framework**: Next.js 16 (App Router)
+- **Database**: Supabase (Postgres)
+- **Styling**: Tailwind CSS v4 + custom design system
+- **Map**: Leaflet + react-leaflet, routing via OSRM, geocoding via Nominatim
+- **Auth**: Cookie-based password gate (httpOnly, 30-day session)
+- **Deploy**: Vercel
+
+## Local Development
 
 ```bash
+# Install dependencies
+npm install
+
+# Start dev server (accessible on local network)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file in the project root:
 
-## Learn More
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+APP_PASSWORD=your_app_password
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Database Setup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Run the SQL in `supabase-schema.sql` against your Supabase project to create the initial tables and seed data.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+If migrating from an earlier version of this app, run `supabase-migration.sql` first — it handles:
+- Removing deprecated task fields (`timingType`, `timingOffsetDays`, etc.)
+- Renaming `packing_items` → `belongings` and normalizing status values
+- Creating the new `events` table for custom timeline entries
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── auth/         # Login / logout
+│   │   ├── belongings/   # Belongings CRUD
+│   │   ├── categories/   # Task categories + tasks (combined GET)
+│   │   ├── events/       # Custom timeline events CRUD
+│   │   ├── locations/    # Map locations CRUD
+│   │   ├── settings/     # Anchor dates (key dates)
+│   │   └── tasks/        # Tasks CRUD
+│   ├── belongings/       # Belongings page
+│   ├── login/            # Login page
+│   ├── map/              # Move Map page
+│   ├── tasks/            # Tasks page
+│   ├── timeline/         # Timeline page
+│   ├── layout.tsx        # App shell (header, sidebar, bottom nav)
+│   └── page.tsx          # Overview / dashboard
+├── components/
+│   └── MoveMap.tsx       # Leaflet map component
+└── lib/
+    ├── dateUtils.ts      # Milestone helpers + date validation
+    ├── supabase.ts       # Supabase client
+    └── types.ts          # Shared TypeScript types
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+The app is deployed on Vercel. Push to `main` to trigger a deployment. Make sure all three environment variables are set in the Vercel project settings.

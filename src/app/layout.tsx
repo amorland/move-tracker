@@ -1,25 +1,28 @@
 'use client';
 
-import "./globals.css";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, CheckCircle, Calendar, FileText, Settings as SettingsIcon, LogOut, Star, Menu, X, Map as MapIcon, Box } from "lucide-react";
-import { useState, useEffect } from "react";
+import './globals.css';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import {
+  LayoutDashboard, CheckSquare, Package, Calendar, Map, LogOut, Star
+} from 'lucide-react';
+import { useState, useEffect } from 'react';
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+const NAV = [
+  { href: '/',          label: 'Overview',   Icon: LayoutDashboard },
+  { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
+  { href: '/belongings',label: 'Belongings', Icon: Package         },
+  { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },
+  { href: '/map',       label: 'Move Map',   Icon: Map             },
+];
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const isLoginPage = pathname === '/login';
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isLogin = pathname === '/login';
 
-  // Close sidebar on navigation
-  useEffect(() => {
-    setIsSidebarOpen(false);
-  }, [pathname]);
+  useEffect(() => { setSidebarOpen(false); }, [pathname]);
 
   const handleLogout = async () => {
     await fetch('/api/auth?action=logout', { method: 'POST', body: JSON.stringify({}) });
@@ -27,15 +30,14 @@ export default function RootLayout({
     router.refresh();
   };
 
-  if (isLoginPage) {
+  if (isLogin) {
     return (
       <html lang="en">
         <head>
           <title>Login | Starland Move Tracker</title>
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
         </head>
         <body>{children}</body>
       </html>
@@ -48,71 +50,114 @@ export default function RootLayout({
         <title>Starland Move Tracker</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <header className="header">
-          <button 
-            className="header-menu-btn" 
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            style={{ border: 'none', background: 'none', display: 'none' }}
+        {/* Header */}
+        <header className="app-header">
+          {/* Mobile hamburger */}
+          <button
+            className="mobile-only btn btn-ghost"
+            style={{ padding: '0 8px', height: 36 }}
+            onClick={() => setSidebarOpen(v => !v)}
+            aria-label="Toggle menu"
           >
-            {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-          <div className="header-logo">
-            <div style={{ color: 'var(--accent)' }}>
-              <Star size={20} strokeWidth={2.5} fill="currentColor" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 20 }}>
+              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(45deg) translate(5px,5px)' : 'none' }} />
+              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, opacity: sidebarOpen ? 0 : 1, transition: 'all .2s' }} />
+              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(-45deg) translate(5px,-5px)' : 'none' }} />
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ fontWeight: 700, fontSize: '16px', letterSpacing: '0.08em', fontFamily: 'var(--font-headings)', color: 'var(--foreground)' }}>Starland Moving</span>
-              <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Andrew & Tory’s Relocation Hub</span>
+          </button>
+
+          {/* Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Star size={16} color="white" fill="white" />
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1 }}>Starland</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-secondary)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1, marginTop: 3 }}>Moving Hub</div>
             </div>
           </div>
+
+          <div style={{ flex: 1 }} />
+
+          {/* Desktop logout */}
+          <button onClick={handleLogout} className="desktop-only btn btn-ghost btn-sm" style={{ gap: 6 }}>
+            <LogOut size={14} />
+            <span>Logout</span>
+          </button>
         </header>
-        <div className="app-container">
-          <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
-            <div style={{ padding: '0 16px', marginBottom: '28px', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.12em', fontFamily: 'var(--font-headings)' }}>
-              PERSONAL HUB
-            </div>
-            <Link href="/" className={`nav-item ${pathname === '/' ? 'active' : ''}`}>
-              <LayoutDashboard size={20} />
-              <span>Overview</span>
-            </Link>
-            <Link href="/tasks" className={`nav-item ${pathname === '/tasks' ? 'active' : ''}`}>
-              <CheckCircle size={18} />
-              <span>Tasks</span>
-            </Link>
-            <Link href="/packing" className={`nav-item ${pathname === '/packing' ? 'active' : ''}`}>
-              <Box size={18} />
-              <span>Inventory List</span>
-            </Link>
-            <Link href="/timeline" className={`nav-item ${pathname === '/timeline' ? 'active' : ''}`}>
-              <Calendar size={18} />
-              <span>Timeline</span>
-            </Link>
-            <Link href="/map" className={`nav-item ${pathname === '/map' ? 'active' : ''}`}>
-              <MapIcon size={18} />
-              <span>Move Map</span>
-            </Link>
-            <Link href="/documents" className={`nav-item ${pathname === '/documents' ? 'active' : ''}`}>
-              <FileText size={18} />
-              <span>Documents</span>
-            </Link>
-            <Link href="/settings" className={`nav-item ${pathname === '/settings' ? 'active' : ''}`}>
-              <SettingsIcon size={18} />
-              <span>Settings</span>
-            </Link>
-            <div style={{ flex: 1 }}></div>
-            <button onClick={handleLogout} className="nav-item" style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}>
+
+        <div className="app-shell">
+          {/* Sidebar overlay on mobile */}
+          {sidebarOpen && (
+            <div
+              className="mobile-only"
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 49 }}
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+
+          {/* Sidebar */}
+          <aside className={`sidebar desktop-only ${sidebarOpen ? 'open' : ''}`}>
+            <div className="section-label" style={{ padding: '0 8px', marginBottom: 16 }}>Navigation</div>
+            {NAV.map(({ href, label, Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-link ${pathname === href ? 'active' : ''}`}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </Link>
+            ))}
+            <div style={{ flex: 1 }} />
+            <div className="divider" style={{ margin: '16px 0' }} />
+            <button onClick={handleLogout} className="nav-link" style={{ color: 'var(--color-secondary)' }}>
               <LogOut size={18} />
               <span>Logout</span>
             </button>
           </aside>
+
+          {/* Mobile sidebar (full width overlay) */}
+          <aside className={`sidebar mobile-only ${sidebarOpen ? 'open' : ''}`} style={{ width: '80vw', zIndex: 50 }}>
+            <div className="section-label" style={{ padding: '0 8px', marginBottom: 16 }}>Navigation</div>
+            {NAV.map(({ href, label, Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-link ${pathname === href ? 'active' : ''}`}
+              >
+                <Icon size={18} />
+                <span>{label}</span>
+              </Link>
+            ))}
+            <div style={{ flex: 1 }} />
+            <button onClick={handleLogout} className="nav-link" style={{ color: 'var(--color-secondary)' }}>
+              <LogOut size={18} />
+              <span>Logout</span>
+            </button>
+          </aside>
+
           <main className="main-content">
             {children}
           </main>
         </div>
+
+        {/* Bottom nav — mobile only */}
+        <nav className="bottom-nav">
+          {NAV.map(({ href, label, Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`bottom-nav-item ${pathname === href ? 'active' : ''}`}
+            >
+              <Icon size={20} />
+              <span>{label}</span>
+            </Link>
+          ))}
+        </nav>
       </body>
     </html>
   );

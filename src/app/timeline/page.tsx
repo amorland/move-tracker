@@ -1,128 +1,131 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Task, Category } from '@/lib/types';
+import { MoveSettings, Task, Category, MoveEvent } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle2, ChevronRight, Calendar as CalendarIcon, MapPin, Star, Bell, Clock, X } from 'lucide-react';
+import { CheckCircle2, Calendar, MapPin, Bell, Plus, X, ChevronRight, Trash2 } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
+
+type TimelineItem = {
+  id: string;
+  title: string;
+  date: Date;
+  type: 'anchor' | 'event' | 'task';
+  status: string;
+  time?: string | null;
+  notes?: string | null;
+  rawEvent?: MoveEvent;
+};
 
 export default function TimelinePage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
-  const [data, setData] = useState<{ categories: Category[], tasks: Task[] }>({ categories: [], tasks: [] });
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [events, setEvents] = useState<MoveEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [selected, setSelected] = useState<TimelineItem | null>(null);
+  const [eventModal, setEventModal] = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/settings').then(res => res.json()),
-      fetch('/api/categories').then(res => res.json())
-    ]).then(([settingsData, categoriesData]) => {
-      setSettings(settingsData);
-      setData(categoriesData);
-      setLoading(false);
-    });
-  }, []);
+  useEffect(() => { fetchAll(); }, []);
 
-  if (loading || !settings) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Timeline...</div>;
+  const fetchAll = async () => {
+    const [sRes, cRes, eRes] = await Promise.all([
+      fetch('/api/settings'),
+      fetch('/api/categories'),
+      fetch('/api/events'),
+    ]);
+    setSettings(await sRes.json());
+    const { tasks: ts } = await cRes.json();
+    setTasks(ts);
+    setEvents(await eRes.json());
+    setLoading(false);
+  };
+
+  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading timeline…</div>;
 
   const milestones = getMilestones(settings);
-  const anchorDatesTimeline = milestones
-    .filter(m => m.date)
-    .map(m => ({
-      id: `anchor-${m.label}`,
-      title: m.label,
-      calculatedDate: parseISO(m.date!),
-      type: 'anchor',
-      status: m.status,
-      originalData: m
-    }));
 
-  const taskItems = data.tasks.flatMap(t => {
-    const items = [];
-    if (t.dueDate) {
-      items.push({
+  const items: TimelineItem[] = [
+    ...milestones
+      .filter(m => m.date)
+      .map(m => ({
+        id: `anchor-${m.key as string}`,
+        title: m.label,
+        date: parseISO(m.date!),
+        type: 'anchor' as const,
+        status: m.status,
+      })),
+    ...tasks
+      .filter(t => t.dueDate)
+      .map(t => ({
         id: `task-${t.id}`,
         title: t.title,
-        calculatedDate: parseISO(t.dueDate),
-        type: t.timingType === 'Fixed' ? 'event' : 'task',
+        date: parseISO(t.dueDate!),
+        type: 'task' as const,
         status: t.status,
-        originalData: t
-      });
-    }
-    return items;
-  });
+      })),
+    ...events.map(e => ({
+      id: `event-${e.id}`,
+      title: e.title,
+      date: parseISO(e.date),
+      type: 'event' as const,
+      status: e.is_confirmed ? 'confirmed' : 'estimated',
+      time: e.time,
+      notes: e.notes,
+      rawEvent: e,
+    })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const allTimelineItems = [
-    ...taskItems,
-    ...anchorDatesTimeline
-  ].sort((a, b) => a.calculatedDate.getTime() - b.calculatedDate.getTime());
+  // Group by month
+  const grouped: Record<string, TimelineItem[]> = {};
+  for (const item of items) {
+    const key = format(item.date, 'MMMM yyyy');
+    (grouped[key] = grouped[key] || []).push(item);
+  }
 
-  // Group chronologically by Month/Year
-  const groupedItems = allTimelineItems.reduce((acc, item) => {
-    const monthYear = format(item.calculatedDate, 'MMMM yyyy');
-    if (!acc[monthYear]) acc[monthYear] = [];
-    acc[monthYear].push(item);
-    return acc;
-  }, {} as Record<string, any[]>);
+  const deleteEvent = async (id: number) => {
+    await fetch(`/api/events?id=${id}`, { method: 'DELETE' });
+    setSelected(null);
+    fetchAll();
+  };
 
   return (
-    <div style={{ width: '100%', maxWidth: '800px', margin: '0 auto', paddingBottom: '80px' }}>
-      <div className="flex flex-stack items-center justify-between" style={{ marginBottom: '48px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-          <div style={{ 
-            width: '64px', 
-            height: '64px', 
-            borderRadius: 'var(--radius)', 
-            background: 'var(--accent)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            boxShadow: 'var(--shadow-md)'
-          }}>
-            <Star size={32} color="white" fill="white" />
-          </div>
-          <div>
-            <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>Move Narrative</h1>
-            <p className="section-subtitle" style={{ marginBottom: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Chronology</p>
-          </div>
+    <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 64 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 40, flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <h1>Timeline</h1>
+          <p className="page-subtitle">Chronology of your move.</p>
         </div>
+        <button className="btn btn-primary btn-lg" onClick={() => setEventModal(true)}>
+          <Plus size={18} /> Add Event
+        </button>
       </div>
 
-      {Object.keys(groupedItems).length === 0 ? (
-        <div style={{ padding: '80px 32px', textAlign: 'center', background: '#fff', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-          <CalendarIcon size={48} color="var(--border)" style={{ margin: '0 auto 24px' }} />
-          <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>Your timeline is empty. Set anchor dates or task due dates to build your roadmap.</p>
+      {Object.keys(grouped).length === 0 ? (
+        <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
+          <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
+          <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>
+            Your timeline is empty. Set key dates on the Overview page, or add an event here.
+          </p>
         </div>
       ) : (
-        <div style={{ position: 'relative', paddingLeft: '64px' }}>
-          <div style={{ position: 'absolute', left: '26px', top: '0', bottom: '0', width: '2px', background: 'var(--border)', opacity: 0.8 }}></div>
+        <div style={{ position: 'relative', paddingLeft: 56 }}>
+          {/* Vertical line */}
+          <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 2, background: 'var(--color-border)' }} />
 
-          {Object.keys(groupedItems).map((monthYear) => (
-            <div key={monthYear} style={{ marginBottom: '80px' }}>
-              <div style={{ position: 'relative', marginBottom: '32px' }}>
-                <div style={{ 
-                  position: 'absolute', 
-                  left: '-64px', 
-                  top: '0', 
-                  width: '52px', 
-                  height: '52px', 
-                  borderRadius: '12px', 
-                  background: '#fff', 
-                  border: '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  zIndex: 2,
-                  boxShadow: 'var(--shadow-sm)'
-                }}>
-                  <CalendarIcon size={24} color="var(--accent)" />
+          {Object.keys(grouped).map(monthYear => (
+            <div key={monthYear} style={{ marginBottom: 56 }}>
+              {/* Month header */}
+              <div style={{ position: 'relative', marginBottom: 24 }}>
+                <div style={{ position: 'absolute', left: -56, top: 0, width: 40, height: 40, borderRadius: 10, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                  <Calendar size={18} color="var(--color-accent)" />
                 </div>
-                <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'var(--foreground)', fontFamily: 'var(--font-headings)' }}>{monthYear}</h2>
+                <h2 style={{ margin: 0, paddingTop: 10 }}>{monthYear}</h2>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                {groupedItems[monthYear].map((item) => (
-                  <TimelineRow key={item.id} item={item} onClick={() => setSelectedItem(item)} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {grouped[monthYear].map(item => (
+                  <TimelineRow key={item.id} item={item} onClick={() => setSelected(item)} />
                 ))}
               </div>
             </div>
@@ -130,90 +133,177 @@ export default function TimelinePage() {
         </div>
       )}
 
-      {selectedItem && (
-        <TimelineDetailModal item={selectedItem} onClose={() => setSelectedItem(null)} />
+      {/* Detail modal */}
+      {selected && (
+        <div className="modal-backdrop" onClick={() => setSelected(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <TypeIcon type={selected.type} />
+                <h2 style={{ margin: 0 }}>{selected.type === 'anchor' ? 'Key Date' : selected.type === 'event' ? 'Event' : 'Task'}</h2>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ padding: '0 8px' }}><X size={18} /></button>
+            </div>
+            <div className="modal-body">
+              <div>
+                <p className="section-label" style={{ marginBottom: 4 }}>Title</p>
+                <p style={{ fontSize: 18, fontWeight: 600 }}>{selected.title}</p>
+              </div>
+              <div>
+                <p className="section-label" style={{ marginBottom: 4 }}>Date</p>
+                <p style={{ fontSize: 15 }}>
+                  {format(selected.date, 'MMMM d, yyyy')}
+                  {selected.time && <span style={{ marginLeft: 8, color: 'var(--color-secondary)' }}>at {selected.time}</span>}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span className={`badge ${selected.status === 'confirmed' ? 'badge-accent' : selected.status === 'Complete' ? 'badge-success' : 'badge-neutral'}`}>
+                  {selected.status === 'confirmed' ? 'Confirmed' : selected.status === 'estimated' ? 'Estimated' : selected.status}
+                </span>
+              </div>
+              {selected.notes && (
+                <div>
+                  <p className="section-label" style={{ marginBottom: 4 }}>Notes</p>
+                  <p style={{ fontSize: 14, color: 'var(--color-secondary)', lineHeight: 1.6 }}>{selected.notes}</p>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              {selected.type === 'event' && selected.rawEvent && (
+                <button className="btn btn-secondary" style={{ marginRight: 'auto', color: '#b91c1c' }} onClick={() => deleteEvent(selected.rawEvent!.id)}>
+                  <Trash2 size={14} /> Delete
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={() => setSelected(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add event modal */}
+      {eventModal && (
+        <AddEventModal onClose={() => setEventModal(false)} onSaved={() => { setEventModal(false); fetchAll(); }} />
       )}
     </div>
   );
 }
 
-function TimelineRow({ item, onClick }: { item: any, onClick: () => void }) {
-  const isComplete = item.status === 'Complete' || item.status === 'Resolved' || item.status === 'confirmed';
-  const isEvent = item.type === 'event';
+function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => void }) {
   const isAnchor = item.type === 'anchor';
+  const isEvent = item.type === 'event';
+  const isConfirmed = item.status === 'confirmed';
+  const isDone = item.status === 'Complete';
 
   return (
-    <div 
+    <div
       onClick={onClick}
-      style={{ 
-        padding: '20px 24px', 
-        borderRadius: 'var(--radius)',
-        background: isEvent ? 'var(--accent-soft)' : '#fff',
-        border: isEvent ? '1px solid var(--accent)' : '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '24px',
-        opacity: isComplete ? 0.7 : 1,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        boxShadow: isEvent ? 'var(--shadow-sm)' : 'none'
-      }} 
-      className="task-row clickable"
+      style={{
+        padding: '16px 20px',
+        borderRadius: 12,
+        background: isAnchor && isConfirmed ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+        border: `1px solid ${isAnchor && isConfirmed ? 'var(--color-accent)' : 'var(--color-border)'}`,
+        display: 'flex', alignItems: 'center', gap: 16,
+        cursor: 'pointer', transition: 'all 0.15s',
+        opacity: isDone ? 0.65 : 1,
+      }}
+      className="item-row"
     >
+      <TypeIcon type={item.type} confirmed={isConfirmed} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {isEvent && <Bell size={14} color="var(--accent)" />}
-          {isAnchor && <MapPin size={14} color="var(--accent)" />}
+        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.title}
         </div>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-          <CalendarIcon size={12} />
-          {format(item.calculatedDate, 'MMM d, yyyy')}
-          {item.timeWindow && (
-            <>
-              <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--border)' }}></div>
-              <Clock size={12} /> {item.timeWindow}
-            </>
-          )}
-          {isAnchor && item.status === 'estimated' && <span style={{ opacity: 0.6 }}>(ESTIMATED)</span>}
-          {isAnchor && item.status === 'confirmed' && <span style={{ color: 'var(--accent)' }}>(CONFIRMED)</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {format(item.date, 'MMM d, yyyy')}
+          </span>
+          {item.time && <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>· {item.time}</span>}
+          {isAnchor && item.status === 'estimated' && <span style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.7 }}>Estimated</span>}
+          {isAnchor && isConfirmed && <span className="badge badge-accent" style={{ fontSize: 10 }}>Confirmed</span>}
+          {isEvent && isConfirmed && <span className="badge badge-accent" style={{ fontSize: 10 }}>Confirmed</span>}
         </div>
       </div>
-      <ChevronRight size={18} color="var(--border)" />
+      <ChevronRight size={16} color="var(--color-border)" />
     </div>
   );
 }
 
-function TimelineDetailModal({ item, onClose }: { item: any, onClose: () => void }) {
+function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
+  const color = confirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)';
+  if (type === 'anchor') return <MapPin size={16} color={color} />;
+  if (type === 'event') return <Bell size={16} color={color} />;
+  return <CheckCircle2 size={16} color={color} />;
+}
+
+function AddEventModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    if (!title.trim()) { setError('Title is required.'); return; }
+    if (!date) { setError('Date is required.'); return; }
+    setSaving(true);
+    const res = await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title.trim(), date, time: time || null, is_confirmed: confirmed, notes: notes || null }),
+    });
+    if (res.ok) onSaved();
+    else { const e = await res.json(); setError(e.error || 'Error saving event'); setSaving(false); }
+  };
+
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(45,42,38,0.3)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '440px', padding: 0, overflow: 'hidden', borderRadius: '16px' }}>
-        <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' }}>
-          <h2 style={{ margin: 0, fontSize: '14px', fontWeight: 600, letterSpacing: '0.1em' }}>DETAILS</h2>
-          <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 style={{ margin: 0 }}>Add Event</h2>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '0 8px' }}><X size={18} /></button>
         </div>
-        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', gap: '24px', background: '#fff' }}>
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.1em' }}>Title</div>
-            <div style={{ fontSize: '18px', fontWeight: 500 }}>{item.title}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.1em' }}>Schedule</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '15px' }}>
-              <CalendarIcon size={16} color="var(--accent)" />
-              {format(item.calculatedDate, 'MMMM d, yyyy')}
-              {item.timeWindow && <><Clock size={16} color="var(--accent)" /> {item.timeWindow}</>}
-            </div>
-          </div>
-          {item.originalData.notes && (
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.1em' }}>Notes</div>
-              <div style={{ fontSize: '14px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{item.originalData.notes}</div>
-            </div>
+        <div className="modal-body">
+          {error && (
+            <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fff0f0', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13 }}>{error}</div>
           )}
+          <div>
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Title</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Home inspection" autoFocus />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Date</label>
+              <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Time (optional)</label>
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} />
+            </div>
+          </div>
+          <div
+            className={`confirmed-toggle ${confirmed ? 'on' : ''}`}
+            onClick={() => setConfirmed(v => !v)}
+          >
+            <div className={`check-circle ${confirmed ? 'checked' : ''}`}>
+              {confirmed && <CheckCircle2 size={14} color="white" />}
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Confirmed</div>
+              <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 2 }}>Lock this date in the timeline</div>
+            </div>
+          </div>
+          <div>
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes (optional)</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} style={{ height: 72, resize: 'none' }} />
+          </div>
         </div>
-        <div style={{ padding: '24px 32px', background: 'var(--background)', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-          <button className="btn btn-primary" onClick={onClose}>Close</button>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>
+            {saving ? 'Saving…' : 'Add Event'}
+          </button>
         </div>
       </div>
     </div>
