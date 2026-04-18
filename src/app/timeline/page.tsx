@@ -39,22 +39,12 @@ export default function TimelinePage() {
 
   const taskItems = data.tasks.flatMap(t => {
     const items = [];
-    if (t.scheduledEventDate) {
-      items.push({
-        id: `event-${t.id}`,
-        title: t.title,
-        calculatedDate: parseISO(t.scheduledEventDate),
-        type: 'event',
-        status: t.status,
-        timeWindow: t.scheduledEventTimeWindow,
-        originalData: t
-      });
-    } else if (t.dueDate) {
+    if (t.dueDate) {
       items.push({
         id: `task-${t.id}`,
         title: t.title,
         calculatedDate: parseISO(t.dueDate),
-        type: 'task',
+        type: t.timingType === 'Fixed' ? 'event' : 'task',
         status: t.status,
         originalData: t
       });

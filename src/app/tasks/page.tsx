@@ -34,7 +34,7 @@ export default function TasksPage() {
 
   const toggleTaskStatus = async (task: Task) => {
     const newStatus: TaskStatus = task.status === 'Complete' ? 'Not Started' : 'Complete';
-    const updated = { ...task, status: newStatus, completionDate: newStatus === 'Complete' ? new Date().toISOString().split('T')[0] : null };
+    const updated = { ...task, status: newStatus };
     
     await fetch('/api/tasks', {
       method: 'PATCH',

@@ -128,7 +128,7 @@ export default function Dashboard() {
     await fetch('/api/tasks', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...task, status: newStatus, completionDate: newStatus === 'Complete' ? new Date().toISOString().split('T')[0] : null })
+      body: JSON.stringify({ ...task, status: newStatus })
     });
     fetchData();
   };
