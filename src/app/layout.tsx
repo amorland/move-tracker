@@ -63,24 +63,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             aria-label="Toggle menu"
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 20 }}>
-              <div style={{ height: 2, background: 'rgba(255,255,255,0.8)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(45deg) translate(5px,5px)' : 'none' }} />
-              <div style={{ height: 2, background: 'rgba(255,255,255,0.8)', borderRadius: 2, opacity: sidebarOpen ? 0 : 1, transition: 'all .2s' }} />
-              <div style={{ height: 2, background: 'rgba(255,255,255,0.8)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(-45deg) translate(5px,-5px)' : 'none' }} />
+              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(45deg) translate(5px,5px)' : 'none' }} />
+              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, opacity: sidebarOpen ? 0 : 1, transition: 'all .2s' }} />
+              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(-45deg) translate(5px,-5px)' : 'none' }} />
             </div>
           </button>
 
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 6, border: '1.5px solid rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'white', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>SL</span>
+            <div style={{ width: 32, height: 32, borderRadius: 6, border: '1.5px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>SL</span>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'white', fontFamily: 'var(--font-serif)' }}>Starland</div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'var(--color-foreground)', fontFamily: 'var(--font-serif)' }}>Starland</div>
           </div>
 
           <div style={{ flex: 1 }} />
 
           {/* Desktop logout */}
-          <button onClick={handleLogout} className="desktop-only btn btn-ghost btn-sm" style={{ gap: 6, color: 'rgba(255,255,255,0.55)' }}>
+          <button onClick={handleLogout} className="desktop-only btn btn-ghost btn-sm" style={{ gap: 6, color: 'var(--color-secondary)' }}>
             <LogOut size={14} />
             <span>Logout</span>
           </button>
@@ -111,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             ))}
             <div style={{ flex: 1 }} />
             <div className="divider" style={{ margin: '16px 0' }} />
-            <button onClick={handleLogout} className="nav-link" style={{ color: 'rgba(255,255,255,0.38)' }}>
+            <button onClick={handleLogout} className="nav-link" style={{ color: 'var(--color-secondary)' }}>
               <LogOut size={18} />
               <span>Logout</span>
             </button>
@@ -131,7 +131,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
             ))}
             <div style={{ flex: 1 }} />
-            <button onClick={handleLogout} className="nav-link" style={{ color: 'rgba(255,255,255,0.38)' }}>
+            <button onClick={handleLogout} className="nav-link" style={{ color: 'var(--color-secondary)' }}>
               <LogOut size={18} />
               <span>Logout</span>
             </button>
