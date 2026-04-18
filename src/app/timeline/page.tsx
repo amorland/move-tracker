@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MoveSettings, Task, MoveEvent } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle2, Calendar, MapPin, Bell, Plus, X, ChevronRight, Trash2, Star, Pencil } from 'lucide-react';
+import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Star, Pencil, Search } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 import { useScrollLock } from '@/lib/useScrollLock';
 
@@ -23,6 +23,13 @@ type TimelineItem = {
 
 type TypeFilter = 'all' | ItemType;
 
+const FILTER_OPTIONS: { value: TypeFilter; label: string; Icon: React.ReactNode }[] = [
+  { value: 'all',    label: 'All',       Icon: null },
+  { value: 'anchor', label: 'Key Dates', Icon: <Star size={12} /> },
+  { value: 'event',  label: 'Events',    Icon: <CalendarCheck size={12} /> },
+  { value: 'task',   label: 'Tasks',     Icon: <CheckCircle2 size={12} /> },
+];
+
 export default function TimelinePage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -32,6 +39,7 @@ export default function TimelinePage() {
   const [addModal, setAddModal] = useState(false);
   const [editEvent, setEditEvent] = useState<MoveEvent | null>(null);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [search, setSearch] = useState('');
 
   const anyModal = selected !== null || addModal || editEvent !== null;
   useScrollLock(anyModal);
@@ -86,7 +94,9 @@ export default function TimelinePage() {
     })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const items = typeFilter === 'all' ? allItems : allItems.filter(i => i.type === typeFilter);
+  const items = allItems
+    .filter(i => typeFilter === 'all' || i.type === typeFilter)
+    .filter(i => !search || i.title.toLowerCase().includes(search.toLowerCase()));
 
   // Group by month
   const grouped: Record<string, TimelineItem[]> = {};
@@ -101,12 +111,7 @@ export default function TimelinePage() {
     fetchAll();
   };
 
-  const filterLabels: { value: TypeFilter; label: string }[] = [
-    { value: 'all', label: 'All' },
-    { value: 'anchor', label: 'Key Dates' },
-    { value: 'event', label: 'Events' },
-    { value: 'task', label: 'Tasks' },
-  ];
+  const isFiltering = typeFilter !== 'all' || !!search;
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 64 }}>
@@ -121,24 +126,40 @@ export default function TimelinePage() {
         </button>
       </div>
 
+      {/* Search */}
+      <div className="search-bar" style={{ marginBottom: 14 }}>
+        <Search size={16} className="search-bar-icon" />
+        <input
+          placeholder="Search timeline…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
       {/* Type filter chips */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 32, flexWrap: 'wrap' }}>
-        {filterLabels.map(({ value, label }) => (
+      <div style={{ display: 'flex', gap: 6, marginBottom: 32, flexWrap: 'wrap', alignItems: 'center' }}>
+        {FILTER_OPTIONS.map(({ value, label, Icon }) => (
           <button
             key={value}
             onClick={() => setTypeFilter(value)}
             className={`filter-chip ${typeFilter === value ? 'filter-chip-active' : ''}`}
           >
+            {Icon}
             {label}
           </button>
         ))}
+        {isFiltering && (
+          <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setTypeFilter('all'); }}>
+            <X size={13} /> Clear
+          </button>
+        )}
       </div>
 
       {Object.keys(grouped).length === 0 ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
           <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
           <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>
-            {typeFilter !== 'all' ? 'No items match this filter.' : 'Your timeline is empty. Set key dates on the Overview page, or add an event here.'}
+            {isFiltering ? 'No items match your search.' : 'Your timeline is empty. Set key dates on the Overview page, or add an event here.'}
           </p>
         </div>
       ) : (
@@ -190,9 +211,7 @@ export default function TimelinePage() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <span className={`badge ${selected.status === 'confirmed' ? 'badge-accent' : selected.status === 'Complete' ? 'badge-success' : 'badge-neutral'}`}>
-                  {selected.status === 'confirmed' ? 'Confirmed' : selected.status === 'estimated' ? 'Estimated' : selected.status}
-                </span>
+                <StatusChip status={selected.status} />
               </div>
               {selected.notes && (
                 <div>
@@ -225,29 +244,39 @@ export default function TimelinePage() {
         </div>
       )}
 
-      {/* Add event modal */}
       {addModal && (
-        <EventFormModal
-          onClose={() => setAddModal(false)}
-          onSaved={() => { setAddModal(false); fetchAll(); }}
-        />
+        <EventFormModal onClose={() => setAddModal(false)} onSaved={() => { setAddModal(false); fetchAll(); }} />
       )}
-
-      {/* Edit event modal */}
       {editEvent && (
-        <EventFormModal
-          existing={editEvent}
-          onClose={() => setEditEvent(null)}
-          onSaved={() => { setEditEvent(null); fetchAll(); }}
-        />
+        <EventFormModal existing={editEvent} onClose={() => setEditEvent(null)} onSaved={() => { setEditEvent(null); fetchAll(); }} />
       )}
     </div>
   );
 }
 
+function StatusChip({ status }: { status: string }) {
+  if (status === 'confirmed') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 700, background: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)', border: '1.5px solid var(--color-accent)' }}>
+        ✓ Confirmed
+      </span>
+    );
+  }
+  if (status === 'estimated') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 700, background: 'var(--color-background)', color: 'var(--color-secondary)', border: '1.5px dashed var(--color-border)' }}>
+        ~ Estimated
+      </span>
+    );
+  }
+  if (status === 'Complete') {
+    return <span className="badge badge-success">Complete</span>;
+  }
+  return <span className="badge badge-neutral">{status}</span>;
+}
+
 function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => void }) {
   const isAnchor = item.type === 'anchor';
-  const isEvent = item.type === 'event';
   const isConfirmed = item.status === 'confirmed';
   const isDone = item.status === 'Complete';
 
@@ -257,8 +286,9 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
       style={{
         padding: '16px 20px',
         borderRadius: 12,
-        background: isAnchor ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+        background: isAnchor ? 'linear-gradient(90deg, rgba(240,180,50,0.07) 0%, var(--color-accent-soft) 100%)' : 'var(--color-surface)',
         border: `1px solid ${isAnchor ? 'var(--color-accent)' : 'var(--color-border)'}`,
+        borderLeft: isAnchor ? '3px solid #f0b432' : undefined,
         display: 'flex', alignItems: 'center', gap: 16,
         cursor: 'pointer', transition: 'all 0.15s',
         opacity: isDone ? 0.65 : 1,
@@ -267,17 +297,17 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
     >
       <TypeIcon type={item.type} confirmed={isConfirmed} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: isAnchor ? 16 : 15, fontWeight: isAnchor ? 700 : 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.title}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             {format(item.date, 'MMM d, yyyy')}
           </span>
           {item.time && <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>· {item.time}</span>}
-          {isAnchor && item.status === 'estimated' && <span style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.7 }}>Estimated</span>}
-          {isAnchor && isConfirmed && <span className="badge badge-accent" style={{ fontSize: 10 }}>Confirmed</span>}
-          {isEvent && isConfirmed && <span className="badge badge-accent" style={{ fontSize: 10 }}>Confirmed</span>}
+          {(isAnchor || item.type === 'event') && (
+            <StatusChip status={item.status} />
+          )}
         </div>
       </div>
       <ChevronRight size={16} color="var(--color-border)" />
@@ -286,17 +316,16 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
 }
 
 function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
-  const isAccent = type === 'anchor' || confirmed;
+  if (type === 'anchor') {
+    return <Star size={20} color="#f0b432" fill="#f0b432" style={{ flexShrink: 0 }} />;
+  }
+  const isAccent = confirmed;
   const bg = isAccent ? 'var(--color-accent-soft)' : 'var(--color-background)';
   const border = isAccent ? 'var(--color-accent)' : 'var(--color-border)';
   const color = isAccent ? 'var(--color-accent-dark)' : 'var(--color-secondary)';
   return (
     <div style={{ width: 36, height: 36, borderRadius: '50%', background: bg, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      {type === 'anchor'
-        ? <Star size={15} color={color} fill={color} />
-        : type === 'event'
-        ? <Bell size={15} color={color} />
-        : <CheckCircle2 size={15} color={color} />}
+      {type === 'event' ? <CalendarCheck size={15} color={color} /> : <CheckCircle2 size={15} color={color} />}
     </div>
   );
 }

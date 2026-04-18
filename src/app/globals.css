@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #f9f7f2;
+  --color-background: #f5f4f8;
   --color-foreground: #2d2a26;
   --color-surface: #ffffff;
-  --color-accent: #7a9e87;
-  --color-accent-dark: #5e7d6b;
-  --color-accent-soft: #eef4f1;
+  --color-accent: #6366f1;
+  --color-accent-dark: #4f46e5;
+  --color-accent-soft: #eef2ff;
   --color-success: #7a9e87;
   --color-success-soft: #eef4f1;
   --color-secondary: #8c8882;
-  --color-border: #eae6df;
+  --color-border: #e4e2f0;
 
   --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
@@ -20,9 +20,9 @@
   --radius-lg: 20px;
   --radius-pill: 100px;
 
-  --shadow-sm: 0 1px 4px rgba(45, 42, 38, 0.07), 0 1px 2px rgba(45, 42, 38, 0.04);
-  --shadow-md: 0 4px 20px rgba(45, 42, 38, 0.08);
-  --shadow-float: 0 8px 32px rgba(45, 42, 38, 0.12);
+  --shadow-sm: 0 1px 4px rgba(30, 27, 75, 0.08), 0 1px 2px rgba(30, 27, 75, 0.05);
+  --shadow-md: 0 4px 20px rgba(30, 27, 75, 0.09);
+  --shadow-float: 0 8px 32px rgba(30, 27, 75, 0.14);
 }
 
 /* ─── Reset ─────────────────────────────── */
@@ -54,8 +54,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 64px;
-  background: #0f172a;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  background: #1e1b4b;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -67,8 +67,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: #0f172a;
-  border-right: 1px solid rgba(255,255,255,0.06);
+  background: #1e1b4b;
+  border-right: 1px solid rgba(255,255,255,0.07);
   position: fixed;
   top: 64px; bottom: 0; left: 0;
   padding: 20px 10px;
@@ -480,25 +480,37 @@ h2 { font-size: 12px; font-weight: 700; color: var(--color-foreground); text-tra
 .owner-tag {
   display: inline-flex;
   align-items: center;
-  padding: 0 8px;
-  height: 22px;
+  padding: 0 10px;
+  height: 24px;
   border-radius: var(--radius-pill);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  border: 1.5px solid var(--color-border);
+  border: 1.5px dashed var(--color-border);
   background: transparent;
-  color: var(--color-border);
+  color: var(--color-secondary);
   transition: all 0.15s;
   font-family: var(--font-sans);
   white-space: nowrap;
   flex-shrink: 0;
+  letter-spacing: 0.01em;
 }
-.owner-tag:hover { border-color: var(--color-secondary); color: var(--color-secondary); }
+.owner-tag:hover {
+  border-color: var(--color-accent);
+  border-style: solid;
+  color: var(--color-accent-dark);
+  background: var(--color-accent-soft);
+}
 .owner-tag-set {
+  border-style: solid;
   border-color: var(--color-accent);
   background: var(--color-accent-soft);
   color: var(--color-accent-dark);
+  font-weight: 700;
+}
+.owner-tag-set:hover {
+  background: var(--color-accent);
+  color: white;
 }
 
 /* ─── Done / Resolve pill (completion CTA) ── */

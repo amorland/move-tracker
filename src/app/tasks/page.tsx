@@ -226,7 +226,7 @@ function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
           title="Cycle owner"
           style={{ opacity: done ? 0.4 : 1 }}
         >
-          {task.owner ?? '—'}
+          {task.owner ?? '+ owner'}
         </button>
       </div>
 

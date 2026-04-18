@@ -287,7 +287,8 @@ export default function MoveMap() {
             {locations.length === 0 ? (
               <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14 }}>
                 <Info size={32} color="var(--color-border)" style={{ margin: '0 auto 12px' }} />
-                Add locations to build your route.
+                <span style={{ fontWeight: 600, color: 'var(--color-foreground)' }}>Fat Necks, start here.</span>
+                <br />Add locations to plot the route.
               </div>
             ) : locations
               .sort((a, b) => {

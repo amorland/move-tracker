@@ -12,6 +12,20 @@ const ROOMS = [
 
 const ACTIONS: BelongingAction[] = ['Bring', 'Sell', 'Donate', 'Trash'];
 
+const ACTION_TODO_LABEL: Record<BelongingAction, string> = {
+  Bring: 'Resolve',
+  Sell: 'Sell it',
+  Donate: 'Donate',
+  Trash: 'Trash it',
+};
+
+const ACTION_DONE_LABEL: Record<BelongingAction, string> = {
+  Bring: 'Resolved',
+  Sell: 'Sold',
+  Donate: 'Donated',
+  Trash: 'Trashed',
+};
+
 const ACTION_ICONS: Record<BelongingAction, React.ReactNode> = {
   Bring:  <Box size={13} />,
   Sell:   <DollarSign size={13} />,
@@ -252,7 +266,7 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
           onClick={e => { e.stopPropagation(); onToggle(); }}
           className={`done-pill ${done ? 'done-pill-active' : ''}`}
         >
-          {done ? <><Check size={13} strokeWidth={3} /> Sorted</> : 'Sort it'}
+          {done ? <><Check size={13} strokeWidth={3} /> {ACTION_DONE_LABEL[item.action]}</> : ACTION_TODO_LABEL[item.action]}
         </button>
       </div>
     </div>
