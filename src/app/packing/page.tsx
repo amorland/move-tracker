@@ -67,18 +67,22 @@ export default function InventoryPage() {
     const itemNameStr = i.itemName || (i as any).itemName || 'Unnamed Item';
     const itemStatus = i.status || (i as any).status;
 
-    const matchesTab = itemAction === activeTab;
+    // Use case-insensitive matching for more robust filtering
+    const matchesTab = String(itemAction).toLowerCase() === String(activeTab).toLowerCase();
     const matchesSearch = itemNameStr.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesResolution = showResolved ? itemStatus === 'Resolved' : itemStatus === 'Unresolved';
+    const matchesResolution = showResolved ? 
+      String(itemStatus).toLowerCase() === 'resolved' : 
+      (String(itemStatus).toLowerCase() === 'unresolved' || !itemStatus);
+    
     return matchesTab && matchesSearch && matchesResolution;
   });
 
   const stats = {
-    Bring: items.filter(i => (i.action || (i as any).action) === 'Bring' && (i.status || (i as any).status) === 'Unresolved').length,
-    Sell: items.filter(i => (i.action || (i as any).action) === 'Sell' && (i.status || (i as any).status) === 'Unresolved').length,
-    Donate: items.filter(i => (i.action || (i as any).action) === 'Donate' && (i.status || (i as any).status) === 'Unresolved').length,
-    Trash: items.filter(i => (i.action || (i as any).action) === 'Trash' && (i.status || (i as any).status) === 'Unresolved').length,
-    Resolved: items.filter(i => (i.status || (i as any).status) === 'Resolved').length
+    Bring: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'bring' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
+    Sell: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
+    Donate: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
+    Trash: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
+    Resolved: items.filter(i => String(i.status || (i as any).status).toLowerCase() === 'resolved').length
   };
 
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Inventory...</div>;

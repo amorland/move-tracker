@@ -22,6 +22,8 @@ export async function POST(request: Request) {
       room: body.room || 'Other',
       "itemName": body.itemName || 'Unnamed Item',
       action: body.action || 'Bring',
+      status: body.status || 'Unresolved',
+      priority: body.priority || 'Medium',
       notes: body.notes || '',
       "createdAt": new Date().toISOString()
     };
