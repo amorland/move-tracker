@@ -173,9 +173,11 @@ export default function OverviewPage() {
       </div>
 
       {/* ── Stats strip ─────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 24 }}>
+      <div style={{ display: 'flex', marginBottom: 28, background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         <StatChip label="Tasks Done" value={`${completeTasks.length}/${tasks.length}`} />
+        <div style={{ width: 1, background: 'var(--color-border)', flexShrink: 0 }} />
         <StatChip label="Outstanding" value={String(incompleteTasks.length)} accent />
+        <div style={{ width: 1, background: 'var(--color-border)', flexShrink: 0 }} />
         <StatChip label="Belongings" value={`${resolvePercent}%`} />
       </div>
 
@@ -321,9 +323,9 @@ export default function OverviewPage() {
 
 function StatChip({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div style={{ padding: '12px 16px', borderRadius: 12, background: accent ? 'var(--color-accent-soft)' : 'var(--color-surface)', border: `1px solid ${accent ? 'var(--color-accent)' : 'var(--color-border)'}` }}>
-      <div style={{ fontSize: 20, fontWeight: 700, color: accent ? 'var(--color-accent-dark)' : 'var(--color-foreground)' }}>{value}</div>
-      <div className="section-label" style={{ marginTop: 3, color: accent ? 'var(--color-accent-dark)' : undefined }}>{label}</div>
+    <div style={{ flex: 1, padding: '20px 16px', textAlign: 'center' }}>
+      <div style={{ fontSize: 26, fontWeight: 700, color: accent ? 'var(--color-accent)' : 'var(--color-foreground)', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 6, fontWeight: 500 }}>{label}</div>
     </div>
   );
 }

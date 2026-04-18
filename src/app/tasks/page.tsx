@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Category, Task, TaskOwner, TaskPhase } from '@/lib/types';
-import { CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil } from 'lucide-react';
+import { Check, CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type OwnerFilter = TaskOwner | 'All';
@@ -91,11 +91,6 @@ export default function TasksPage() {
         <FilterSelect label="Phase" value={phaseFilter} onChange={v => setPhaseFilter(v as PhaseFilter)} options={['All', 'Move Out', 'Move In', 'Both']} />
       </div>
 
-      {/* Hint */}
-      <div style={{ marginBottom: 20, padding: '10px 16px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 8, fontSize: 12, color: 'var(--color-accent-dark)', fontWeight: 500 }}>
-        Tap <strong>Complete</strong> to check off a task · tap the <Pencil size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> pencil to edit it
-      </div>
-
       {/* Category sections */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
         {categories.map(cat => {
@@ -169,54 +164,52 @@ function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
 }) {
   const done = task.status === 'Complete';
   return (
-    <div style={{ display: 'flex', borderBottom: isLast ? 'none' : '1px solid var(--color-border)', background: done ? '#fafaf8' : 'white' }}>
-
-      {/* ── Completion zone ── clearly labeled, large touch target */}
+    <div
+      className="task-row"
+      style={{
+        display: 'flex', alignItems: 'center',
+        borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
+        background: done ? 'var(--color-success-soft)' : 'var(--color-surface)',
+        borderLeft: `3px solid ${done ? 'var(--color-accent)' : 'transparent'}`,
+        transition: 'background 0.2s, border-left-color 0.2s',
+      }}
+    >
       <button
         onClick={onToggle}
-        style={{
-          width: 72, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
-          padding: '12px 8px', border: 'none', borderRight: '1px solid var(--color-border)',
-          background: done ? 'var(--color-accent-soft)' : 'transparent',
-          cursor: 'pointer', transition: 'background 0.15s',
-        }}
+        style={{ width: 48, alignSelf: 'stretch', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer' }}
         title={done ? 'Mark incomplete' : 'Mark complete'}
       >
         <div style={{
-          width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: done ? 'var(--color-accent)' : 'white',
+          width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+          background: done ? 'var(--color-accent)' : 'transparent',
           border: `2px solid ${done ? 'var(--color-accent)' : 'var(--color-border)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.15s',
         }}>
-          {done && <CheckCircle2 size={16} color="white" />}
+          {done && <Check size={11} color="white" strokeWidth={3} />}
         </div>
-        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: done ? 'var(--color-accent-dark)' : 'var(--color-secondary)', lineHeight: 1 }}>
-          {done ? 'Done' : 'Complete'}
-        </span>
       </button>
 
-      {/* ── Task info — tap to edit ── */}
-      <div style={{ flex: 1, padding: '13px 16px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+      <div style={{ flex: 1, padding: '14px 8px 14px 0', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
         <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
           <span className="section-label">{task.owner}</span>
           {task.dueDate && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--color-secondary)' }}>
               <Calendar size={10} /> Due {format(parseISO(task.dueDate), 'MMM d')}
             </span>
           )}
           {done && task.completedAt && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-success)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: 'var(--color-accent-dark)' }}>
               <CheckCircle2 size={10} /> Done {format(parseISO(task.completedAt), 'MMM d')}
             </span>
           )}
         </div>
       </div>
 
-      {/* ── Action icons — always visible ── */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px', gap: 2, flexShrink: 0 }}>
+      <div className="row-actions" style={{ display: 'flex', alignItems: 'center', padding: '0 10px', gap: 2, flexShrink: 0 }}>
         <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
           <Pencil size={14} />
         </button>
