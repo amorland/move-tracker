@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MoveLocation, MoveSettings } from '@/lib/types';
-import { MapPin, Navigation, Plus, Trash2, X, Clock, Route, Info, Moon } from 'lucide-react';
+import { MapPin, Navigation, Plus, Trash2, X, Clock, Route, Info, Moon, Pencil } from 'lucide-react';
 import { format, parseISO, addSeconds } from 'date-fns';
 
 const OriginIcon = L.divIcon({
@@ -50,6 +50,21 @@ function stripOvernightPrefix(notes: string | null | undefined): string {
   return notes.startsWith('[overnight]') ? notes.slice('[overnight]'.length).trimStart() : notes;
 }
 
+function encodeNotes(notes: string, overnight: boolean, category: string): string | null {
+  const raw = notes.trim();
+  if (overnight && category === 'Stop') return `[overnight]${raw ? ' ' + raw : ''}`;
+  return raw || null;
+}
+
+async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+    const data = await res.json();
+    if (data?.[0]) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  } catch {}
+  return null;
+}
+
 export default function MoveMap() {
   const [locations, setLocations] = useState<MoveLocation[]>([]);
   const [settings, setSettings] = useState<MoveSettings | null>(null);
@@ -59,26 +74,29 @@ export default function MoveMap() {
   const [isAdding, setIsAdding] = useState(false);
   const [newLoc, setNewLoc] = useState<Partial<MoveLocation>>({ name: '', address: '', category: 'Stop', notes: '' });
   const [newLocOvernight, setNewLocOvernight] = useState(false);
+  const [editingLoc, setEditingLoc] = useState<MoveLocation | null>(null);
+  const [editOvernight, setEditOvernight] = useState(false);
   const [departureTime, setDepartureTime] = useState('09:00');
 
   useEffect(() => { fetchAll(); }, []);
-  useEffect(() => { if (locations.length >= 2) fetchRoute(); }, [locations]);
 
   const fetchAll = async () => {
     const [lRes, sRes] = await Promise.all([fetch('/api/locations'), fetch('/api/settings')]);
-    setLocations(await lRes.json());
+    const locs: MoveLocation[] = await lRes.json();
+    setLocations(locs);
     setSettings(await sRes.json());
+    if (locs.length >= 2) fetchRoute(locs);
   };
 
-  const fetchRoute = async () => {
-    const routePoints = locations
+  const fetchRoute = async (locs: MoveLocation[]) => {
+    const routePoints = locs
       .filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category) && l.lat && l.lng)
       .sort((a, b) => {
         if (a.category === 'Origin') return -1;
         if (b.category === 'Origin') return 1;
         if (a.category === 'Destination') return 1;
         if (b.category === 'Destination') return -1;
-        return 0;
+        return (a.id ?? 0) - (b.id ?? 0);
       });
 
     if (routePoints.length < 2) return;
@@ -109,22 +127,12 @@ export default function MoveMap() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    let lat = null, lng = null;
-    try {
-      const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newLoc.address || '')}`);
-      const geo = await geoRes.json();
-      if (geo?.[0]) { lat = parseFloat(geo[0].lat); lng = parseFloat(geo[0].lon); }
-    } catch { /* use null */ }
-
-    const rawNotes = newLoc.notes?.trim() || '';
-    const encodedNotes = (newLocOvernight && newLoc.category === 'Stop')
-      ? `[overnight]${rawNotes ? ' ' + rawNotes : ''}`
-      : rawNotes || null;
-
+    const coords = await geocode(newLoc.address || '');
+    const notes = encodeNotes(newLoc.notes || '', newLocOvernight, newLoc.category || '');
     const res = await fetch('/api/locations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...newLoc, notes: encodedNotes, lat, lng }),
+      body: JSON.stringify({ ...newLoc, notes, lat: coords?.lat ?? null, lng: coords?.lng ?? null }),
     });
     if (res.ok) {
       setIsAdding(false);
@@ -132,6 +140,30 @@ export default function MoveMap() {
       setNewLocOvernight(false);
       fetchAll();
     }
+  };
+
+  const openEdit = (loc: MoveLocation) => {
+    setEditingLoc({ ...loc, notes: stripOvernightPrefix(loc.notes) });
+    setEditOvernight(isOvernight(loc));
+    setIsAdding(false);
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLoc) return;
+    const original = locations.find(l => l.id === editingLoc.id);
+    let lat = editingLoc.lat, lng = editingLoc.lng;
+    if (editingLoc.address !== original?.address) {
+      const coords = await geocode(editingLoc.address || '');
+      if (coords) { lat = coords.lat; lng = coords.lng; }
+    }
+    const notes = encodeNotes(editingLoc.notes || '', editOvernight, editingLoc.category);
+    const res = await fetch('/api/locations', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...editingLoc, notes, lat, lng }),
+    });
+    if (res.ok) { setEditingLoc(null); fetchAll(); }
   };
 
   const deleteLoc = async (id: number) => {
@@ -147,7 +179,6 @@ export default function MoveMap() {
     setBounds([[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]]);
   };
 
-  // Multi-day ETA calculation
   const overnightCount = locations.filter(isOvernight).length;
   const daysOfDriving = overnightCount + 1;
   const adjustedDuration = routeStats ? Math.round(routeStats.durationSeconds * 0.8) : 0;
@@ -163,6 +194,14 @@ export default function MoveMap() {
     estArrival = addSeconds(lastDayStart, driveSecondsPerDay);
   }
 
+  const showForm = isAdding || editingLoc !== null;
+  const formLoc = isAdding ? newLoc : (editingLoc as Partial<MoveLocation>);
+  const formOvernight = isAdding ? newLocOvernight : editOvernight;
+  const setFormLoc = isAdding
+    ? setNewLoc
+    : (v: Partial<MoveLocation>) => setEditingLoc(v as MoveLocation);
+  const setFormOvernight = isAdding ? setNewLocOvernight : setEditOvernight;
+
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 40 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
@@ -170,12 +209,11 @@ export default function MoveMap() {
           <h1>The Route</h1>
           <p className="page-subtitle">Clearwater, FL → Cold Spring, NY · Summer 2026</p>
         </div>
-        <button className="btn btn-primary btn-lg" onClick={() => setIsAdding(true)}>
+        <button className="btn btn-primary btn-lg" onClick={() => { setIsAdding(true); setEditingLoc(null); }}>
           <Plus size={18} /> Add Location
         </button>
       </div>
 
-      {/* Route stats bar */}
       {routeStats && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
           <StatCard icon={<Route size={16} />} label="Total Distance" value={`${Math.round(routeStats.distanceMiles).toLocaleString()} mi`} />
@@ -183,7 +221,6 @@ export default function MoveMap() {
           {daysOfDriving > 1 && (
             <StatCard icon={<Moon size={16} />} label="Days of Driving" value={`${daysOfDriving} days`} />
           )}
-          {/* Departure time — editable */}
           <div style={{ padding: '14px 18px', borderRadius: 12, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ color: 'var(--color-secondary)' }}><Navigation size={16} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -196,12 +233,8 @@ export default function MoveMap() {
               />
             </div>
           </div>
-          {driveStart && (
-            <StatCard icon={<MapPin size={16} />} label="Drive Start" value={format(driveStart, 'MMM d')} accent />
-          )}
-          {estArrival && (
-            <StatCard icon={<MapPin size={16} />} label="Est. Arrival" value={format(estArrival, 'MMM d')} accent />
-          )}
+          {driveStart && <StatCard icon={<MapPin size={16} />} label="Drive Start" value={format(driveStart, 'MMM d')} accent />}
+          {estArrival && <StatCard icon={<MapPin size={16} />} label="Est. Arrival" value={format(estArrival, 'MMM d')} accent />}
         </div>
       )}
 
@@ -227,6 +260,12 @@ export default function MoveMap() {
                       </div>
                       <div style={{ fontSize: 12, color: '#555' }}>{loc.address}</div>
                       {displayNotes && <div style={{ fontSize: 12, marginTop: 6, paddingTop: 6, borderTop: '1px solid #eee' }}>{displayNotes}</div>}
+                      <button
+                        onClick={() => openEdit(loc)}
+                        style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: 'var(--color-accent-dark)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                      >
+                        Edit →
+                      </button>
                     </div>
                   </Popup>
                 </Marker>
@@ -244,18 +283,19 @@ export default function MoveMap() {
 
         {/* Side panel */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-          {/* Add form */}
-          {isAdding && (
+
+          {/* Add / Edit form */}
+          {showForm && (
             <div className="card" style={{ border: '1px solid var(--color-accent)', background: 'var(--color-accent-soft)' }}>
               <div className="card-header" style={{ paddingTop: 16, paddingBottom: 16 }}>
-                <h2 style={{ margin: 0 }}>Add Location</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => { setIsAdding(false); setNewLocOvernight(false); }} style={{ padding: '0 8px' }}><X size={16} /></button>
+                <h2 style={{ margin: 0 }}>{isAdding ? 'Add Location' : 'Edit Location'}</h2>
+                <button className="btn btn-ghost btn-sm" onClick={() => { setIsAdding(false); setEditingLoc(null); setNewLocOvernight(false); }} style={{ padding: '0 8px' }}><X size={16} /></button>
               </div>
               <div className="card-body">
-                <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <input required placeholder="Name (e.g. Hotel)" value={newLoc.name || ''} onChange={e => setNewLoc({ ...newLoc, name: e.target.value })} />
-                  <input required placeholder="Full address" value={newLoc.address || ''} onChange={e => setNewLoc({ ...newLoc, address: e.target.value })} />
-                  <select value={newLoc.category} onChange={e => { setNewLoc({ ...newLoc, category: e.target.value as any }); setNewLocOvernight(false); }}>
+                <form onSubmit={isAdding ? handleAdd : handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <input required placeholder="Name (e.g. Hotel)" value={formLoc.name || ''} onChange={e => setFormLoc({ ...formLoc, name: e.target.value })} />
+                  <input required placeholder="Full address" value={formLoc.address || ''} onChange={e => setFormLoc({ ...formLoc, address: e.target.value })} />
+                  <select value={formLoc.category} onChange={e => { setFormLoc({ ...formLoc, category: e.target.value as any }); setFormOvernight(false); }}>
                     <option value="Stop">Travel Stop</option>
                     <option value="Origin">Origin</option>
                     <option value="Destination">Destination</option>
@@ -263,20 +303,20 @@ export default function MoveMap() {
                     <option value="Service">Service</option>
                     <option value="Errand">Errand</option>
                   </select>
-                  {newLoc.category === 'Stop' && (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, fontWeight: 500, padding: '8px 10px', borderRadius: 8, background: newLocOvernight ? 'rgba(15,23,42,0.06)' : 'transparent', transition: 'background 0.15s' }}>
+                  {formLoc.category === 'Stop' && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 14, fontWeight: 500, padding: '8px 10px', borderRadius: 8, background: formOvernight ? 'rgba(15,23,42,0.06)' : 'transparent', transition: 'background 0.15s' }}>
                       <input
                         type="checkbox"
-                        checked={newLocOvernight}
-                        onChange={e => setNewLocOvernight(e.target.checked)}
+                        checked={formOvernight}
+                        onChange={e => setFormOvernight(e.target.checked)}
                         style={{ width: 16, height: 16, accentColor: 'var(--color-accent-dark)', flexShrink: 0 }}
                       />
                       <Moon size={14} color="var(--color-secondary)" />
                       Overnight stop
                     </label>
                   )}
-                  <textarea placeholder="Notes (optional)" value={newLoc.notes || ''} onChange={e => setNewLoc({ ...newLoc, notes: e.target.value })} style={{ height: 60, resize: 'none' }} />
-                  <button type="submit" className="btn btn-primary">Add to Map</button>
+                  <textarea placeholder="Notes (optional)" value={formLoc.notes || ''} onChange={e => setFormLoc({ ...formLoc, notes: e.target.value })} style={{ height: 60, resize: 'none' }} />
+                  <button type="submit" className="btn btn-primary">{isAdding ? 'Add to Map' : 'Save Changes'}</button>
                 </form>
               </div>
             </div>
@@ -298,7 +338,12 @@ export default function MoveMap() {
               .map((loc, i, arr) => (
                 <div
                   key={loc.id}
-                  style={{ padding: '14px 16px', background: 'white', display: 'flex', alignItems: 'center', gap: 12, borderBottom: i < arr.length - 1 ? '1px solid var(--color-border)' : 'none' }}
+                  style={{
+                    padding: '14px 16px', background: editingLoc?.id === loc.id ? 'var(--color-accent-soft)' : 'white',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    borderBottom: i < arr.length - 1 ? '1px solid var(--color-border)' : 'none',
+                    transition: 'background 0.15s',
+                  }}
                   className="item-row"
                 >
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--color-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -317,9 +362,14 @@ export default function MoveMap() {
                       )}
                     </div>
                   </div>
-                  <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px', flexShrink: 0 }} onClick={() => deleteLoc(loc.id)}>
-                    <Trash2 size={14} color="var(--color-border)" />
-                  </button>
+                  <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                    <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => openEdit(loc)} title="Edit">
+                      <Pencil size={14} color="var(--color-secondary)" />
+                    </button>
+                    <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => deleteLoc(loc.id)} title="Delete">
+                      <Trash2 size={14} color="var(--color-border)" />
+                    </button>
+                  </div>
                 </div>
               ))
             }
