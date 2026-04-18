@@ -1,36 +1,45 @@
-# Starland Move Tracker
+# Starland™ Moving
 
-A private web app for Andrew and Tory's move from Clearwater, FL to Cold Spring, NY in summer 2026. Tracks tasks, belongings, key dates, and the move route.
+A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. Tracks tasks, belongings, key dates, the move route, and timeline events — all behind a single shared password.
 
 ## Stack
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**
-- **Supabase** (Postgres) for storage
-- **Tailwind CSS v4** with a custom design system
+- **Supabase** (Postgres) for all storage
+- **Tailwind CSS v4** with CSS custom properties design system
+- **Leaflet** + **OSRM** for the interactive route map
 - **Vitest** for tests
 - **Deployed on Vercel**
 
 ## Design System — "Washi"
 
-Three colors: terracotta header (`#c06b3e`), warm near-black sidebar (`#1c1917`), barely-warm near-white content (`#faf8f5`). Pure white surfaces with very quiet warm borders (`#ece8e1`) — structure comes from whitespace and typographic hierarchy. Terracotta is the single accent throughout: CTAs, active states, incomplete task indicators. Gold (`#f0b432`) used only for the Timeline key date row marker. The "SL" monogram replaces any star icon throughout. Lora serif for headings, DM Sans for body.
+Warm paper tones throughout. Three key values: `#faf8f5` (content background), `#ede8df` (nav/header), `#ffffff` (card surfaces). Borders are quiet warm gray (`#ece8e1`). Terracotta (`#c06b3e`) is the single accent — CTAs, active nav states, progress bars. Gold (`#f0b432`) used only for key date markers on the timeline. Lora serif for headings, DM Sans for body. The "SL" monogram appears in the nav header and overview page.
 
 ## Pages
 
 | Page | Route | Description |
 |------|-------|-------------|
-| **Overview** | `/` | Mini timeline of all 7 key move dates, task completion stats, and belonging summary |
-| **The List** | `/tasks` | To-do list grouped by category; filter chips by owner; click-to-cycle owner tag per row; single collapsible completed section |
-| **The Big Sort** | `/belongings` | Items grouped by room; action badges (Bring / Sell / Donate / Trash); 3-state segmented filter; action-specific resolution labels (Resolved / Sold / Donated / Trashed) |
-| **The Journey** | `/timeline` | Chronological timeline with search, type filter chips (with icons), gold star key dates, Confirmed/Estimated chips, editable events |
-| **The Route** | `/map` | Leaflet map with route polyline; multi-day ETA; editable departure time; overnight stop encoding |
+| **Overview** | `/` | Mini milestone timeline, task completion stats by category, belonging sort progress by action |
+| **The List** | `/tasks` | Tasks grouped by category; owner toggle per row (Andrew / Tory / unassigned); search and owner filter; collapsible completed section |
+| **The Big Sort** | `/belongings` | Belongings grouped by room; action badges (Bring / Sell / Donate / Trash); action-specific resolve labels (Resolved / Sold / Donated / Trashed); search, action filter, and All / Active / Done segmented filter |
+| **The Journey** | `/timeline` | Chronological timeline grouped by month; search and type filter (Key Dates / Events / Tasks); Confirmed / Estimated status chips; add and edit events inline |
+| **The Route** | `/map` | Leaflet map with OSRM driving route polyline; per-leg drive time and distance in the side panel; multi-day ETA with editable departure time; add, edit, and delete locations; overnight stop encoding |
+
+## Overview — Stats Panels
+
+**The List panel** shows total task completion (fraction + progress bar) broken down by category with individual mini progress bars. Only categories with at least one task are shown.
+
+**The Big Sort panel** shows total belonging resolution progress broken down by action (Bring / Sell / Donate / Trash) with mini progress bars. Only actions with at least one item appear.
 
 ## Key Date Rules
 
-Seven milestones in order: U-Pack Dropoff (FL) → Pickup (FL) → Drive Start → Arrival (NY) → House Closing → U-Pack Delivery (NY) → Final Pickup (NY). When dates are confirmed the API enforces ordering constraints (e.g. pickup must be exactly 3 days after dropoff, arrival must precede closing).
+Seven milestones in fixed order: U-Pack Dropoff (FL) → U-Pack Pickup (FL) → Drive Start → Arrival (NY) → House Closing → U-Pack Delivery (NY) → U-Pack Final Pickup (NY). When dates are confirmed the API enforces ordering constraints (pickup must be exactly 3 days after dropoff; arrival must precede closing). Dates are editable from the Overview mini-timeline.
 
-## Move Map — Multi-Day ETA
+## Move Map — Routing & ETA
 
-Drive time uses a 0.8× correction factor on OSRM duration. Overnight stops are encoded as a `[overnight]` prefix in the location notes field. The ETA splits adjusted drive time across `overnightStops + 1` days of driving, each starting at the configured departure time (default 09:00).
+Drive time uses a **0.8× correction factor** on OSRM duration. Overnight stops are encoded as a `[overnight]` prefix in the location notes field. The ETA splits adjusted drive time across `overnightStops + 1` days of driving, each starting at the configured departure time (default 09:00). The side panel shows per-leg drive time and distance between each consecutive route stop.
+
+Location categories: **Origin**, **Stop**, **Destination** (included in route), **Utility**, **Service**, **Errand** (displayed on map but not in route calculation). Stops are routed in insertion order.
 
 ## Running Locally
 
@@ -54,7 +63,7 @@ npm test           # run once
 npm run test:watch # watch mode
 ```
 
-Tests cover `dateUtils` validation logic and all API route handlers (belongings, tasks, events, settings) using mocked Supabase.
+44 tests across 5 files covering `dateUtils` validation logic and all API route handlers (belongings, tasks, events, settings, locations) using mocked Supabase.
 
 ## Project Structure
 
@@ -62,20 +71,20 @@ Tests cover `dateUtils` validation logic and all API route handlers (belongings,
 src/
 ├── app/
 │   ├── api/
-│   │   ├── auth/         # Login / logout
+│   │   ├── auth/         # Login / logout (cookie-based)
 │   │   ├── belongings/   # Belongings CRUD
 │   │   ├── categories/   # Task categories + tasks (combined GET)
 │   │   ├── events/       # Timeline events CRUD
 │   │   ├── locations/    # Map locations CRUD
-│   │   ├── settings/     # Key dates (move settings)
+│   │   ├── settings/     # Key dates / move settings
 │   │   └── tasks/        # Tasks CRUD
 │   ├── belongings/       # The Big Sort page
 │   ├── login/            # Login page
 │   ├── map/              # The Route page
 │   ├── tasks/            # The List page
 │   ├── timeline/         # The Journey page
-│   ├── globals.css       # Design system (Twilight theme)
-│   ├── layout.tsx        # App shell (indigo header, sidebar, mobile bottom nav)
+│   ├── globals.css       # Design system (Washi theme)
+│   ├── layout.tsx        # App shell — nav header, sidebar, mobile bottom nav, footer
 │   └── page.tsx          # Overview / dashboard
 ├── components/
 │   └── MoveMap.tsx       # Leaflet map component (client-only)
@@ -84,5 +93,5 @@ src/
     ├── dateUtils.ts      # Milestone helpers + date validation
     ├── supabase.ts       # Supabase client
     ├── types.ts          # Shared TypeScript types
-    └── useScrollLock.ts  # JS scroll lock hook for modals
+    └── useScrollLock.ts  # Scroll lock hook for modals (iOS Safari safe)
 ```
