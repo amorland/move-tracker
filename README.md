@@ -10,9 +10,9 @@ A private web app for Andrew and Tory's move from Clearwater, FL to Cold Spring,
 - **Vitest** for tests
 - **Deployed on Vercel**
 
-## Design System — "Twilight"
+## Design System — "Moonlight"
 
-Deep indigo-navy header/sidebar (`#1e1b4b`) over a lavender-tinted cream content area (`#f5f4f8`). Primary actions use soft indigo (`#6366f1`/`#4f46e5`); gold (`#f0b432`) reserved for the star logo and key date moments; sage green (`#7a9e87`) used for success/completion states. Lora serif for headings, DM Sans for body. Borders carry a subtle indigo tint.
+Midnight navy header/sidebar (`#0f172a`) with a subtle two-layer star-dot texture (sparse gold dots + faint white dots). Content area uses a deepened moonlit cream (`#f4f1ea`) with borders in a soft silver-cool tone (`#e7e5ec`). Sage green (`#7a9e87`) for primary actions and completion; gold (`#f0b432`) reserved for the star logo and key date accents. Lora serif for headings, DM Sans for body.
 
 ## Pages
 
