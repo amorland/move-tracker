@@ -132,7 +132,6 @@ export default function OverviewPage() {
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Hi, Starlands.</h1>
-          <p className="page-subtitle">Here's where the move stands.</p>
         </div>
         {daysUntilDrive !== null && daysUntilDrive >= 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>

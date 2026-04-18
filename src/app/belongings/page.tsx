@@ -154,25 +154,18 @@ export default function BelongingsPage() {
       </div>
 
       {/* Items list grouped by room */}
-      <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
+      <div>
         {visible.length === 0 ? (
-          <div style={{ padding: '64px 24px', textAlign: 'center' }}>
+          <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             <Box size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
             <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>Nothing here.</p>
           </div>
-        ) : sortedRooms.map((room, roomIdx) => {
+        ) : sortedRooms.map((room) => {
           const roomItems = visible.filter(i => i.room === room);
           const roomResolved = roomItems.filter(i => i.status === 'resolved').length;
-          const isLastRoom = roomIdx === sortedRooms.length - 1;
           return (
-            <div key={room}>
-              {/* Room label */}
-              <div style={{
-                padding: '8px 16px',
-                background: 'var(--color-background)',
-                borderTop: roomIdx > 0 ? '1px solid var(--color-border)' : 'none',
-                display: 'flex', alignItems: 'center', gap: 10,
-              }}>
+            <div key={room} style={{ marginBottom: 24 }}>
+              <div style={{ padding: '0 4px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span className="section-label">{room}</span>
                 {roomResolved > 0 && (
                   <span style={{ fontSize: 10, color: 'var(--color-accent-dark)', background: 'var(--color-accent-soft)', padding: '2px 7px', borderRadius: 'var(--radius-pill)', fontWeight: 700 }}>
@@ -180,17 +173,17 @@ export default function BelongingsPage() {
                   </span>
                 )}
               </div>
-              {/* Room items */}
-              {roomItems.map((item, itemIdx) => (
-                <BelongingRow
-                  key={item.id}
-                  item={item}
-                  isLast={isLastRoom && itemIdx === roomItems.length - 1}
-                  onToggle={() => toggleResolved(item)}
-                  onEdit={() => setModal(item)}
-                  onDelete={() => deleteItem(item.id)}
-                />
-              ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {roomItems.map((item) => (
+                  <BelongingRow
+                    key={item.id}
+                    item={item}
+                    onToggle={() => toggleResolved(item)}
+                    onEdit={() => setModal(item)}
+                    onDelete={() => deleteItem(item.id)}
+                  />
+                ))}
+              </div>
             </div>
           );
         })}
@@ -203,8 +196,8 @@ export default function BelongingsPage() {
   );
 }
 
-function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
-  item: Belonging; isLast: boolean;
+function BelongingRow({ item, onToggle, onEdit, onDelete }: {
+  item: Belonging;
   onToggle: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const done = item.status === 'resolved';
@@ -214,8 +207,10 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
       className="belonging-row"
       style={{
         display: 'flex', alignItems: 'stretch',
-        borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
         background: done ? 'var(--color-background)' : 'var(--color-surface)',
+        borderRadius: 8,
+        boxShadow: 'var(--shadow-sm)',
+        border: '1px solid var(--color-border)',
         transition: 'background 0.2s',
       }}
     >
