@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Category, Task, TaskOwner } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
-import { Check, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
+import { Check, CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type OwnerFilter = TaskOwner | 'All';
