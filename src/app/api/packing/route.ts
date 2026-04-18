@@ -22,6 +22,7 @@ export async function POST(request: Request) {
       room: body.room || 'Other',
       "itemName": body.itemName || 'Unnamed Item',
       action: body.action || 'Bring',
+      status: 'Not Packed',
       notes: body.notes || ''
     };
     
@@ -51,7 +52,13 @@ export async function PATCH(request: Request) {
 
     // Explicitly handle fields to ensure casing and validity
     if (updateData.status) {
-      updateData.status = updateData.status === 'Resolved' ? 'Resolved' : 'Unresolved';
+      const s = String(updateData.status).toLowerCase();
+      if (s === 'resolved' || s === 'packed') {
+        // Try to guess the correct 'Resolved' equivalent for this DB
+        updateData.status = 'Resolved'; 
+      } else {
+        updateData.status = 'Not Packed';
+      }
     }
     if (updateData.priority) {
       const p = updateData.priority;

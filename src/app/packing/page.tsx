@@ -73,18 +73,37 @@ export default function InventoryPage() {
     const matchesTab = String(itemAction).toLowerCase() === String(activeTab).toLowerCase();
     const matchesSearch = itemNameStr.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesResolution = showResolved ? 
-      String(itemStatus).toLowerCase() === 'resolved' : 
-      (String(itemStatus || 'Unresolved').toLowerCase() === 'unresolved');
+      (String(itemStatus).toLowerCase() === 'resolved' || String(itemStatus).toLowerCase() === 'packed') : 
+      (String(itemStatus).toLowerCase() === 'not packed' || String(itemStatus || 'Unresolved').toLowerCase() === 'unresolved');
     
     return matchesTab && matchesSearch && matchesResolution;
   });
 
   const stats = {
-    Bring: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'bring' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
-    Sell: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
-    Donate: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
-    Trash: items.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash' && String(i.status || (i as any).status).toLowerCase() !== 'resolved').length,
-    Resolved: items.filter(i => String(i.status || (i as any).status).toLowerCase() === 'resolved').length
+    Bring: items.filter(i => {
+      const a = String(i.action || (i as any).action).toLowerCase();
+      const s = String(i.status || (i as any).status).toLowerCase();
+      return a === 'bring' && s !== 'resolved' && s !== 'packed';
+    }).length,
+    Sell: items.filter(i => {
+      const a = String(i.action || (i as any).action).toLowerCase();
+      const s = String(i.status || (i as any).status).toLowerCase();
+      return a === 'sell' && s !== 'resolved' && s !== 'packed';
+    }).length,
+    Donate: items.filter(i => {
+      const a = String(i.action || (i as any).action).toLowerCase();
+      const s = String(i.status || (i as any).status).toLowerCase();
+      return a === 'donate' && s !== 'resolved' && s !== 'packed';
+    }).length,
+    Trash: items.filter(i => {
+      const a = String(i.action || (i as any).action).toLowerCase();
+      const s = String(i.status || (i as any).status).toLowerCase();
+      return a === 'trash' && s !== 'resolved' && s !== 'packed';
+    }).length,
+    Resolved: items.filter(i => {
+      const s = String(i.status || (i as any).status).toLowerCase();
+      return s === 'resolved' || s === 'packed';
+    }).length
   };
 
   if (loading) return <div style={{ color: 'var(--text-secondary)', padding: '40px' }}>Loading Starland Inventory...</div>;

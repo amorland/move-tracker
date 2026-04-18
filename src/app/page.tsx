@@ -148,14 +148,20 @@ export default function Dashboard() {
   const milestones = getMilestones(settings);
 
   const bringItems = packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'bring');
-  const resolvedItems = packingItems.filter(i => String(i.status || (i as any).status).toLowerCase() === 'resolved');
+  const resolvedItems = packingItems.filter(i => {
+    const s = String(i.status || (i as any).status).toLowerCase();
+    return s === 'resolved' || s === 'packed';
+  });
   const resolutionProgress = packingItems.length > 0 ? Math.round((resolvedItems.length / packingItems.length) * 100) : 0;
 
   const inventorySummary = [
-    { label: 'BRING', count: bringItems.length, resolved: bringItems.filter(i => String(i.status || (i as any).status).toLowerCase() === 'resolved').length, color: 'var(--accent)', icon: <Box size={14} /> },
-    { label: 'SELL', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell' && String(i.status || (i as any).status).toLowerCase() === 'resolved').length, color: '#d1cdc4', icon: <DollarSign size={14} /> },
-    { label: 'DONATE', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate' && String(i.status || (i as any).status).toLowerCase() === 'resolved').length, color: '#e0dbd5', icon: <Heart size={14} /> },
-    { label: 'TRASH', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash' && String(i.status || (i as any).status).toLowerCase() === 'resolved').length, color: '#e5e1da', icon: <Trash size={14} /> }
+    { label: 'BRING', count: bringItems.length, resolved: bringItems.filter(i => {
+      const s = String(i.status || (i as any).status).toLowerCase();
+      return s === 'resolved' || s === 'packed';
+    }).length, color: 'var(--accent)', icon: <Box size={14} /> },
+    { label: 'SELL', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'sell' && (String(i.status || (i as any).status).toLowerCase() === 'resolved' || String(i.status || (i as any).status).toLowerCase() === 'packed')).length, color: '#d1cdc4', icon: <DollarSign size={14} /> },
+    { label: 'DONATE', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'donate' && (String(i.status || (i as any).status).toLowerCase() === 'resolved' || String(i.status || (i as any).status).toLowerCase() === 'packed')).length, color: '#e0dbd5', icon: <Heart size={14} /> },
+    { label: 'TRASH', count: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash').length, resolved: packingItems.filter(i => String(i.action || (i as any).action).toLowerCase() === 'trash' && (String(i.status || (i as any).status).toLowerCase() === 'resolved' || String(i.status || (i as any).status).toLowerCase() === 'packed')).length, color: '#e5e1da', icon: <Trash size={14} /> }
   ];
 
   return (
