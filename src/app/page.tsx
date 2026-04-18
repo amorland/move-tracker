@@ -131,7 +131,8 @@ export default function OverviewPage() {
       {/* Page header */}
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Hi, Starlands.</h1>
+          <h1>Fat Necks on the Move</h1>
+          <p className="page-subtitle">Clearwater, FL → Cold Spring, NY · Summer 2026</p>
         </div>
         {daysUntilDrive !== null && daysUntilDrive >= 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>

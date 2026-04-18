@@ -74,10 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div style={{ width: 32, height: 32, borderRadius: 6, border: '1.5px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>SL</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'var(--color-foreground)', fontFamily: 'var(--font-serif)' }}>Starland™ Moving</span>
-              <div style={{ fontSize: 10, color: 'var(--color-secondary)', letterSpacing: '0.03em', lineHeight: 1 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
-            </div>
+            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'var(--color-foreground)', fontFamily: 'var(--font-serif)' }}>Starland™ Moving</span>
           </div>
 
           <div style={{ flex: 1 }} />
@@ -144,7 +141,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
             <footer style={{ marginTop: 80, borderTop: '1px solid var(--color-border)', padding: '32px 0', textAlign: 'center' }}>
               <div style={{ fontSize: 14, fontFamily: 'var(--font-serif)', color: 'var(--color-foreground)', marginBottom: 6 }}>Andrew, Tory & Remy</div>
-              <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
+              <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginBottom: 12 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
+              <div style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.65, fontStyle: 'italic', maxWidth: 480, margin: '0 auto' }}>Starland Moving™ is a wholly-owned subsidiary of Starland Enterprises™ — quietly incorporated in 2017, officially licensed in 2022, and currently relocating its entire operation to Cold Spring, NY.</div>
             </footer>
           </main>
         </div>
