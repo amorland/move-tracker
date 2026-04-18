@@ -205,26 +205,39 @@ body:has(.modal-backdrop) { overflow: hidden; }
 }
 .item-row:hover { background: var(--color-background); }
 
-/* ─── Completion zone (task/belonging rows) ── */
-.completion-zone {
-  width: 56px;
+/* ─── Row completion circle (inspired by mini timeline dots) ── */
+.row-check-btn {
+  width: 52px;
   flex-shrink: 0;
   align-self: stretch;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   border: none;
-  border-right: 1px solid var(--color-border);
   background: transparent;
   cursor: pointer;
-  transition: background 0.15s;
-  padding: 10px 4px;
-  font-family: var(--font-sans);
+  padding: 0;
 }
-.completion-zone:hover { background: var(--color-background); }
-.completion-zone.is-done { background: var(--color-accent-soft); }
+.row-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s;
+  flex-shrink: 0;
+}
+.row-dot.is-done {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.row-check-btn:hover .row-dot:not(.is-done) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
 
 /* ─── Task / Belonging rows — hover-reveal actions ── */
 .task-row .row-actions,

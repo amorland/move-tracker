@@ -154,11 +154,13 @@ export default function OverviewPage() {
           </Link>
         </div>
         <MiniTimeline milestones={milestones} onEdit={openDateModal} />
-        <p style={{ fontSize: 11, color: 'var(--color-secondary)', marginTop: 10, textAlign: 'center' }}>
-          Tap any date to update it · <span style={{ color: 'var(--color-accent-dark)', fontWeight: 600 }}>●</span> confirmed &nbsp;
-          <span style={{ color: 'var(--color-secondary)' }}>○</span> estimated &nbsp;
-          <span style={{ color: 'var(--color-border)', fontWeight: 600 }}>⊘</span> not set
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
+          <TimelineLegendDot type="confirmed" label="Confirmed" />
+          <TimelineLegendDot type="estimated" label="Estimated" />
+          <TimelineLegendDot type="unset" label="Not set" />
+          <div style={{ width: 1, height: 12, background: 'var(--color-border)', flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>Tap any date to edit</span>
+        </div>
       </div>
 
       {/* ── Overview grid ──────────────────────────────────── */}
@@ -274,6 +276,19 @@ export default function OverviewPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TimelineLegendDot({ type, label }: { type: 'confirmed' | 'estimated' | 'unset'; label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+        background: type === 'confirmed' ? 'var(--color-accent)' : 'transparent',
+        border: `1.5px ${type === 'unset' ? 'dashed' : 'solid'} ${type === 'unset' ? 'var(--color-border)' : 'var(--color-accent)'}`,
+      }} />
+      <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{label}</span>
     </div>
   );
 }

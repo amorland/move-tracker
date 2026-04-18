@@ -169,27 +169,19 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
       style={{
         display: 'flex', alignItems: 'stretch',
         borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
-        background: done ? 'var(--color-success-soft)' : 'var(--color-surface)',
+        background: done ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+        transition: 'background 0.2s',
       }}
     >
-      {/* Completion zone */}
+      {/* Circle — same visual language as mini timeline dots */}
       <button
         onClick={onToggle}
-        className={`completion-zone ${done ? 'is-done' : ''}`}
-        title={done ? 'Mark unresolved' : 'Mark resolved'}
+        className="row-check-btn"
+        aria-label={done ? 'Mark unresolved' : 'Mark resolved'}
       >
-        <div style={{
-          width: 22, height: 22, borderRadius: '50%',
-          background: done ? 'var(--color-accent)' : 'white',
-          border: `2px solid ${done ? 'var(--color-accent)' : 'var(--color-border)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.15s',
-        }}>
-          {done && <Check size={12} color="white" strokeWidth={3} />}
+        <div className={`row-dot ${done ? 'is-done' : ''}`}>
+          {done && <Check size={13} color="white" strokeWidth={3} />}
         </div>
-        <span style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: done ? 'var(--color-accent-dark)' : 'var(--color-secondary)', lineHeight: 1 }}>
-          {done ? 'Done' : 'Resolve'}
-        </span>
       </button>
 
       {/* Item info — tap to edit */}

@@ -190,31 +190,23 @@ function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
       style={{
         display: 'flex', alignItems: 'stretch',
         borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
-        background: done ? 'var(--color-success-soft)' : 'var(--color-surface)',
+        background: done ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+        transition: 'background 0.2s',
       }}
     >
-      {/* Completion zone */}
+      {/* Circle — same visual language as mini timeline dots */}
       <button
         onClick={onToggle}
-        className={`completion-zone ${done ? 'is-done' : ''}`}
-        title={done ? 'Mark incomplete' : 'Mark complete'}
+        className="row-check-btn"
+        aria-label={done ? 'Mark incomplete' : 'Mark complete'}
       >
-        <div style={{
-          width: 22, height: 22, borderRadius: '50%',
-          background: done ? 'var(--color-accent)' : 'white',
-          border: `2px solid ${done ? 'var(--color-accent)' : 'var(--color-border)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.15s',
-        }}>
-          {done && <Check size={12} color="white" strokeWidth={3} />}
+        <div className={`row-dot ${done ? 'is-done' : ''}`}>
+          {done && <Check size={13} color="white" strokeWidth={3} />}
         </div>
-        <span style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: done ? 'var(--color-accent-dark)' : 'var(--color-secondary)', lineHeight: 1 }}>
-          {done ? 'Done' : 'Check'}
-        </span>
       </button>
 
       {/* Task info — tap to edit */}
-      <div style={{ flex: 1, padding: '13px 12px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+      <div style={{ flex: 1, padding: '13px 8px 13px 0', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
         <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
         </div>
