@@ -7,19 +7,21 @@ export async function GET() {
     .select('*')
     .order('orderIndex', { ascending: true });
     
-  if (data && data.length > 0) {
-    console.log('DEBUG: Actual Task columns from DB:', Object.keys(data[0]));
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-    
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+
+  // Include column names in a custom header for debugging
+  const columns = data.length > 0 ? Object.keys(data[0]) : [];
+  const response = NextResponse.json(data);
+  response.headers.set('x-debug-columns', columns.join(','));
+  return response;
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     
-    // Explicitly fetch the current max orderIndex to avoid NOT NULL constraint errors
     const { data: lastTask } = await supabase
       .from('tasks')
       .select('orderIndex')
@@ -29,7 +31,6 @@ export async function POST(request: Request) {
     
     const nextOrderIndex = (lastTask?.orderIndex ?? -1) + 1;
     
-    // Explicitly map all columns to match the database exactly
     const insertData: any = {
       title: body.title || 'New Task',
       description: body.description || '',
@@ -41,13 +42,10 @@ export async function POST(request: Request) {
       categoryId: body.categoryId
     };
 
-    // Only add date fields if they have a truthy value to avoid potential column-not-found issues with nulls if PostgREST cache is stale
     if (body.dueDate) insertData.dueDate = body.dueDate;
     if (body.completionDate) insertData.completionDate = body.completionDate;
     if (body.scheduledEventDate) insertData.scheduledEventDate = body.scheduledEventDate;
     if (body.scheduledEventTimeWindow) insertData.scheduledEventTimeWindow = body.scheduledEventTimeWindow;
-    
-    console.log('Final task insertData:', insertData);
     
     const { data, error } = await supabase
       .from('tasks')
@@ -56,12 +54,24 @@ export async function POST(request: Request) {
       .single();
       
     if (error) {
-      console.error('Task POST error detail:', error);
-      return NextResponse.json({ error: error.message, detail: error }, { status: 500 });
+      // If we fail, try to fetch one row just to see the columns
+      const { data: sample } = await supabase.from('tasks').select('*').limit(1);
+      const actualColumns = sample && sample.length > 0 ? Object.keys(sample[0]) : [];
+      
+      console.error('Task POST error. Expected columns vs Actual:', { 
+        attempted: Object.keys(insertData), 
+        actual: actualColumns 
+      });
+
+      return NextResponse.json({ 
+        error: error.message, 
+        debug_expected: Object.keys(insertData),
+        debug_actual: actualColumns,
+        detail: error 
+      }, { status: 500 });
     }
     return NextResponse.json(data);
   } catch (err: any) {
-    console.error('Task POST catch error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
