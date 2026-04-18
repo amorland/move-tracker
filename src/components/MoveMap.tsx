@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -194,6 +194,16 @@ export default function MoveMap() {
     estArrival = addSeconds(lastDayStart, driveSecondsPerDay);
   }
 
+  // Build sorted list + route-leg index map for drive-time display
+  const catOrder: Record<string, number> = { Origin: 0, Stop: 1, Destination: 2, Utility: 3, Errand: 4, Service: 5 };
+  const sortedLocs = [...locations].sort((a, b) => {
+    const oa = catOrder[a.category] ?? 9, ob = catOrder[b.category] ?? 9;
+    if (oa !== ob) return oa - ob;
+    return (a.id ?? 0) - (b.id ?? 0);
+  });
+  const routePts = sortedLocs.filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category) && l.lat && l.lng);
+  const routePtIdx = new Map(routePts.map((l, i) => [l.id, i]));
+
   const showForm = isAdding || editingLoc !== null;
   const formLoc = isAdding ? newLoc : (editingLoc as Partial<MoveLocation>);
   const formOvernight = isAdding ? newLocOvernight : editOvernight;
@@ -330,49 +340,70 @@ export default function MoveMap() {
                 <span style={{ fontWeight: 600, color: 'var(--color-foreground)' }}>Fat Necks, start here.</span>
                 <br />Add locations to plot the route.
               </div>
-            ) : locations
-              .sort((a, b) => {
-                const order = { Origin: 0, Stop: 1, Destination: 2, Utility: 3, Errand: 4, Service: 5 };
-                return (order[a.category] ?? 9) - (order[b.category] ?? 9);
-              })
-              .map((loc, i, arr) => (
-                <div
-                  key={loc.id}
-                  style={{
-                    padding: '14px 16px', background: editingLoc?.id === loc.id ? 'var(--color-accent-soft)' : 'white',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    borderBottom: i < arr.length - 1 ? '1px solid var(--color-border)' : 'none',
-                    transition: 'background 0.15s',
-                  }}
-                  className="item-row"
-                >
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--color-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {['Origin', 'Destination'].includes(loc.category)
-                      ? <Navigation size={15} color="var(--color-accent-dark)" />
-                      : <MapPin size={15} color="var(--color-accent-dark)" />}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                      <span className="section-label">{loc.category}</span>
-                      {isOvernight(loc) && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6366f1', background: '#eef2ff', padding: '1px 6px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          <Moon size={9} /> Overnight
-                        </span>
-                      )}
+            ) : sortedLocs.map((loc, i) => {
+              const nextLoc = i < sortedLocs.length - 1 ? sortedLocs[i + 1] : null;
+              const idxA = routePtIdx.get(loc.id);
+              const idxB = nextLoc ? routePtIdx.get(nextLoc.id) : undefined;
+              const leg = (idxA !== undefined && idxB !== undefined && idxB === idxA + 1)
+                ? routeStats?.legs[idxA] : null;
+              const isLast = i === sortedLocs.length - 1;
+
+              return (
+                <React.Fragment key={loc.id}>
+                  <div
+                    style={{
+                      padding: '14px 16px',
+                      background: editingLoc?.id === loc.id ? 'var(--color-accent-soft)' : 'white',
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      borderBottom: (!leg && !isLast) ? '1px solid var(--color-border)' : 'none',
+                      transition: 'background 0.15s',
+                    }}
+                    className="item-row"
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--color-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {['Origin', 'Destination'].includes(loc.category)
+                        ? <Navigation size={15} color="var(--color-accent-dark)" />
+                        : <MapPin size={15} color="var(--color-accent-dark)" />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <span className="section-label">{loc.category}</span>
+                        {isOvernight(loc) && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6366f1', background: '#eef2ff', padding: '1px 6px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <Moon size={9} /> Overnight
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => openEdit(loc)} title="Edit">
+                        <Pencil size={14} color="var(--color-secondary)" />
+                      </button>
+                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => deleteLoc(loc.id)} title="Delete">
+                        <Trash2 size={14} color="var(--color-border)" />
+                      </button>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                    <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => openEdit(loc)} title="Edit">
-                      <Pencil size={14} color="var(--color-secondary)" />
-                    </button>
-                    <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => deleteLoc(loc.id)} title="Delete">
-                      <Trash2 size={14} color="var(--color-border)" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            }
+                  {leg && (
+                    <div style={{ padding: '5px 16px 5px 20px', background: 'var(--color-background)', borderBottom: isLast ? 'none' : '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 32, flexShrink: 0, gap: 2 }}>
+                        <div style={{ width: 1, height: 5, background: 'var(--color-border)' }} />
+                        <div style={{ width: 5, height: 5, borderRadius: '50%', border: '1px solid var(--color-border)', background: 'var(--color-background)' }} />
+                        <div style={{ width: 1, height: 5, background: 'var(--color-border)' }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)' }}>
+                        {fmtDuration(Math.round(leg.durationSeconds * 0.8))}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--color-border)' }}>·</span>
+                      <span style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.75 }}>
+                        {Math.round(leg.distanceMiles)} mi
+                      </span>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>
       </div>
