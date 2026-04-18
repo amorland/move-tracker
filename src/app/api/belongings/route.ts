@@ -37,7 +37,7 @@ export async function PATCH(request: Request) {
 
   const update: Record<string, unknown> = {};
   if ('room' in rest) update.room = rest.room;
-  if ('itemName' in rest) update['"itemName"'] = rest.itemName;
+  if ('itemName' in rest) update['itemName'] = rest.itemName;
   if ('action' in rest) update.action = rest.action;
   if ('notes' in rest) update.notes = rest.notes;
   if ('status' in rest) {

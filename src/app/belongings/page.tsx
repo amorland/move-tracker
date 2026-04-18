@@ -1,30 +1,40 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Belonging, BelongingAction, BelongingStatus } from '@/lib/types';
-import { Check, Plus, Trash2, X, Search, Box, DollarSign, Heart, Trash, Pencil, CheckCircle2 } from 'lucide-react';
+import { Belonging, BelongingAction } from '@/lib/types';
+import { useScrollLock } from '@/lib/useScrollLock';
+import { Check, Plus, Trash2, X, Search, Box, DollarSign, Heart, Trash, Pencil } from 'lucide-react';
 
 const ROOMS = [
   'Kitchen', 'Living Room', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3',
   'Bathroom', 'Garage', 'Storage', 'Office', 'Dining Room', 'Outdoor/Patio', 'Other',
 ];
 
+const ACTIONS: BelongingAction[] = ['Bring', 'Sell', 'Donate', 'Trash'];
+
 const ACTION_ICONS: Record<BelongingAction, React.ReactNode> = {
-  Bring:  <Box size={16} />,
-  Sell:   <DollarSign size={16} />,
-  Donate: <Heart size={16} />,
-  Trash:  <Trash size={16} />,
+  Bring:  <Box size={13} />,
+  Sell:   <DollarSign size={13} />,
+  Donate: <Heart size={13} />,
+  Trash:  <Trash size={13} />,
 };
 
-const ACTIONS: BelongingAction[] = ['Bring', 'Sell', 'Donate', 'Trash'];
+const ACTION_COLORS: Record<BelongingAction, { bg: string; color: string }> = {
+  Bring:  { bg: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)' },
+  Sell:   { bg: '#fef3c7', color: '#92400e' },
+  Donate: { bg: '#dbeafe', color: '#1e40af' },
+  Trash:  { bg: 'var(--color-background)', color: 'var(--color-secondary)' },
+};
 
 export default function BelongingsPage() {
   const [items, setItems] = useState<Belonging[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<BelongingAction>('Bring');
+  const [actionFilter, setActionFilter] = useState<BelongingAction | 'All'>('All');
   const [showResolved, setShowResolved] = useState(false);
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<Partial<Belonging> | null>(null);
+
+  useScrollLock(modal !== null);
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -55,88 +65,79 @@ export default function BelongingsPage() {
     fetchItems();
   };
 
-  const tabItems = items.filter(i => i.action === activeTab);
-  const visible = tabItems.filter(i => {
-    const matchesResolved = showResolved ? i.status === 'resolved' : i.status === 'unresolved';
-    const matchesSearch = i.itemName.toLowerCase().includes(search.toLowerCase());
-    return matchesResolved && matchesSearch;
+  const visible = items.filter(i => {
+    if (actionFilter !== 'All' && i.action !== actionFilter) return false;
+    if (showResolved ? i.status !== 'resolved' : i.status !== 'unresolved') return false;
+    if (search && !i.itemName.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
   });
 
-  const tabStats = (action: BelongingAction) => {
-    const all = items.filter(i => i.action === action);
-    return { total: all.length, unresolved: all.filter(i => i.status === 'unresolved').length };
-  };
+  const resolvedCount = items.filter(i => i.status === 'resolved').length;
+  const unresolvedCount = items.filter(i => i.status === 'unresolved').length;
 
-  const totalResolved = items.filter(i => i.status === 'resolved').length;
+  const countFor = (action: BelongingAction | 'All') =>
+    items.filter(i => (action === 'All' || i.action === action) && i.status === (showResolved ? 'resolved' : 'unresolved')).length;
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading belongings…</div>;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Belongings</h1>
-          <p className="page-subtitle">Decide what goes where.</p>
+          <p className="page-subtitle">{unresolvedCount} to resolve · {resolvedCount} done</p>
         </div>
         <button
           className="btn btn-primary btn-lg"
-          onClick={() => setModal({ action: activeTab, status: 'unresolved', room: 'Kitchen' })}
+          onClick={() => setModal({ action: 'Bring', status: 'unresolved', room: 'Kitchen' })}
         >
           <Plus size={18} /> Add Item
         </button>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 16, flexWrap: 'wrap' }}>
-        {ACTIONS.map(action => {
-          const { unresolved } = tabStats(action);
-          const active = activeTab === action;
+      {/* Search */}
+      <div className="search-bar" style={{ marginBottom: 14 }}>
+        <Search size={16} className="search-bar-icon" />
+        <input
+          placeholder="Search belongings…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+      </div>
+
+      {/* Filter chips */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        {(['All', ...ACTIONS] as const).map(a => {
+          const count = countFor(a);
           return (
             <button
-              key={action}
-              onClick={() => { setActiveTab(action); setShowResolved(false); setSearch(''); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 10,
-                fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
-                background: active ? 'var(--color-accent)' : 'transparent',
-                color: active ? 'white' : 'var(--color-secondary)',
-                border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-              }}
+              key={a}
+              onClick={() => setActionFilter(a)}
+              className={`filter-chip ${actionFilter === a ? 'filter-chip-active' : ''}`}
             >
-              {ACTION_ICONS[action]}
-              {action}
-              {unresolved > 0 && <span style={{ fontSize: 11, opacity: 0.85 }}>({unresolved})</span>}
+              {a !== 'All' && ACTION_ICONS[a]}
+              {a}
+              {count > 0 && <span style={{ fontSize: 10, opacity: 0.75 }}>({count})</span>}
             </button>
           );
         })}
         <div style={{ flex: 1 }} />
         <button
           onClick={() => setShowResolved(v => !v)}
-          style={{ fontSize: 12, fontWeight: 700, color: showResolved ? 'var(--color-accent-dark)' : 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', background: 'none', border: 'none', cursor: 'pointer' }}
+          className={`filter-chip ${showResolved ? 'filter-chip-active' : ''}`}
         >
-          {showResolved ? 'View unresolved' : `View resolved (${totalResolved})`}
+          {showResolved ? `Resolved (${resolvedCount})` : `Show resolved (${resolvedCount})`}
         </button>
       </div>
 
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 20 }}>
-        <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--color-secondary)', pointerEvents: 'none' }} />
-        <input
-          placeholder={`Search in ${activeTab}…`}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ paddingLeft: 42 }}
-        />
-      </div>
-
       {/* Items list */}
-      <div style={{ border: '1px solid var(--color-border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
         {visible.length === 0 ? (
           <div style={{ padding: '64px 24px', textAlign: 'center' }}>
             <Box size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
             <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>
-              {showResolved ? `No resolved items in ${activeTab}.` : `No unresolved items in ${activeTab}.`}
+              {showResolved ? 'No resolved items here.' : 'Nothing to resolve here.'}
             </p>
           </div>
         ) : visible.map((item, i) => (
@@ -163,6 +164,7 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
   onToggle: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const done = item.status === 'resolved';
+  const { bg, color } = ACTION_COLORS[item.action];
   return (
     <div
       className="belonging-row"
@@ -173,19 +175,22 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
         transition: 'background 0.2s',
       }}
     >
-      {/* Circle — same visual language as mini timeline dots */}
-      <button
-        onClick={onToggle}
-        className="row-check-btn"
-        aria-label={done ? 'Mark unresolved' : 'Mark resolved'}
-      >
-        <div className={`row-dot ${done ? 'is-done' : ''}`}>
-          {done && <Check size={13} color="white" strokeWidth={3} />}
-        </div>
-      </button>
+      {/* Action badge */}
+      <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0 }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          padding: '4px 10px', borderRadius: 'var(--radius-pill)',
+          fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+          textTransform: 'uppercase', letterSpacing: '0.05em',
+          background: bg, color,
+        }}>
+          {ACTION_ICONS[item.action]}
+          {item.action}
+        </span>
+      </div>
 
-      {/* Item info — tap to edit */}
-      <div style={{ flex: 1, padding: '13px 12px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+      {/* Item info — click to edit */}
+      <div style={{ flex: 1, padding: '13px 8px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
         <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.itemName}
         </div>
@@ -195,13 +200,21 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
         </div>
       </div>
 
-      {/* Action icons */}
-      <div className="row-actions" style={{ display: 'flex', alignItems: 'center', padding: '0 8px', gap: 2, flexShrink: 0 }}>
-        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit item">
-          <Pencil size={14} />
-        </button>
-        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete item">
-          <Trash2 size={14} />
+      {/* Right: edit/delete (hover) + resolve pill */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6, flexShrink: 0 }}>
+        <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit item">
+            <Pencil size={14} />
+          </button>
+          <button onClick={e => { e.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete item">
+            <Trash2 size={14} />
+          </button>
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); onToggle(); }}
+          className={`done-pill ${done ? 'done-pill-active' : ''}`}
+        >
+          {done ? <><Check size={13} strokeWidth={3} /> Resolved</> : 'Resolve'}
         </button>
       </div>
     </div>
@@ -215,10 +228,6 @@ function BelongingModal({ item, onClose, onSave }: {
   const [room, setRoom] = useState(item.room || ROOMS[0]);
   const [action, setAction] = useState<BelongingAction>(item.action || 'Bring');
   const [notes, setNotes] = useState(item.notes || '');
-
-  const handleSave = () => {
-    onSave({ ...item, itemName, room, action, notes: notes || null });
-  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -253,7 +262,7 @@ function BelongingModal({ item, onClose, onSave }: {
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Save</button>
+          <button className="btn btn-primary" onClick={() => onSave({ ...item, itemName, room, action, notes: notes || null })}>Save</button>
         </div>
       </div>
     </div>

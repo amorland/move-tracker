@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Category, Task, TaskOwner, TaskPhase } from '@/lib/types';
+import { useScrollLock } from '@/lib/useScrollLock';
 import { Check, CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
@@ -18,6 +19,8 @@ export default function TasksPage() {
   const [expandedCompleted, setExpandedCompleted] = useState<Set<number>>(new Set());
   const [modalTask, setModalTask] = useState<Partial<Task> | null>(null);
   const [defaultCategoryId, setDefaultCategoryId] = useState<number | null>(null);
+
+  useScrollLock(modalTask !== null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -194,19 +197,8 @@ function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
         transition: 'background 0.2s',
       }}
     >
-      {/* Circle — same visual language as mini timeline dots */}
-      <button
-        onClick={onToggle}
-        className="row-check-btn"
-        aria-label={done ? 'Mark incomplete' : 'Mark complete'}
-      >
-        <div className={`row-dot ${done ? 'is-done' : ''}`}>
-          {done && <Check size={13} color="white" strokeWidth={3} />}
-        </div>
-      </button>
-
-      {/* Task info — tap to edit */}
-      <div style={{ flex: 1, padding: '13px 8px 13px 0', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+      {/* Task info — click to edit */}
+      <div style={{ flex: 1, padding: '14px 16px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
         <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
         </div>
@@ -225,13 +217,21 @@ function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
         </div>
       </div>
 
-      {/* Action icons */}
-      <div className="row-actions" style={{ display: 'flex', alignItems: 'center', padding: '0 8px', gap: 2, flexShrink: 0 }}>
-        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
-          <Pencil size={14} />
-        </button>
-        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete task">
-          <Trash2 size={14} />
+      {/* Right: edit/delete (hover) + done pill */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6, flexShrink: 0 }}>
+        <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
+            <Pencil size={14} />
+          </button>
+          <button onClick={e => { e.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete task">
+            <Trash2 size={14} />
+          </button>
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); onToggle(); }}
+          className={`done-pill ${done ? 'done-pill-active' : ''}`}
+        >
+          {done ? <><Check size={13} strokeWidth={3} /> Done</> : 'Mark done'}
         </button>
       </div>
     </div>

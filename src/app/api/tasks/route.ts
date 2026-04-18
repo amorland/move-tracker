@@ -56,8 +56,8 @@ export async function PATCH(request: Request) {
   if ('owner' in rest) update.owner = rest.owner;
   if ('phase' in rest) update.phase = rest.phase;
   if ('notes' in rest) update.notes = rest.notes;
-  if ('dueDate' in rest) update['"dueDate"'] = rest.dueDate;
-  if ('categoryId' in rest) update['"categoryId"'] = rest.categoryId;
+  if ('dueDate' in rest) update['dueDate'] = rest.dueDate;
+  if ('categoryId' in rest) update['categoryId'] = rest.categoryId;
   if ('completedAt' in rest) update.completed_at = rest.completedAt;
 
   const { data, error } = await supabase
