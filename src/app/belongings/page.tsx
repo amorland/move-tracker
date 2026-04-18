@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Belonging, BelongingAction, BelongingStatus } from '@/lib/types';
-import { Check, Plus, Trash2, X, Search, Box, DollarSign, Heart, Trash, Pencil } from 'lucide-react';
+import { Check, Plus, Trash2, X, Search, Box, DollarSign, Heart, Trash, Pencil, CheckCircle2 } from 'lucide-react';
 
 const ROOMS = [
   'Kitchen', 'Living Room', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3',
@@ -167,30 +167,33 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
     <div
       className="belonging-row"
       style={{
-        display: 'flex', alignItems: 'center',
+        display: 'flex', alignItems: 'stretch',
         borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
         background: done ? 'var(--color-success-soft)' : 'var(--color-surface)',
-        borderLeft: `3px solid ${done ? 'var(--color-accent)' : 'transparent'}`,
-        transition: 'background 0.2s, border-left-color 0.2s',
       }}
     >
+      {/* Completion zone */}
       <button
         onClick={onToggle}
-        style={{ width: 48, alignSelf: 'stretch', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer' }}
+        className={`completion-zone ${done ? 'is-done' : ''}`}
         title={done ? 'Mark unresolved' : 'Mark resolved'}
       >
         <div style={{
-          width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-          background: done ? 'var(--color-accent)' : 'transparent',
+          width: 22, height: 22, borderRadius: '50%',
+          background: done ? 'var(--color-accent)' : 'white',
           border: `2px solid ${done ? 'var(--color-accent)' : 'var(--color-border)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: 'all 0.15s',
         }}>
-          {done && <Check size={11} color="white" strokeWidth={3} />}
+          {done && <Check size={12} color="white" strokeWidth={3} />}
         </div>
+        <span style={{ fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: done ? 'var(--color-accent-dark)' : 'var(--color-secondary)', lineHeight: 1 }}>
+          {done ? 'Done' : 'Resolve'}
+        </span>
       </button>
 
-      <div style={{ flex: 1, padding: '14px 8px 14px 0', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+      {/* Item info — tap to edit */}
+      <div style={{ flex: 1, padding: '13px 12px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
         <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.itemName}
         </div>
@@ -200,7 +203,8 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
         </div>
       </div>
 
-      <div className="row-actions" style={{ display: 'flex', alignItems: 'center', padding: '0 10px', gap: 2, flexShrink: 0 }}>
+      {/* Action icons */}
+      <div className="row-actions" style={{ display: 'flex', alignItems: 'center', padding: '0 8px', gap: 2, flexShrink: 0 }}>
         <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit item">
           <Pencil size={14} />
         </button>

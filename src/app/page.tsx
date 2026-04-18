@@ -7,6 +7,16 @@ import { Star, CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock
 import Link from 'next/link';
 import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
 
+const MILESTONE_SHORT: Record<string, string> = {
+  'U-Pack Dropoff (FL)': 'Dropoff',
+  'U-Pack Pickup (FL)': 'Pickup',
+  'Drive Start': 'Drive',
+  'Arrival (NY)': 'Arrival',
+  'House Closing': 'Closing',
+  'U-Pack Delivery (NY)': 'Delivery',
+  'U-Pack Final Pickup (NY)': 'Final',
+};
+
 export default function OverviewPage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -91,7 +101,6 @@ export default function OverviewPage() {
   const driveDate = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
   const daysUntilDrive = driveDate ? differenceInDays(driveDate, new Date()) : null;
 
-  // Belonging stats
   const bStats = { Bring: { t: 0, d: 0 }, Sell: { t: 0, d: 0 }, Donate: { t: 0, d: 0 }, Trash: { t: 0, d: 0 } };
   for (const b of belongings) {
     const k = b.action as keyof typeof bStats;
@@ -99,7 +108,6 @@ export default function OverviewPage() {
   }
   const resolvePercent = belongings.length ? Math.round((belongings.filter(b => b.status === 'resolved').length / belongings.length) * 100) : 0;
 
-  // Task summary by owner
   const ownerStats = ['Andrew', 'Tory', 'Both'].map(owner => ({
     label: owner,
     total: tasks.filter(t => t.owner === owner).length,
@@ -111,13 +119,13 @@ export default function OverviewPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: 64 }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
 
       {/* Page header */}
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 11, background: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Star size={22} color="white" fill="white" />
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Star size={20} color="white" fill="white" />
           </div>
           <div>
             <h1>Starland Moving</h1>
@@ -126,158 +134,107 @@ export default function OverviewPage() {
         </div>
         {daysUntilDrive !== null && daysUntilDrive >= 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>
-            <Clock size={15} color="var(--color-accent-dark)" />
+            <Clock size={14} color="var(--color-accent-dark)" />
             <div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-accent-dark)', lineHeight: 1 }}>{daysUntilDrive}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-accent-dark)', opacity: 0.8 }}>days to drive</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-accent-dark)', lineHeight: 1 }}>{daysUntilDrive}</div>
+              <div className="section-label" style={{ color: 'var(--color-accent-dark)', opacity: 0.85, marginTop: 2 }}>days to drive</div>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── MOBILE: Horizontal key dates strip ─────────────── */}
-      <div className="key-dates-strip">
-        {milestones.map(m => {
-          const isConfirmed = m.status === 'confirmed';
-          const isUnset = m.status === 'unset';
-          return (
-            <button
-              key={m.key as string}
-              onClick={() => openDateModal(m)}
-              style={{
-                flexShrink: 0, width: 152, padding: '14px 16px', borderRadius: 12, textAlign: 'left', cursor: 'pointer',
-                background: isConfirmed ? 'var(--color-accent-soft)' : 'var(--color-surface)',
-                border: `1px solid ${isConfirmed ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                opacity: isUnset ? 0.55 : 1,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <div style={{
-                  width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                  background: isConfirmed ? 'var(--color-accent)' : isUnset ? 'transparent' : 'var(--color-secondary)',
-                  border: isUnset ? '1.5px solid var(--color-border)' : 'none',
-                }} />
-                <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: isConfirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)', lineHeight: 1.2 }}>
-                  {m.label}
-                </span>
-              </div>
-              <div style={{ fontSize: 14, fontWeight: isConfirmed ? 700 : 500, color: isUnset ? 'var(--color-secondary)' : 'var(--color-foreground)', marginBottom: 8, lineHeight: 1.2 }}>
-                {m.date ? format(parseISO(m.date), 'MMM d, yyyy') : 'Not set'}
-              </div>
-              <span className={`badge ${isConfirmed ? 'badge-accent' : 'badge-neutral'}`} style={{ fontSize: 9 }}>
-                {isConfirmed ? 'Confirmed' : isUnset ? 'Unset' : 'Estimated'}
-              </span>
-            </button>
-          );
-        })}
+      {/* ── Mini Timeline ──────────────────────────────────── */}
+      <div className="mini-timeline">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>Move Timeline</h2>
+          <Link href="/timeline" style={{ textDecoration: 'none' }}>
+            <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Full timeline <ChevronRight size={12} />
+            </span>
+          </Link>
+        </div>
+        <MiniTimeline milestones={milestones} onEdit={openDateModal} />
+        <p style={{ fontSize: 11, color: 'var(--color-secondary)', marginTop: 10, textAlign: 'center' }}>
+          Tap any date to update it · <span style={{ color: 'var(--color-accent-dark)', fontWeight: 600 }}>●</span> confirmed &nbsp;
+          <span style={{ color: 'var(--color-secondary)' }}>○</span> estimated &nbsp;
+          <span style={{ color: 'var(--color-border)', fontWeight: 600 }}>⊘</span> not set
+        </p>
       </div>
 
-      {/* ── Stats strip ─────────────────────────────────────── */}
-      <div style={{ display: 'flex', marginBottom: 28, background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', border: '1px solid rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-        <StatChip label="Tasks Done" value={`${completeTasks.length}/${tasks.length}`} />
-        <div style={{ width: 1, background: 'var(--color-border)', flexShrink: 0 }} />
-        <StatChip label="Outstanding" value={String(incompleteTasks.length)} accent />
-        <div style={{ width: 1, background: 'var(--color-border)', flexShrink: 0 }} />
-        <StatChip label="Belongings" value={`${resolvePercent}%`} />
-      </div>
-
-      {/* ── Main grid (desktop: 2-col, mobile: 1-col) ──────── */}
+      {/* ── Overview grid ──────────────────────────────────── */}
       <div className="overview-grid">
 
-        {/* Key Dates — desktop vertical list (hidden on mobile since we have the strip) */}
-        <div className="card desktop-only" style={{ overflow: 'hidden' }}>
+        {/* Tasks summary */}
+        <div className="card" style={{ overflow: 'hidden' }}>
           <div className="card-header">
-            <h2 style={{ margin: 0 }}>Key Dates</h2>
-            <Link href="/timeline" style={{ textDecoration: 'none' }}>
+            <h2 style={{ margin: 0 }}>Tasks</h2>
+            <Link href="/tasks" style={{ textDecoration: 'none' }}>
               <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                View Full Timeline <ChevronRight size={12} />
+                Manage <ChevronRight size={12} />
               </span>
             </Link>
           </div>
-          <div style={{ padding: '8px 24px 16px' }}>
-            {milestones.map((m, i) => (
-              <MilestoneRow key={m.key as string} milestone={m} isLast={i === milestones.length - 1} onClick={() => openDateModal(m)} />
-            ))}
+          <div className="card-body">
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span className="section-label">Overall</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{taskPercent}%</span>
+              </div>
+              <div style={{ height: 6, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${taskPercent}%`, background: 'var(--color-accent)', borderRadius: 3, transition: 'width 0.8s ease' }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {ownerStats.map(({ label, total, done }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span className="section-label" style={{ width: 48, flexShrink: 0 }}>{label}</span>
+                  <div style={{ flex: 1, height: 4, background: 'var(--color-border)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: total ? `${Math.round((done / total) * 100)}%` : '0%', background: 'var(--color-accent)', borderRadius: 2 }} />
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', width: 36, textAlign: 'right', flexShrink: 0 }}>{done}/{total}</span>
+                </div>
+              ))}
+            </div>
+            {incompleteTasks.length > 0 && (
+              <div style={{ marginTop: 16, padding: '10px 14px', background: 'var(--color-background)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
+                <span style={{ fontSize: 13, color: 'var(--color-secondary)' }}>
+                  <strong style={{ color: 'var(--color-foreground)' }}>{incompleteTasks.length}</strong> tasks still outstanding
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-          {/* Tasks summary */}
-          <div className="card" style={{ overflow: 'hidden' }}>
-            <div className="card-header">
-              <h2 style={{ margin: 0 }}>Tasks</h2>
-              <Link href="/tasks" style={{ textDecoration: 'none' }}>
-                <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  Manage Tasks <ChevronRight size={12} />
-                </span>
-              </Link>
-            </div>
-            <div className="card-body">
-              {/* Overall progress bar */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span className="section-label">Overall Progress</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{taskPercent}%</span>
-                </div>
-                <div style={{ height: 6, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${taskPercent}%`, background: 'var(--color-accent)', borderRadius: 3, transition: 'width 0.8s ease' }} />
-                </div>
-              </div>
-              {/* By owner */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {ownerStats.map(({ label, total, done }) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span className="section-label" style={{ width: 52, flexShrink: 0 }}>{label}</span>
-                    <div style={{ flex: 1, height: 4, background: 'var(--color-border)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: total ? `${Math.round((done / total) * 100)}%` : '0%', background: 'var(--color-accent)', borderRadius: 2 }} />
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-secondary)', width: 40, textAlign: 'right', flexShrink: 0 }}>{done}/{total}</span>
-                  </div>
-                ))}
-              </div>
-              {incompleteTasks.length > 0 && (
-                <div style={{ marginTop: 16, padding: '12px 14px', background: 'var(--color-background)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                  <span style={{ fontSize: 13, color: 'var(--color-secondary)' }}>
-                    <strong style={{ color: 'var(--color-foreground)' }}>{incompleteTasks.length}</strong> tasks still outstanding
-                  </span>
-                </div>
-              )}
-            </div>
+        {/* Belongings summary */}
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <div className="card-header">
+            <h2 style={{ margin: 0 }}>Belongings</h2>
+            <Link href="/belongings" style={{ textDecoration: 'none' }}>
+              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                View all <ChevronRight size={12} />
+              </span>
+            </Link>
           </div>
-
-          {/* Belongings summary */}
-          <div className="card" style={{ overflow: 'hidden' }}>
-            <div className="card-header">
-              <h2 style={{ margin: 0 }}>Belongings</h2>
-              <Link href="/belongings" style={{ textDecoration: 'none' }}>
-                <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  View All <ChevronRight size={12} />
-                </span>
-              </Link>
-            </div>
-            <div className="card-body">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                {Object.entries(bStats).map(([action, { t, d }]) => (
-                  <div key={action}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, color: 'var(--color-secondary)' }}>
-                      {BELONGING_ICONS[action]}
-                      <span className="section-label">{action}</span>
-                    </div>
-                    <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-foreground)' }}>{d}</span>
-                    <span style={{ fontSize: 12, color: 'var(--color-secondary)', marginLeft: 4 }}>/ {t}</span>
+          <div className="card-body">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              {Object.entries(bStats).map(([action, { t, d }]) => (
+                <div key={action}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, color: 'var(--color-secondary)' }}>
+                    {BELONGING_ICONS[action]}
+                    <span className="section-label">{action}</span>
                   </div>
-                ))}
+                  <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--color-foreground)' }}>{d}</span>
+                  <span style={{ fontSize: 12, color: 'var(--color-secondary)', marginLeft: 4 }}>/ {t}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: 'var(--color-background)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span className="section-label">Resolved</span>
+                <span style={{ fontSize: 12, fontWeight: 700 }}>{resolvePercent}%</span>
               </div>
-              <div style={{ background: 'var(--color-background)', borderRadius: 8, padding: '12px 14px', border: '1px solid var(--color-border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span className="section-label">Resolved</span>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>{resolvePercent}%</span>
-                </div>
-                <div style={{ height: 5, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${resolvePercent}%`, background: 'var(--color-accent)', transition: 'width 0.8s ease', borderRadius: 3 }} />
-                </div>
+              <div style={{ height: 5, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${resolvePercent}%`, background: 'var(--color-accent)', transition: 'width 0.8s ease', borderRadius: 3 }} />
               </div>
             </div>
           </div>
@@ -289,7 +246,7 @@ export default function OverviewPage() {
         <div className="modal-backdrop" onClick={() => setDateModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 style={{ margin: 0 }}>Update — {dateModal.label}</h2>
+              <h2 style={{ margin: 0 }}>{dateModal.label}</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => setDateModal(null)} style={{ padding: '0 8px' }}><X size={18} /></button>
             </div>
             <div className="modal-body">
@@ -321,11 +278,60 @@ export default function OverviewPage() {
   );
 }
 
-function StatChip({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function MiniTimeline({ milestones, onEdit }: { milestones: Milestone[]; onEdit: (m: Milestone) => void }) {
+  const today = new Date();
   return (
-    <div style={{ flex: 1, padding: '20px 16px', textAlign: 'center' }}>
-      <div style={{ fontSize: 26, fontWeight: 700, color: accent ? 'var(--color-accent)' : 'var(--color-foreground)', lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 6, fontWeight: 500 }}>{label}</div>
+    <div style={{ position: 'relative' }}>
+      {/* Track */}
+      <div style={{
+        position: 'absolute',
+        left: 'calc(100% / 14)',
+        right: 'calc(100% / 14)',
+        top: 9,
+        height: 2,
+        background: 'var(--color-border)',
+        zIndex: 0,
+      }} />
+      <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
+        {milestones.map((m) => {
+          const isConfirmed = m.status === 'confirmed';
+          const isUnset = m.status === 'unset';
+          const isPast = m.date ? parseISO(m.date) < today : false;
+          const isSolid = isConfirmed || isPast;
+          return (
+            <button
+              key={m.key as string}
+              onClick={() => onEdit(m)}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+              }}
+            >
+              <div style={{
+                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                background: isSolid ? 'var(--color-accent)' : 'var(--color-surface)',
+                border: `2px ${isUnset ? 'dashed' : 'solid'} ${isUnset ? 'var(--color-border)' : 'var(--color-accent)'}`,
+                boxShadow: isConfirmed && !isPast ? '0 0 0 3px var(--color-accent-soft)' : 'none',
+                transition: 'all 0.15s',
+              }} />
+              <div style={{
+                fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em',
+                color: isUnset ? 'var(--color-border)' : 'var(--color-secondary)',
+                textAlign: 'center' as const, lineHeight: 1.3,
+              }}>
+                {MILESTONE_SHORT[m.label] || m.label}
+              </div>
+              <div style={{
+                fontSize: 11, fontWeight: isConfirmed ? 700 : 400,
+                color: isUnset ? 'var(--color-border)' : isSolid ? 'var(--color-foreground)' : 'var(--color-secondary)',
+                textAlign: 'center' as const, lineHeight: 1.2,
+              }}>
+                {m.date ? format(parseISO(m.date), 'MMM d') : '—'}
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -341,7 +347,7 @@ function MilestoneRow({ milestone: m, isLast, onClick }: { milestone: Milestone;
     >
       <div style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: isConfirmed ? 'var(--color-accent)' : isUnset ? 'transparent' : 'var(--color-secondary)', border: isUnset ? '2px solid var(--color-border)' : 'none', boxShadow: isConfirmed ? '0 0 0 4px var(--color-accent-soft)' : 'none' }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: isConfirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)', marginBottom: 2 }}>{m.label}</div>
+        <div className="section-label" style={{ marginBottom: 2, color: isConfirmed ? 'var(--color-accent-dark)' : undefined }}>{m.label}</div>
         <div style={{ fontSize: 15, fontWeight: isConfirmed ? 600 : 400, color: isUnset ? 'var(--color-secondary)' : 'var(--color-foreground)' }}>
           {m.date ? format(parseISO(m.date), 'MMM d, yyyy') : 'Not set'}
         </div>
