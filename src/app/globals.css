@@ -311,6 +311,44 @@ h2 { font-size: 13px; font-weight: 700; color: var(--color-foreground); text-tra
   .mobile-only { display: none !important; }
 }
 
+/* ─── Key dates horizontal strip (mobile) ── */
+.key-dates-strip {
+  display: none;
+}
+@media (max-width: 768px) {
+  .key-dates-strip {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .key-dates-strip::-webkit-scrollbar { display: none; }
+  .key-dates-strip button { border: none; text-align: left; }
+}
+
+/* ─── Row action buttons (always visible) ── */
+.row-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-border);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.row-action-btn:hover { color: var(--color-secondary); background: var(--color-background); }
+.row-action-delete:hover { color: #b91c1c !important; background: #fff0f0 !important; }
+
+/* ─── Milestone row hover ────────────────── */
+.milestone-row:hover { background: var(--color-background); border-radius: 8px; }
+
 /* ─── Overview grid ─────────────────────── */
 .overview-grid {
   display: grid;

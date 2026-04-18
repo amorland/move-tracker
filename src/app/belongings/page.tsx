@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Belonging, BelongingAction, BelongingStatus } from '@/lib/types';
-import { Plus, Trash2, CheckCircle2, X, Search, Box, DollarSign, Heart, Trash } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, X, Search, Box, DollarSign, Heart, Trash, Pencil } from 'lucide-react';
 
 const ROOMS = [
   'Kitchen', 'Living Room', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3',
@@ -87,6 +87,11 @@ export default function BelongingsPage() {
         </button>
       </div>
 
+      {/* Hint */}
+      <div style={{ marginBottom: 20, padding: '10px 16px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 8, fontSize: 12, color: 'var(--color-accent-dark)', fontWeight: 500 }}>
+        Tap <strong>Resolve</strong> to mark an item done · tap the <Pencil size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> pencil to edit it
+      </div>
+
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 16, flexWrap: 'wrap' }}>
         {ACTIONS.map(action => {
@@ -164,41 +169,50 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
 }) {
   const done = item.status === 'resolved';
   return (
-    <div
-      className={`item-row ${done ? 'resolved' : ''}`}
-      style={{ borderBottom: isLast ? 'none' : '1px solid var(--color-border)' }}
-      onClick={onEdit}
-    >
+    <div style={{ display: 'flex', borderBottom: isLast ? 'none' : '1px solid var(--color-border)', background: done ? '#fafaf8' : 'white' }}>
+
+      {/* ── Resolve zone ── */}
       <button
-        className={`check-circle ${done ? 'checked' : ''}`}
-        onClick={e => { e.stopPropagation(); onToggle(); }}
+        onClick={onToggle}
+        style={{
+          width: 72, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
+          padding: '12px 8px', border: 'none', borderRight: '1px solid var(--color-border)',
+          background: done ? 'var(--color-accent-soft)' : 'transparent',
+          cursor: 'pointer', transition: 'background 0.15s',
+        }}
         title={done ? 'Mark unresolved' : 'Mark resolved'}
       >
-        {done && <CheckCircle2 size={14} color="white" />}
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: done ? 'var(--color-accent)' : 'white',
+          border: `2px solid ${done ? 'var(--color-accent)' : 'var(--color-border)'}`,
+          transition: 'all 0.15s',
+        }}>
+          {done && <CheckCircle2 size={16} color="white" />}
+        </div>
+        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: done ? 'var(--color-accent-dark)' : 'var(--color-secondary)', lineHeight: 1 }}>
+          {done ? 'Done' : 'Resolve'}
+        </span>
       </button>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: 14, fontWeight: 500,
-          color: done ? 'var(--color-secondary)' : 'var(--color-foreground)',
-          textDecoration: done ? 'line-through' : 'none',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
+      {/* ── Item info — tap to edit ── */}
+      <div style={{ flex: 1, padding: '13px 16px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.itemName}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3 }}>
           <span className="section-label">{item.room}</span>
-          {item.notes && (
-            <span style={{ fontSize: 12, color: 'var(--color-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>
-              {item.notes}
-            </span>
-          )}
+          {item.notes && <span style={{ fontSize: 12, color: 'var(--color-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{item.notes}</span>}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-        <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={onDelete} title="Delete">
-          <Trash2 size={15} color="var(--color-border)" />
+      {/* ── Action icons — always visible ── */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px', gap: 2, flexShrink: 0 }}>
+        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit item">
+          <Pencil size={14} />
+        </button>
+        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete item">
+          <Trash2 size={14} />
         </button>
       </div>
     </div>

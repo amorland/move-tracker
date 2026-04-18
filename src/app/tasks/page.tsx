@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Category, Task, TaskStatus, TaskOwner, TaskPhase } from '@/lib/types';
-import { CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar } from 'lucide-react';
+import { Category, Task, TaskOwner, TaskPhase } from '@/lib/types';
+import { CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type OwnerFilter = TaskOwner | 'All';
@@ -30,14 +30,16 @@ export default function TasksPage() {
   };
 
   const toggleComplete = async (task: Task) => {
-    const newStatus: TaskStatus = task.status === 'Complete' ? 'Not Started' : 'Complete';
-    const completedAt = newStatus === 'Complete' ? new Date().toISOString().split('T')[0] : null;
+    const isComplete = task.status === 'Complete';
+    const newStatus = isComplete ? 'Not Started' : 'Complete';
+    const completedAt = isComplete ? null : new Date().toISOString().split('T')[0];
+    // Optimistic update
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus as any, completedAt } : t));
     await fetch('/api/tasks', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: task.id, status: newStatus, completedAt }),
     });
-    fetchData();
   };
 
   const deleteTask = async (id: number) => {
@@ -66,23 +68,17 @@ export default function TasksPage() {
     return true;
   });
 
-  const toggleCompletedSection = (catId: number) => {
-    setExpandedCompleted(prev => {
-      const next = new Set(prev);
-      next.has(catId) ? next.delete(catId) : next.add(catId);
-      return next;
-    });
-  };
-
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading tasks…</div>;
+
+  const totalDone = tasks.filter(t => t.status === 'Complete').length;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Tasks</h1>
-          <p className="page-subtitle">Everything required for a successful move.</p>
+          <p className="page-subtitle">{totalDone} of {tasks.length} complete</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => openNewTask(defaultCategoryId ?? 0)}>
           <Plus size={18} /> Add Task
@@ -90,13 +86,18 @@ export default function TasksPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 32, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 28, flexWrap: 'wrap', alignItems: 'center' }}>
         <FilterSelect label="Owner" value={ownerFilter} onChange={v => setOwnerFilter(v as OwnerFilter)} options={['All', 'Andrew', 'Tory', 'Both']} />
         <FilterSelect label="Phase" value={phaseFilter} onChange={v => setPhaseFilter(v as PhaseFilter)} options={['All', 'Move Out', 'Move In', 'Both']} />
       </div>
 
+      {/* Hint */}
+      <div style={{ marginBottom: 20, padding: '10px 16px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 8, fontSize: 12, color: 'var(--color-accent-dark)', fontWeight: 500 }}>
+        Tap <strong>Complete</strong> to check off a task · tap the <Pencil size={11} style={{ display: 'inline', verticalAlign: 'middle' }} /> pencil to edit it
+      </div>
+
       {/* Category sections */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 36 }}>
         {categories.map(cat => {
           const catTasks = filtered.filter(t => t.categoryId === cat.id);
           const incomplete = catTasks.filter(t => t.status !== 'Complete');
@@ -107,7 +108,7 @@ export default function TasksPage() {
 
           return (
             <div key={cat.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                 <h2 style={{ margin: 0 }}>{cat.name}</h2>
                 <button className="btn btn-ghost btn-sm" onClick={() => openNewTask(cat.id)} style={{ gap: 6 }}>
                   <Plus size={14} /> Add
@@ -115,7 +116,7 @@ export default function TasksPage() {
               </div>
 
               <div style={{ border: '1px solid var(--color-border)', borderRadius: 12, overflow: 'hidden' }}>
-                {incomplete.length === 0 && complete.length === 0 && (
+                {catTasks.length === 0 && (
                   <div style={{ padding: '24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14 }}>No tasks in this category.</div>
                 )}
                 {incomplete.map((task, i) => (
@@ -131,10 +132,10 @@ export default function TasksPage() {
                 {complete.length > 0 && (
                   <>
                     <button
-                      onClick={() => toggleCompletedSection(cat.id)}
-                      style={{ width: '100%', padding: '12px 20px', background: 'var(--color-background)', border: 'none', borderTop: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}
+                      onClick={() => setExpandedCompleted(prev => { const n = new Set(prev); n.has(cat.id) ? n.delete(cat.id) : n.add(cat.id); return n; })}
+                      style={{ width: '100%', padding: '11px 20px', background: 'var(--color-background)', border: 'none', borderTop: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}
                     >
-                      {showCompleted ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      {showCompleted ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                       {complete.length} completed
                     </button>
                     {showCompleted && complete.map((task, i) => (
@@ -168,41 +169,59 @@ function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
 }) {
   const done = task.status === 'Complete';
   return (
-    <div
-      className={`item-row ${done ? 'resolved' : ''}`}
-      style={{ borderBottom: isLast ? 'none' : '1px solid var(--color-border)' }}
-      onClick={onEdit}
-    >
+    <div style={{ display: 'flex', borderBottom: isLast ? 'none' : '1px solid var(--color-border)', background: done ? '#fafaf8' : 'white' }}>
+
+      {/* ── Completion zone ── clearly labeled, large touch target */}
       <button
-        className={`check-circle ${done ? 'checked' : ''}`}
-        onClick={e => { e.stopPropagation(); onToggle(); }}
+        onClick={onToggle}
+        style={{
+          width: 72, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5,
+          padding: '12px 8px', border: 'none', borderRight: '1px solid var(--color-border)',
+          background: done ? 'var(--color-accent-soft)' : 'transparent',
+          cursor: 'pointer', transition: 'background 0.15s',
+        }}
         title={done ? 'Mark incomplete' : 'Mark complete'}
       >
-        {done && <CheckCircle2 size={14} color="white" />}
+        <div style={{
+          width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: done ? 'var(--color-accent)' : 'white',
+          border: `2px solid ${done ? 'var(--color-accent)' : 'var(--color-border)'}`,
+          transition: 'all 0.15s',
+        }}>
+          {done && <CheckCircle2 size={16} color="white" />}
+        </div>
+        <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: done ? 'var(--color-accent-dark)' : 'var(--color-secondary)', lineHeight: 1 }}>
+          {done ? 'Done' : 'Complete'}
+        </span>
       </button>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* ── Task info — tap to edit ── */}
+      <div style={{ flex: 1, padding: '13px 16px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
         <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 3, flexWrap: 'wrap' }}>
           <span className="section-label">{task.owner}</span>
           {task.dueDate && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-secondary)' }}>
-              <Calendar size={11} /> Due {format(parseISO(task.dueDate), 'MMM d')}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)' }}>
+              <Calendar size={10} /> Due {format(parseISO(task.dueDate), 'MMM d')}
             </span>
           )}
           {done && task.completedAt && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--color-success)' }}>
-              <CheckCircle2 size={11} /> Done {format(parseISO(task.completedAt), 'MMM d')}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-success)' }}>
+              <CheckCircle2 size={10} /> Done {format(parseISO(task.completedAt), 'MMM d')}
             </span>
           )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
-        <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={onDelete} title="Delete">
-          <Trash2 size={15} color="var(--color-border)" />
+      {/* ── Action icons — always visible ── */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px', gap: 2, flexShrink: 0 }}>
+        <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
+          <Pencil size={14} />
+        </button>
+        <button onClick={e => { e.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete task">
+          <Trash2 size={14} />
         </button>
       </div>
     </div>
@@ -225,7 +244,7 @@ function TaskModal({ task, categories, onClose, onSave }: {
         <div className="modal-body">
           <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Title</label>
-            <input value={editing.title || ''} onChange={e => setEditing({ ...editing, title: e.target.value })} placeholder="e.g. Schedule move-out cleaners" />
+            <input value={editing.title || ''} onChange={e => setEditing({ ...editing, title: e.target.value })} placeholder="e.g. Schedule move-out cleaners" autoFocus={!task.id} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
@@ -249,15 +268,9 @@ function TaskModal({ task, categories, onClose, onSave }: {
               </select>
             </div>
             <div>
-              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
-              <select value={editing.status} onChange={e => setEditing({ ...editing, status: e.target.value as TaskStatus })}>
-                <option value="Not Started">Not Started</option><option value="In Progress">In Progress</option><option value="Complete">Complete</option>
-              </select>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Due Date (optional)</label>
+              <input type="date" value={editing.dueDate || ''} onChange={e => setEditing({ ...editing, dueDate: e.target.value || null })} />
             </div>
-          </div>
-          <div>
-            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Due Date (optional)</label>
-            <input type="date" value={editing.dueDate || ''} onChange={e => setEditing({ ...editing, dueDate: e.target.value || null })} />
           </div>
           <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes (optional)</label>
