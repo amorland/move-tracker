@@ -1,55 +1,52 @@
 # Starland Move Tracker
 
-A personal relocation hub for the Starland family — Andrew, Tory, Remy, Harper, and Winston — moving from Clearwater, FL to Cold Spring, NY in summer 2026.
-
-## Features
-
-- **Overview** — Command center with key dates, countdown to drive start, task progress, and belongings resolution at a glance
-- **Tasks** — Full to-do list organized by category; assignable to Andrew, Tory, or Both; tracks completion date; completed tasks stay visible with strikethrough
-- **Belongings** — Item-by-item tracker for deciding what to Bring, Sell, Donate, or Trash; items stay visible when resolved
-- **Timeline** — Chronological view of all key dates, custom events (with time + confirmed/estimated), and tasks with due dates; grouped by month
-- **Move Map** — Interactive driving route with distance, estimated drive time, and arrival date based on the Drive Start anchor date
-- **Password-protected** — Simple cookie-based auth; single shared app password
+A private web app for Andrew and Tory's move from Clearwater, FL to Cold Spring, NY in summer 2026. Tracks tasks, belongings, key dates, and move locations.
 
 ## Stack
 
-- **Framework**: Next.js 16 (App Router)
-- **Database**: Supabase (Postgres)
-- **Styling**: Tailwind CSS v4 + custom design system
-- **Map**: Leaflet + react-leaflet, routing via OSRM, geocoding via Nominatim
-- **Auth**: Cookie-based password gate (httpOnly, 30-day session)
-- **Deploy**: Vercel
+- **Next.js 16** (App Router) + **React 19** + **TypeScript**
+- **Supabase** (Postgres) for storage
+- **Tailwind CSS v4** with a custom design system (sage green accent, warm cream background, Lora serif headings, DM Sans body)
+- **Vitest** for tests
+- **Deployed on Vercel**
 
-## Local Development
+## Pages
+
+| Page | Description |
+|------|-------------|
+| **Overview** | Mini timeline of all 7 key move dates at a glance, plus task and belonging summaries |
+| **Tasks** | To-do list grouped by category, filterable by owner (Andrew / Tory / Both) and phase (Move Out / Move In / Both), with a labeled "Mark done" pill per row |
+| **Belongings** | Item inventory with action badges (Bring / Sell / Donate / Trash), filter chips, and a "Resolve" pill per row |
+| **Timeline** | Move events with confirmed/estimated date toggling; validation rules enforce correct ordering between key dates |
+| **Move Map** | Leaflet map of key locations (origin, destination, stops, services) with a sidebar list |
+
+## Key Date Rules
+
+The app tracks 7 milestones in order: U-Pack Dropoff (FL) → Pickup (FL) → Drive Start → Arrival (NY) → House Closing → U-Pack Delivery (NY) → Final Pickup (NY). When dates are confirmed, the API enforces ordering constraints (e.g. pickup must be exactly 3 days after dropoff, arrival must precede closing, delivery must follow closing).
+
+## Running Locally
+
+Requires a `.env.local`:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+APP_PASSWORD=...
+```
 
 ```bash
-# Install dependencies
 npm install
-
-# Start dev server (accessible on local network)
-npm run dev
+npm run dev     # starts on 0.0.0.0:3000
 ```
 
-App runs at `http://localhost:3000`.
+## Tests
 
-## Environment Variables
-
-Create a `.env.local` file in the project root:
-
-```
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-APP_PASSWORD=your_app_password
+```bash
+npm test           # run once
+npm run test:watch # watch mode
 ```
 
-## Database Setup
-
-Run the SQL in `supabase-schema.sql` against your Supabase project to create the initial tables and seed data.
-
-If migrating from an earlier version of this app, run `supabase-migration.sql` first — it handles:
-- Removing deprecated task fields (`timingType`, `timingOffsetDays`, etc.)
-- Renaming `packing_items` → `belongings` and normalizing status values
-- Creating the new `events` table for custom timeline entries
+Tests cover `dateUtils` validation logic and all API route handlers (belongings, tasks, events, settings) using mocked Supabase.
 
 ## Project Structure
 
@@ -60,25 +57,21 @@ src/
 │   │   ├── auth/         # Login / logout
 │   │   ├── belongings/   # Belongings CRUD
 │   │   ├── categories/   # Task categories + tasks (combined GET)
-│   │   ├── events/       # Custom timeline events CRUD
+│   │   ├── events/       # Timeline events CRUD
 │   │   ├── locations/    # Map locations CRUD
-│   │   ├── settings/     # Anchor dates (key dates)
+│   │   ├── settings/     # Key dates (move settings)
 │   │   └── tasks/        # Tasks CRUD
 │   ├── belongings/       # Belongings page
 │   ├── login/            # Login page
 │   ├── map/              # Move Map page
 │   ├── tasks/            # Tasks page
 │   ├── timeline/         # Timeline page
-│   ├── layout.tsx        # App shell (header, sidebar, bottom nav)
+│   ├── layout.tsx        # App shell (header, sidebar, mobile bottom nav)
 │   └── page.tsx          # Overview / dashboard
-├── components/
-│   └── MoveMap.tsx       # Leaflet map component
+├── __tests__/            # Vitest test suite
 └── lib/
     ├── dateUtils.ts      # Milestone helpers + date validation
     ├── supabase.ts       # Supabase client
-    └── types.ts          # Shared TypeScript types
+    ├── types.ts          # Shared TypeScript types
+    └── useScrollLock.ts  # JS scroll lock hook for modals
 ```
-
-## Deployment
-
-The app is deployed on Vercel. Push to `main` to trigger a deployment. Make sure all three environment variables are set in the Vercel project settings.
