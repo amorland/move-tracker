@@ -23,7 +23,9 @@ export async function POST(request: Request) {
       "itemName": body.itemName || 'Unnamed Item',
       action: body.action || 'Bring',
       status: 'Not Packed',
-      notes: body.notes || ''
+      priority: body.priority || 'Medium',
+      notes: body.notes || '',
+      "createdAt": new Date().toISOString()
     };
     
     console.log('Final insert attempt (letting DB handle status/priority):', insertData);
