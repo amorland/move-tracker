@@ -4,7 +4,7 @@ import './globals.css';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, CheckSquare, Package, Calendar, Map, LogOut, Star
+  LayoutDashboard, CheckSquare, Package, Calendar, Map, LogOut
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -71,13 +71,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(240,180,50,0.12)', border: '1px solid rgba(240,180,50,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Star size={16} color="#f0b432" fill="#f0b432" />
+            <div style={{ width: 32, height: 32, borderRadius: 6, border: '1.5px solid rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'white', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>SL</span>
             </div>
-            <div>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1, color: 'white' }}>Starland</div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1, marginTop: 3 }}>Moving Hub</div>
-            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'white', fontFamily: 'var(--font-serif)' }}>Starland</div>
           </div>
 
           <div style={{ flex: 1 }} />

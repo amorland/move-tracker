@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MoveSettings, Task, MoveEvent } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Star, Pencil, Search } from 'lucide-react';
+import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Flag, Pencil, Search } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 import { useScrollLock } from '@/lib/useScrollLock';
 
@@ -19,13 +19,14 @@ type TimelineItem = {
   time?: string | null;
   notes?: string | null;
   rawEvent?: MoveEvent;
+  isLast?: boolean;
 };
 
 type TypeFilter = 'all' | ItemType;
 
 const FILTER_OPTIONS: { value: TypeFilter; label: string; Icon: React.ReactNode }[] = [
   { value: 'all',    label: 'All',       Icon: null },
-  { value: 'anchor', label: 'Key Dates', Icon: <Star size={12} /> },
+  { value: 'anchor', label: 'Key Dates', Icon: <Flag size={12} /> },
   { value: 'event',  label: 'Events',    Icon: <CalendarCheck size={12} /> },
   { value: 'task',   label: 'Tasks',     Icon: <CheckCircle2 size={12} /> },
 ];
@@ -129,11 +130,7 @@ export default function TimelinePage() {
       {/* Search */}
       <div className="search-bar" style={{ marginBottom: 14 }}>
         <Search size={16} className="search-bar-icon" />
-        <input
-          placeholder="Search timeline…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        <input placeholder="Search timeline…" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
       {/* Type filter chips */}
@@ -164,26 +161,34 @@ export default function TimelinePage() {
         </div>
       ) : (
         <div style={{ position: 'relative', paddingLeft: 56 }}>
-          {/* Vertical line */}
           <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 2, background: 'var(--color-border)' }} />
 
-          {Object.keys(grouped).map(monthYear => (
-            <div key={monthYear} style={{ marginBottom: 56 }}>
-              {/* Month header */}
-              <div style={{ position: 'relative', marginBottom: 24 }}>
-                <div style={{ position: 'absolute', left: -56, top: 0, width: 40, height: 40, borderRadius: 10, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                  <Calendar size={18} color="var(--color-accent)" />
+          {Object.keys(grouped).map(monthYear => {
+            const monthItems = grouped[monthYear];
+            return (
+              <div key={monthYear} style={{ marginBottom: 48 }}>
+                {/* Month header */}
+                <div style={{ position: 'relative', marginBottom: 16 }}>
+                  <div style={{ position: 'absolute', left: -56, top: 0, width: 40, height: 40, borderRadius: 10, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                    <Calendar size={18} color="var(--color-accent)" />
+                  </div>
+                  <h2 style={{ margin: 0, paddingTop: 10 }}>{monthYear}</h2>
                 </div>
-                <h2 style={{ margin: 0, paddingTop: 10 }}>{monthYear}</h2>
-              </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {grouped[monthYear].map(item => (
-                  <TimelineRow key={item.id} item={item} onClick={() => setSelected(item)} />
-                ))}
+                {/* Flat row container — no individual card borders */}
+                <div style={{ background: 'var(--color-surface)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+                  {monthItems.map((item, i) => (
+                    <TimelineRow
+                      key={item.id}
+                      item={item}
+                      isLast={i === monthItems.length - 1}
+                      onClick={() => setSelected(item)}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -220,11 +225,9 @@ export default function TimelinePage() {
                 </div>
               )}
               {selected.type === 'anchor' && (
-                <div>
-                  <Link href="/" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>
-                    Edit on Overview →
-                  </Link>
-                </div>
+                <Link href="/" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>
+                  Edit on Overview →
+                </Link>
               )}
             </div>
             <div className="modal-footer">
@@ -269,13 +272,10 @@ function StatusChip({ status }: { status: string }) {
       </span>
     );
   }
-  if (status === 'Complete') {
-    return <span className="badge badge-success">Complete</span>;
-  }
   return <span className="badge badge-neutral">{status}</span>;
 }
 
-function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => void }) {
+function TimelineRow({ item, isLast, onClick }: { item: TimelineItem; isLast: boolean; onClick: () => void }) {
   const isAnchor = item.type === 'anchor';
   const isConfirmed = item.status === 'confirmed';
   const isDone = item.status === 'Complete';
@@ -284,23 +284,22 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
     <div
       onClick={onClick}
       style={{
-        padding: '16px 20px',
-        borderRadius: 12,
+        padding: '14px 20px',
         background: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderLeft: isAnchor ? '3px solid #f0b432' : '1px solid var(--color-border)',
+        borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
+        borderLeft: isAnchor ? '3px solid #f0b432' : 'none',
         display: 'flex', alignItems: 'center', gap: 16,
-        cursor: 'pointer', transition: 'all 0.15s',
-        opacity: isDone ? 0.65 : 1,
+        cursor: 'pointer', transition: 'background 0.15s',
+        opacity: isDone ? 0.6 : 1,
       }}
       className="item-row"
     >
       <TypeIcon type={item.type} confirmed={isConfirmed} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: isAnchor ? 16 : 15, fontWeight: isAnchor ? 700 : 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: isAnchor ? 15 : 14, fontWeight: isAnchor ? 700 : 500, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.title}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             {format(item.date, 'MMM d, yyyy')}
           </span>
@@ -316,16 +315,17 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
 }
 
 function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
-  if (type === 'anchor') {
-    return <Star size={20} color="#f0b432" fill="#f0b432" style={{ flexShrink: 0 }} />;
-  }
-  const isAccent = confirmed;
-  const bg = isAccent ? 'var(--color-accent-soft)' : 'var(--color-background)';
-  const border = isAccent ? 'var(--color-accent)' : 'var(--color-border)';
-  const color = isAccent ? 'var(--color-accent-dark)' : 'var(--color-secondary)';
+  const isAccent = type === 'anchor';
+  const bg = isAccent ? 'rgba(240,180,50,0.1)' : 'var(--color-background)';
+  const border = isAccent ? '#f0b432' : 'var(--color-border)';
+  const color = isAccent ? '#f0b432' : (confirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)');
   return (
-    <div style={{ width: 36, height: 36, borderRadius: '50%', background: bg, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      {type === 'event' ? <CalendarCheck size={15} color={color} /> : <CheckCircle2 size={15} color={color} />}
+    <div style={{ width: 34, height: 34, borderRadius: '50%', background: bg, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {type === 'anchor'
+        ? <Flag size={14} color={color} />
+        : type === 'event'
+        ? <CalendarCheck size={14} color={color} />
+        : <CheckCircle2 size={14} color={color} />}
     </div>
   );
 }

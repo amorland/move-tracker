@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Category, Task, TaskOwner } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
-import { Check, CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
+import { Check, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type OwnerFilter = TaskOwner | 'All';
@@ -214,6 +214,7 @@ function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
       style={{
         display: 'flex', alignItems: 'stretch',
         borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
+        borderLeft: done ? 'none' : '3px solid var(--color-accent)',
         background: done ? 'var(--color-background)' : 'var(--color-surface)',
         transition: 'background 0.2s',
       }}
@@ -258,9 +259,9 @@ function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
         )}
       </div>
 
-      {/* Right: edit/delete (hover) + done pill */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6, flexShrink: 0 }}>
-        <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      {/* Right: icon chips */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 4, flexShrink: 0 }}>
+        <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
             <Pencil size={14} />
           </button>
@@ -270,9 +271,10 @@ function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
         </div>
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          className={`done-pill ${done ? 'done-pill-active' : ''}`}
+          className={`done-chip ${done ? 'done-chip-active' : ''}`}
+          title={done ? 'Mark incomplete' : 'Mark complete'}
         >
-          {done ? <><Check size={13} strokeWidth={3} /> Done</> : 'Mark done'}
+          <Check size={14} strokeWidth={done ? 3 : 2} />
         </button>
       </div>
     </div>

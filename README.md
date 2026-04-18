@@ -12,7 +12,7 @@ A private web app for Andrew and Tory's move from Clearwater, FL to Cold Spring,
 
 ## Design System — "Washi"
 
-Warm near-black nav/sidebar (`#1c1917`) against a barely-warm near-white content area (`#faf8f5`). Pure white surfaces with very quiet warm borders (`#ece8e1`) — structure comes from whitespace and typographic hierarchy, not heavy decoration. Terracotta (`#c06b3e`) as the single accent: used only for CTAs, active states, and interactive elements. Gold (`#f0b432`) reserved for the star logo and key date marker. Lora serif for headings, DM Sans for body.
+Three colors: terracotta header (`#c06b3e`), warm near-black sidebar (`#1c1917`), barely-warm near-white content (`#faf8f5`). Pure white surfaces with very quiet warm borders (`#ece8e1`) — structure comes from whitespace and typographic hierarchy. Terracotta is the single accent throughout: CTAs, active states, incomplete task indicators. Gold (`#f0b432`) used only for the Timeline key date row marker. The "SL" monogram replaces any star icon throughout. Lora serif for headings, DM Sans for body.
 
 ## Pages
 

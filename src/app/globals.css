@@ -7,8 +7,6 @@
   --color-accent: #c06b3e;
   --color-accent-dark: #9e4f28;
   --color-accent-soft: #fceee6;
-  --color-success: #7a8f6e;
-  --color-success-soft: #edf0ea;
   --color-secondary: #9a9490;
   --color-border: #ece8e1;
 
@@ -54,8 +52,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 64px;
-  background: #1c1917;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  background: #c06b3e;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -232,8 +230,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
   flex-shrink: 0;
 }
 .row-dot.is-done {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
 }
 .row-check-btn:hover .row-dot:not(.is-done) {
   border-color: var(--color-accent);
@@ -321,7 +319,7 @@ input:focus, select:focus, textarea:focus {
   white-space: nowrap;
 }
 .badge-accent { background: var(--color-accent-soft); color: var(--color-accent-dark); }
-.badge-success { background: var(--color-success-soft); color: var(--color-success); }
+.badge-success { background: var(--color-accent-soft); color: var(--color-accent-dark); }
 .badge-neutral { background: var(--color-background); color: var(--color-secondary); border: 1px solid var(--color-border); }
 
 /* ─── Typography ─────────────────────────── */
@@ -511,6 +509,32 @@ h2 { font-size: 12px; font-weight: 700; color: var(--color-foreground); text-tra
 .owner-tag-set:hover {
   background: var(--color-accent);
   color: white;
+}
+
+/* ─── Done chip (icon-only, tasks) ──────────── */
+.done-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1.5px solid var(--color-accent);
+  background: transparent;
+  color: var(--color-accent);
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.done-chip:hover { background: var(--color-accent-soft); }
+.done-chip-active {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: white;
+}
+.done-chip-active:hover {
+  background: var(--color-accent-dark);
+  border-color: var(--color-accent-dark);
 }
 
 /* ─── Done / Resolve pill (completion CTA) ── */
