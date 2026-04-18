@@ -59,9 +59,8 @@ export default function TasksPage() {
       owner: 'Both',
       phase: 'Both',
       dueDate: null,
-      completionDate: null,
-      scheduledEventDate: null,
-      scheduledEventTimeWindow: null,
+      timingType: 'Flexible',
+      timingOffsetDays: 0,
       notes: ''
     });
     setIsModalOpen(true);
@@ -167,7 +166,6 @@ export default function TasksPage() {
 
 function TaskRow({ task, onToggle, onEdit, onDelete }: { task: Task, onToggle: () => void, onEdit: () => void, onDelete: () => void }) {
   const isComplete = task.status === 'Complete';
-  const hasEvent = !!task.scheduledEventDate;
 
   return (
     <div style={{ 
@@ -175,7 +173,7 @@ function TaskRow({ task, onToggle, onEdit, onDelete }: { task: Task, onToggle: (
       alignItems: 'center', 
       gap: '20px', 
       padding: '16px 24px', 
-      background: hasEvent ? 'var(--accent-soft)' : '#fff',
+      background: '#fff',
       opacity: isComplete ? 0.6 : 1
     }} className="task-row clickable" onClick={onEdit}>
       <button 
@@ -204,12 +202,14 @@ function TaskRow({ task, onToggle, onEdit, onDelete }: { task: Task, onToggle: (
               </div>
             </>
           )}
-          {hasEvent && (
+          {task.timingType && task.timingType !== 'Flexible' && (
             <>
               <div style={{ width: '3px', height: '3px', borderRadius: '50%', background: 'var(--border)' }}></div>
               <div style={{ fontSize: '11px', color: 'var(--accent)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Bell size={12} /> EVENT: {format(parseISO(task.scheduledEventDate!), 'MMM d')}
-                {task.scheduledEventTimeWindow && <span style={{ opacity: 0.8 }}>({task.scheduledEventTimeWindow})</span>}
+                <Clock size={12} /> {task.timingType}
+                {task.timingOffsetDays !== 0 && (
+                  <span style={{ opacity: 0.8 }}> ({task.timingOffsetDays! > 0 ? '+' : ''}{task.timingOffsetDays} days)</span>
+                )}
               </div>
             </>
           )}
@@ -259,25 +259,36 @@ function TaskModal({ task, onClose, onSave, categories }: { task: Partial<Task>,
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Due Date</label>
-              <input type="date" value={editing.dueDate || ''} onChange={e => setEditing({...editing, dueDate: e.target.value || null})} />
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Phase</label>
+              <select value={editing.phase} onChange={e => setEditing({...editing, phase: e.target.value as TaskPhase})}>
+                <option value="Move Out">Move Out</option>
+                <option value="Move In">Move In</option>
+                <option value="Both">Both</option>
+              </select>
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Completion Date</label>
-              <input type="date" value={editing.completionDate || ''} onChange={e => setEditing({...editing, completionDate: e.target.value || null})} />
+              <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Due Date</label>
+              <input type="date" value={editing.dueDate || ''} onChange={e => setEditing({...editing, dueDate: e.target.value || null})} />
             </div>
           </div>
 
           <div style={{ padding: '20px', background: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Scheduled Event</h3>
+            <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.05em' }}>Timing & Relationships</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Event Date</label>
-                <input type="date" value={editing.scheduledEventDate || ''} onChange={e => setEditing({...editing, scheduledEventDate: e.target.value || null})} />
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Timing Type</label>
+                <select value={editing.timingType} onChange={e => setEditing({...editing, timingType: e.target.value as any})}>
+                  <option value="Fixed">Fixed</option>
+                  <option value="Before Move">Before Move</option>
+                  <option value="After Move">After Move</option>
+                  <option value="Before Closing">Before Closing</option>
+                  <option value="After Closing">After Closing</option>
+                  <option value="Flexible">Flexible</option>
+                </select>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Time Window</label>
-                <input value={editing.scheduledEventTimeWindow || ''} onChange={e => setEditing({...editing, scheduledEventTimeWindow: e.target.value})} placeholder="e.g. 12pm - 4pm" />
+                <label style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>Offset Days</label>
+                <input type="number" value={editing.timingOffsetDays || 0} onChange={e => setEditing({...editing, timingOffsetDays: parseInt(e.target.value) || 0})} />
               </div>
             </div>
           </div>

@@ -74,13 +74,12 @@ export async function POST(request: Request) {
       phase: body.phase || 'Both',
       notes: body.notes || '',
       orderIndex: nextOrderIndex,
-      categoryId: body.categoryId
+      categoryId: body.categoryId,
+      timingType: body.timingType || 'Flexible',
+      timingOffsetDays: body.timingOffsetDays || 0
     };
 
     if (body.dueDate) rawData.dueDate = body.dueDate;
-    if (body.completionDate) rawData.completionDate = body.completionDate;
-    if (body.scheduledEventDate) rawData.scheduledEventDate = body.scheduledEventDate;
-    if (body.scheduledEventTimeWindow) rawData.scheduledEventTimeWindow = body.scheduledEventTimeWindow;
     
     // Discover actual columns and map them
     const insertData = await getMappedData('tasks', rawData);

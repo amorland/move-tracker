@@ -38,9 +38,8 @@ export interface Task {
   owner: TaskOwner;
   phase: TaskPhase;
   dueDate: string | null;
-  completionDate: string | null;
-  scheduledEventDate: string | null;
-  scheduledEventTimeWindow: string | null;
+  timingType: TimingType;
+  timingOffsetDays: number | null;
   notes: string | null;
   orderIndex: number;
 }
