@@ -289,9 +289,13 @@ export default function Dashboard() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {data.tasks.filter(t => t.status !== 'Complete').slice(0, 8).map((task) => (
-                <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 32px', borderBottom: '1px solid var(--border)', transition: 'background-color 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
-                  <button onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
+                <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '16px 32px', borderBottom: '1px solid var(--border)', transition: 'all 0.2s ease', cursor: 'pointer' }} className="task-row clickable" onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); toggleTaskStatus(task); }} 
+                    style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
+                    title="Mark as complete"
+                  >
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff', transition: 'all 0.2s ease' }}></div>
                   </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.title}</div>

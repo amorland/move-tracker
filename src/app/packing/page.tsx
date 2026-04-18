@@ -211,7 +211,7 @@ export default function InventoryPage() {
 
 function InventoryRow({ item, onResolve, onDelete, onMove, onEdit }: { item: PackingItem, onResolve: () => void, onDelete: () => void, onMove: (a: PackingAction) => void, onEdit: () => void }) {
   const itemStatus = item.status || (item as any).status;
-  const isResolved = itemStatus === 'Resolved';
+  const isResolved = String(itemStatus).toLowerCase() === 'resolved' || String(itemStatus).toLowerCase() === 'packed';
   const itemName = item.itemName || (item as any).itemName || 'Unnamed Item';
   const itemRoom = item.room || (item as any).room || 'Other';
   const itemNotes = item.notes || (item as any).notes;
@@ -223,21 +223,30 @@ function InventoryRow({ item, onResolve, onDelete, onMove, onEdit }: { item: Pac
       alignItems: 'center', 
       gap: '20px', 
       padding: '16px 24px', 
-      background: '#fff',
-      opacity: isResolved ? 0.6 : 1
+      background: isResolved ? 'var(--background)' : '#fff',
+      transition: 'all 0.2s ease'
     }} className="task-row">
       <button 
         onClick={onResolve}
         style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
+        title={isResolved ? "Mark as unresolved" : "Mark as packed"}
       >
         {isResolved ? 
           <CheckCircle2 size={24} color="var(--accent)" /> : 
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--border)' }}></div>
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--border)', transition: 'all 0.2s ease' }}></div>
         }
       </button>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</div>
+        <div style={{ 
+          fontSize: '15px', 
+          fontWeight: 500, 
+          color: isResolved ? 'var(--text-secondary)' : 'var(--foreground)',
+          textDecoration: isResolved ? 'line-through' : 'none',
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis' 
+        }}>{itemName}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
           <div style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {itemRoom}

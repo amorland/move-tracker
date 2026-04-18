@@ -173,21 +173,30 @@ function TaskRow({ task, onToggle, onEdit, onDelete }: { task: Task, onToggle: (
       alignItems: 'center', 
       gap: '20px', 
       padding: '16px 24px', 
-      background: '#fff',
-      opacity: isComplete ? 0.6 : 1
+      background: isComplete ? 'var(--background)' : '#fff',
+      transition: 'all 0.2s ease'
     }} className="task-row clickable" onClick={onEdit}>
       <button 
         onClick={(e) => { e.stopPropagation(); onToggle(); }}
         style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', padding: 0, flexShrink: 0 }}
+        title={isComplete ? "Mark as incomplete" : "Mark as complete"}
       >
         {isComplete ? 
           <CheckCircle2 size={24} color="var(--accent)" /> : 
-          <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff' }}></div>
+          <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: '2px solid var(--border)', background: '#fff', transition: 'all 0.2s ease' }}></div>
         }
       </button>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div style={{ 
+          fontSize: '15px', 
+          fontWeight: 500, 
+          color: isComplete ? 'var(--text-secondary)' : 'var(--foreground)',
+          textDecoration: isComplete ? 'line-through' : 'none',
+          whiteSpace: 'nowrap', 
+          overflow: 'hidden', 
+          textOverflow: 'ellipsis' 
+        }}>
           {task.title}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
