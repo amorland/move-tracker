@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MoveSettings, Task, MoveEvent } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Flag, Pencil, Search } from 'lucide-react';
+import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Pencil, Search } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 import { useScrollLock } from '@/lib/useScrollLock';
 
@@ -26,7 +26,7 @@ type TypeFilter = 'all' | ItemType;
 
 const FILTER_OPTIONS: { value: TypeFilter; label: string; Icon: React.ReactNode }[] = [
   { value: 'all',    label: 'All',       Icon: null },
-  { value: 'anchor', label: 'Key Dates', Icon: <Flag size={12} /> },
+  { value: 'anchor', label: 'Key Dates', Icon: null },
   { value: 'event',  label: 'Events',    Icon: <CalendarCheck size={12} /> },
   { value: 'task',   label: 'Tasks',     Icon: <CheckCircle2 size={12} /> },
 ];
@@ -176,12 +176,11 @@ export default function TimelinePage() {
                 </div>
 
                 {/* Flat row container — no individual card borders */}
-                <div style={{ background: 'var(--color-surface)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                  {monthItems.map((item, i) => (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {monthItems.map((item) => (
                     <TimelineRow
                       key={item.id}
                       item={item}
-                      isLast={i === monthItems.length - 1}
                       onClick={() => setSelected(item)}
                     />
                   ))}
@@ -275,7 +274,7 @@ function StatusChip({ status }: { status: string }) {
   return <span className="badge badge-neutral">{status}</span>;
 }
 
-function TimelineRow({ item, isLast, onClick }: { item: TimelineItem; isLast: boolean; onClick: () => void }) {
+function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => void }) {
   const isAnchor = item.type === 'anchor';
   const isConfirmed = item.status === 'confirmed';
   const isDone = item.status === 'Complete';
@@ -286,8 +285,9 @@ function TimelineRow({ item, isLast, onClick }: { item: TimelineItem; isLast: bo
       style={{
         padding: '14px 20px',
         background: 'var(--color-surface)',
-        borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
-        borderLeft: isAnchor ? '3px solid #f0b432' : 'none',
+        borderRadius: 10,
+        boxShadow: 'var(--shadow-sm)',
+        border: '1px solid var(--color-border)',
         display: 'flex', alignItems: 'center', gap: 16,
         cursor: 'pointer', transition: 'background 0.15s',
         opacity: isDone ? 0.6 : 1,
@@ -315,17 +315,17 @@ function TimelineRow({ item, isLast, onClick }: { item: TimelineItem; isLast: bo
 }
 
 function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
-  const isAccent = type === 'anchor';
-  const bg = isAccent ? 'rgba(240,180,50,0.1)' : 'var(--color-background)';
-  const border = isAccent ? '#f0b432' : 'var(--color-border)';
-  const color = isAccent ? '#f0b432' : (confirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)');
+  if (type === 'anchor') {
+    return (
+      <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(240,180,50,0.15)', border: '1.5px solid #f0b432', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0b432' }} />
+      </div>
+    );
+  }
+  const color = confirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)';
   return (
-    <div style={{ width: 34, height: 34, borderRadius: '50%', background: bg, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      {type === 'anchor'
-        ? <Flag size={14} color={color} />
-        : type === 'event'
-        ? <CalendarCheck size={14} color={color} />
-        : <CheckCircle2 size={14} color={color} />}
+    <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--color-background)', border: '1.5px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {type === 'event' ? <CalendarCheck size={14} color={color} /> : <CheckCircle2 size={14} color={color} />}
     </div>
   );
 }

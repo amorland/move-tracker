@@ -132,67 +132,66 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Single flat task list */}
-      <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden', marginBottom: 32 }}>
+      {/* Task list */}
+      <div style={{ marginBottom: 32 }}>
         {grouped.length === 0 && complete.length === 0 && (
-          <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14 }}>
+          <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14, background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             {isFiltering ? 'No tasks match your filters.' : 'No tasks yet. Add one above.'}
           </div>
         )}
 
-        {grouped.map(({ cat, tasks: catTasks }, groupIdx) => (
-          <div key={cat.id}>
-            {/* Category divider */}
-            <div style={{
-              padding: '8px 16px',
-              background: 'var(--color-background)',
-              borderTop: groupIdx > 0 ? '1px solid var(--color-border)' : 'none',
-            }}>
+        {grouped.map(({ cat, tasks: catTasks }) => (
+          <div key={cat.id} style={{ marginBottom: 24 }}>
+            <div style={{ padding: '0 4px', marginBottom: 10 }}>
               <span className="section-label">{cat.name}</span>
             </div>
-            {catTasks.map((task, i) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                isLast={false}
-                onToggle={() => toggleComplete(task)}
-                onCycleOwner={() => cycleOwner(task)}
-                onEdit={() => setModalTask(task)}
-                onDelete={() => deleteTask(task.id)}
-              />
-            ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {catTasks.map((task) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  onToggle={() => toggleComplete(task)}
+                  onCycleOwner={() => cycleOwner(task)}
+                  onEdit={() => setModalTask(task)}
+                  onDelete={() => deleteTask(task.id)}
+                />
+              ))}
+            </div>
           </div>
         ))}
 
         {/* Completed section */}
         {complete.length > 0 && (
-          <>
+          <div style={{ marginTop: grouped.length > 0 ? 8 : 0 }}>
             <button
               onClick={() => setShowCompleted(v => !v)}
               style={{
-                width: '100%', padding: '10px 20px',
-                background: 'var(--color-background)', border: 'none',
-                borderTop: grouped.length > 0 ? '1px solid var(--color-border)' : 'none',
+                padding: '8px 4px',
+                background: 'none', border: 'none',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
                 fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)',
                 textTransform: 'uppercase', letterSpacing: '0.08em',
+                marginBottom: showCompleted ? 10 : 0,
               }}
             >
               {showCompleted ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
               {complete.length} completed
             </button>
-            {showCompleted && complete.map((task, i) => (
-              <TaskRow
-                key={task.id}
-                task={task}
-                isLast={i === complete.length - 1}
-                onToggle={() => toggleComplete(task)}
-                onCycleOwner={() => cycleOwner(task)}
-                onEdit={() => setModalTask(task)}
-                onDelete={() => deleteTask(task.id)}
-              />
-            ))}
-          </>
+            {showCompleted && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {complete.map((task) => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    onToggle={() => toggleComplete(task)}
+                    onCycleOwner={() => cycleOwner(task)}
+                    onEdit={() => setModalTask(task)}
+                    onDelete={() => deleteTask(task.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -203,8 +202,8 @@ export default function TasksPage() {
   );
 }
 
-function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
-  task: Task; isLast: boolean;
+function TaskRow({ task, onToggle, onCycleOwner, onEdit, onDelete }: {
+  task: Task;
   onToggle: () => void; onCycleOwner: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const done = task.status === 'Complete';
@@ -213,9 +212,10 @@ function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
       className="task-row"
       style={{
         display: 'flex', alignItems: 'stretch',
-        borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
-        borderLeft: done ? 'none' : '3px solid var(--color-accent)',
         background: done ? 'var(--color-background)' : 'var(--color-surface)',
+        borderRadius: 8,
+        boxShadow: 'var(--shadow-sm)',
+        border: '1px solid var(--color-border)',
         transition: 'background 0.2s',
       }}
     >

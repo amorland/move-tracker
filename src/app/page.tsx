@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Task, Belonging } from '@/lib/types';
+import { MoveSettings, Task, Belonging, Category } from '@/lib/types';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +24,7 @@ const BELONGING_ICONS: Record<string, React.ReactNode> = {
 export default function OverviewPage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [belongings, setBelongings] = useState<Belonging[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +44,8 @@ export default function OverviewPage() {
     const s = await sRes.json();
     sanitise(s);
     setSettings(s);
-    const { tasks: ts } = await cRes.json();
+    const { categories: cats, tasks: ts } = await cRes.json();
+    setCategories(cats);
     setTasks(ts);
     setBelongings(await bRes.json());
     setLoading(false);
@@ -104,12 +106,11 @@ export default function OverviewPage() {
   const driveDate = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
   const daysUntilDrive = driveDate ? differenceInDays(driveDate, new Date()) : null;
 
-  // Task breakdown by owner (including unassigned)
-  const ownerRows = (['Andrew', 'Tory', null] as const)
-    .map(owner => ({
-      label: owner ?? 'Unassigned',
-      total: tasks.filter(t => t.owner === owner).length,
-      done: tasks.filter(t => t.owner === owner && t.status === 'Complete').length,
+  const categoryRows = categories
+    .map(cat => ({
+      label: cat.name,
+      total: tasks.filter(t => t.categoryId === cat.id).length,
+      done: tasks.filter(t => t.categoryId === cat.id && t.status === 'Complete').length,
     }))
     .filter(r => r.total > 0);
 
@@ -199,10 +200,9 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            {/* Per-owner breakdown */}
-            {ownerRows.length > 0 && (
+            {categoryRows.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
-                {ownerRows.map(({ label, total, done }) => {
+                {categoryRows.map(({ label, total, done }) => {
                   const pct = total ? Math.round((done / total) * 100) : 0;
                   return (
                     <div key={label}>
