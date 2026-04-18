@@ -75,10 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)', lineHeight: 1 }}>SL</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'var(--color-foreground)', fontFamily: 'var(--font-serif)' }}>Starland Moving</span>
-                <span style={{ fontSize: 9, color: 'var(--color-secondary)', fontStyle: 'italic', lineHeight: 1 }}>™ Starland Family Ent.</span>
-              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.05em', lineHeight: 1, color: 'var(--color-foreground)', fontFamily: 'var(--font-serif)' }}>Starland™ Moving</span>
               <div style={{ fontSize: 10, color: 'var(--color-secondary)', letterSpacing: '0.03em', lineHeight: 1 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
             </div>
           </div>
@@ -145,6 +142,63 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <main className="main-content">
             {children}
+            <footer style={{ marginTop: 80, borderTop: '1px solid var(--color-border)', paddingTop: 48, paddingBottom: 32 }}>
+              <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+
+                {/* Main grid */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40, marginBottom: 40 }}>
+
+                  {/* Company blurb */}
+                  <div style={{ flex: '2 1 240px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 5, border: '1.5px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)' }}>SL</span>
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-serif)', color: 'var(--color-foreground)' }}>Starland Incorporated</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--color-secondary)', lineHeight: 1.7, maxWidth: 300, margin: '0 0 10px' }}>
+                      A privately held family enterprise committed to strategic residential relocation, household asset optimization, and life milestone coordination. Headquartered in Cold Spring, NY.
+                    </p>
+                    <p style={{ fontSize: 11, color: 'var(--color-secondary)', margin: 0, opacity: 0.7 }}>Incorporated in the State of New York · Est. 2026</p>
+                  </div>
+
+                  {/* Operations */}
+                  <div style={{ flex: '1 1 120px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: 'var(--color-secondary)', marginBottom: 14 }}>Operations</div>
+                    {['Overview', 'The List', 'The Big Sort', 'The Journey', 'The Route'].map(l => (
+                      <div key={l} style={{ fontSize: 12, color: 'var(--color-secondary)', marginBottom: 8, opacity: 0.8 }}>{l}</div>
+                    ))}
+                  </div>
+
+                  {/* Legal */}
+                  <div style={{ flex: '1 1 160px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: 'var(--color-secondary)', marginBottom: 14 }}>Legal & Compliance</div>
+                    {['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Accessibility Statement', 'Do Not Sell My Data'].map(l => (
+                      <div key={l} style={{ fontSize: 12, color: 'var(--color-secondary)', marginBottom: 8, opacity: 0.8 }}>{l}</div>
+                    ))}
+                  </div>
+
+                  {/* Contact */}
+                  <div style={{ flex: '1 1 180px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: 'var(--color-secondary)', marginBottom: 14 }}>Contact</div>
+                    <div style={{ fontSize: 12, color: 'var(--color-secondary)', lineHeight: 1.8 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--color-foreground)', marginBottom: 2 }}>Starland Incorporated</div>
+                      <div>1 Starland Way</div>
+                      <div>Cold Spring, NY 10516</div>
+                      <div>United States</div>
+                      <div style={{ marginTop: 10 }}>hello@starlandinc.com</div>
+                      <div>(845) 555-0147</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bottom bar */}
+                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 20, display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>© 2026 Starland Incorporated. All rights reserved. Starland™ is a registered trademark of Starland Incorporated.</span>
+                  <span style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.65 }}>All relocation activities conducted in compliance with applicable federal, state, and local regulations.</span>
+                </div>
+              </div>
+            </footer>
           </main>
         </div>
 
