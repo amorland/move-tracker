@@ -142,18 +142,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <main className="main-content">
             {children}
-            <footer style={{ marginTop: 80, borderTop: '1px solid var(--color-border)', padding: '28px 0' }}>
-              <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <div style={{ width: 24, height: 24, borderRadius: 4, border: '1.5px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--color-accent)', fontFamily: 'var(--font-sans)' }}>SL</span>
-                  </div>
-                  <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-serif)', color: 'var(--color-foreground)' }}>Starland Incorporated</span>
-                  <span style={{ fontSize: 12, color: 'var(--color-border)' }}>·</span>
-                  <span style={{ fontSize: 12, color: 'var(--color-secondary)', fontStyle: 'italic' }}>Founded 2017. Married 2022. Remy joined the board in 2026.</span>
-                </div>
-                <span style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.65 }}>© 2026 Starland Incorporated. All rights reserved.</span>
-              </div>
+            <footer style={{ marginTop: 80, borderTop: '1px solid var(--color-border)', padding: '32px 0', textAlign: 'center' }}>
+              <div style={{ fontSize: 14, fontFamily: 'var(--font-serif)', color: 'var(--color-foreground)', marginBottom: 6 }}>Andrew, Tory & Remy</div>
+              <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
             </footer>
           </main>
         </div>
