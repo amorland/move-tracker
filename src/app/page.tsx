@@ -108,7 +108,7 @@ export default function OverviewPage() {
   }
   const resolvePercent = belongings.length ? Math.round((belongings.filter(b => b.status === 'resolved').length / belongings.length) * 100) : 0;
 
-  const ownerStats = ['Andrew', 'Tory', 'Both'].map(owner => ({
+  const ownerStats = (['Andrew', 'Tory'] as const).map(owner => ({
     label: owner,
     total: tasks.filter(t => t.owner === owner).length,
     done: tasks.filter(t => t.owner === owner && t.status === 'Complete').length,

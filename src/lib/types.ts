@@ -1,6 +1,5 @@
 export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete';
-export type TaskOwner = 'Andrew' | 'Tory' | 'Both';
-export type TaskPhase = 'Move Out' | 'Move In' | 'Both';
+export type TaskOwner = 'Andrew' | 'Tory';
 
 export interface MoveSettings {
   id: number;
@@ -32,8 +31,7 @@ export interface Task {
   title: string;
   description: string | null;
   status: TaskStatus;
-  owner: TaskOwner;
-  phase: TaskPhase;
+  owner: TaskOwner | null;
   dueDate: string | null;
   completedAt: string | null;
   notes: string | null;

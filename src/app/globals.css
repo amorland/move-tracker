@@ -448,6 +448,31 @@ h2 { font-size: 12px; font-weight: 700; color: var(--color-foreground); text-tra
 /* ─── Milestone row hover ────────────────── */
 .milestone-row:hover { background: var(--color-background); border-radius: 10px; }
 
+/* ─── Owner tag (task row) ───────────────── */
+.owner-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1.5px solid var(--color-border);
+  background: transparent;
+  color: var(--color-border);
+  transition: all 0.15s;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.owner-tag:hover { border-color: var(--color-secondary); color: var(--color-secondary); }
+.owner-tag-set {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-dark);
+}
+
 /* ─── Done / Resolve pill (completion CTA) ── */
 .done-pill {
   display: inline-flex;

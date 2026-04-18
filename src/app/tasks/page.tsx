@@ -1,20 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Category, Task, TaskOwner, TaskPhase } from '@/lib/types';
+import { Category, Task, TaskOwner } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { Check, CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 type OwnerFilter = TaskOwner | 'All';
-type PhaseFilter = TaskPhase | 'All';
+
+const OWNER_CYCLE: (TaskOwner | null)[] = [null, 'Andrew', 'Tory'];
 
 export default function TasksPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('All');
-  const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>('All');
   const [search, setSearch] = useState('');
   const [expandedCompleted, setExpandedCompleted] = useState<Set<number>>(new Set());
   const [modalTask, setModalTask] = useState<Partial<Task> | null>(null);
@@ -45,6 +45,17 @@ export default function TasksPage() {
     });
   };
 
+  const cycleOwner = async (task: Task) => {
+    const idx = OWNER_CYCLE.indexOf(task.owner);
+    const next = OWNER_CYCLE[(idx + 1) % OWNER_CYCLE.length];
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, owner: next } : t));
+    await fetch('/api/tasks', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: task.id, owner: next }),
+    });
+  };
+
   const deleteTask = async (id: number) => {
     if (!confirm('Delete this task?')) return;
     await fetch(`/api/tasks?id=${id}`, { method: 'DELETE' });
@@ -62,12 +73,11 @@ export default function TasksPage() {
   };
 
   const openNewTask = (categoryId: number) => {
-    setModalTask({ categoryId, title: '', status: 'Not Started', owner: 'Both', phase: 'Both', dueDate: null, notes: '' });
+    setModalTask({ categoryId, title: '', status: 'Not Started', owner: null, dueDate: null, notes: '' });
   };
 
   const filtered = tasks.filter(t => {
     if (ownerFilter !== 'All' && t.owner !== ownerFilter) return false;
-    if (phaseFilter !== 'All' && t.phase !== phaseFilter) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -89,7 +99,7 @@ export default function TasksPage() {
         </button>
       </div>
 
-      {/* Search + Filters */}
+      {/* Search + Owner filter */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
         <div className="search-bar">
           <Search size={16} className="search-bar-icon" />
@@ -99,13 +109,20 @@ export default function TasksPage() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <FilterSelect label="Owner" value={ownerFilter} onChange={v => setOwnerFilter(v as OwnerFilter)} options={['All', 'Andrew', 'Tory', 'Both']} />
-          <FilterSelect label="Phase" value={phaseFilter} onChange={v => setPhaseFilter(v as PhaseFilter)} options={['All', 'Move Out', 'Move In', 'Both']} />
-          {(search || ownerFilter !== 'All' || phaseFilter !== 'All') && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {(['All', 'Andrew', 'Tory'] as const).map(o => (
+            <button
+              key={o}
+              onClick={() => setOwnerFilter(o)}
+              className={`filter-chip ${ownerFilter === o ? 'filter-chip-active' : ''}`}
+            >
+              {o === 'All' ? 'All owners' : o}
+            </button>
+          ))}
+          {(search || ownerFilter !== 'All') && (
             <button
               className="btn btn-ghost btn-sm"
-              onClick={() => { setSearch(''); setOwnerFilter('All'); setPhaseFilter('All'); }}
+              onClick={() => { setSearch(''); setOwnerFilter('All'); }}
             >
               <X size={13} /> Clear
             </button>
@@ -121,7 +138,7 @@ export default function TasksPage() {
           const complete = catTasks.filter(t => t.status === 'Complete');
           const showCompleted = expandedCompleted.has(cat.id);
 
-          if (catTasks.length === 0 && (ownerFilter !== 'All' || phaseFilter !== 'All' || search)) return null;
+          if (catTasks.length === 0 && (ownerFilter !== 'All' || search)) return null;
 
           return (
             <div key={cat.id}>
@@ -144,6 +161,7 @@ export default function TasksPage() {
                     task={task}
                     isLast={i === incomplete.length - 1 && complete.length === 0}
                     onToggle={() => toggleComplete(task)}
+                    onCycleOwner={() => cycleOwner(task)}
                     onEdit={() => setModalTask(task)}
                     onDelete={() => deleteTask(task.id)}
                   />
@@ -163,6 +181,7 @@ export default function TasksPage() {
                         task={task}
                         isLast={i === complete.length - 1}
                         onToggle={() => toggleComplete(task)}
+                        onCycleOwner={() => cycleOwner(task)}
                         onEdit={() => setModalTask(task)}
                         onDelete={() => deleteTask(task.id)}
                       />
@@ -182,9 +201,9 @@ export default function TasksPage() {
   );
 }
 
-function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
+function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
   task: Task; isLast: boolean;
-  onToggle: () => void; onEdit: () => void; onDelete: () => void;
+  onToggle: () => void; onCycleOwner: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const done = task.status === 'Complete';
   return (
@@ -202,8 +221,7 @@ function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
         <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {task.title}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
-          <span className="section-label">{task.owner}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
           {task.dueDate && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)' }}>
               <Calendar size={10} /> Due {format(parseISO(task.dueDate), 'MMM d')}
@@ -217,8 +235,15 @@ function TaskRow({ task, isLast, onToggle, onEdit, onDelete }: {
         </div>
       </div>
 
-      {/* Right: edit/delete (hover) + done pill */}
+      {/* Right: owner tag + edit/delete (hover) + done pill */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6, flexShrink: 0 }}>
+        <button
+          onClick={e => { e.stopPropagation(); onCycleOwner(); }}
+          className={`owner-tag ${task.owner ? 'owner-tag-set' : ''}`}
+          title="Cycle owner"
+        >
+          {task.owner ?? '—'}
+        </button>
         <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
             <Pencil size={14} />
@@ -264,22 +289,25 @@ function TaskModal({ task, categories, onClose, onSave }: {
               </select>
             </div>
             <div>
-              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Owner</label>
-              <select value={editing.owner} onChange={e => setEditing({ ...editing, owner: e.target.value as TaskOwner })}>
-                <option>Andrew</option><option>Tory</option><option>Both</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Phase</label>
-              <select value={editing.phase} onChange={e => setEditing({ ...editing, phase: e.target.value as TaskPhase })}>
-                <option value="Move Out">Move Out</option><option value="Move In">Move In</option><option value="Both">Both</option>
-              </select>
-            </div>
-            <div>
               <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Due Date</label>
-              <input type="date" value={editing.dueDate || ''} onChange={e => setEditing({ ...editing, dueDate: e.target.value || null })} />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="date"
+                  value={editing.dueDate || ''}
+                  onChange={e => setEditing({ ...editing, dueDate: e.target.value || null })}
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                {editing.dueDate && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setEditing({ ...editing, dueDate: null })}
+                    style={{ flexShrink: 0 }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <div>
@@ -292,17 +320,6 @@ function TaskModal({ task, categories, onClose, onSave }: {
           <button className="btn btn-primary" onClick={() => onSave(editing)}>Save Task</button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: string[] }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span className="section-label">{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)} style={{ width: 'auto', padding: '6px 12px', height: 36, fontSize: 13 }}>
-        {options.map(o => <option key={o} value={o}>{o === 'All' ? `All ${label}s` : o}</option>)}
-      </select>
     </div>
   );
 }

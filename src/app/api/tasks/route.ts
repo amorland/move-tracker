@@ -30,8 +30,7 @@ export async function POST(request: Request) {
       title: body.title || 'New Task',
       description: body.description || null,
       status: body.status || 'Not Started',
-      owner: body.owner || 'Both',
-      phase: body.phase || 'Both',
+      owner: body.owner || null,
       notes: body.notes || null,
       "orderIndex": (last?.orderIndex ?? -1) + 1,
       "categoryId": body.categoryId,
@@ -53,8 +52,7 @@ export async function PATCH(request: Request) {
   if ('title' in rest) update.title = rest.title;
   if ('description' in rest) update.description = rest.description;
   if ('status' in rest) update.status = rest.status;
-  if ('owner' in rest) update.owner = rest.owner;
-  if ('phase' in rest) update.phase = rest.phase;
+  if ('owner' in rest) update.owner = rest.owner ?? null;
   if ('notes' in rest) update.notes = rest.notes;
   if ('dueDate' in rest) update['dueDate'] = rest.dueDate;
   if ('categoryId' in rest) update['categoryId'] = rest.categoryId;
@@ -87,8 +85,7 @@ function normalise(row: Record<string, unknown>) {
     title: row.title,
     description: row.description ?? null,
     status: row.status,
-    owner: row.owner,
-    phase: row.phase,
+    owner: (row.owner as string | null) || null,
     dueDate: row.dueDate ?? row.due_date ?? null,
     completedAt: row.completed_at ?? null,
     notes: row.notes ?? null,
