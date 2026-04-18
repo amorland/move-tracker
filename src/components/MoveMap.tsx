@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MoveLocation, MoveSettings } from '@/lib/types';
-import { MapPin, Navigation, Plus, Trash2, X, Clock, Route, Info, Moon, Pencil } from 'lucide-react';
+import { MapPin, Navigation, Plus, Trash2, X, Clock, Route, Info, Moon, Pencil, Home } from 'lucide-react';
 import { format, parseISO, addSeconds } from 'date-fns';
 
 const OriginIcon = L.divIcon({
@@ -203,6 +203,8 @@ export default function MoveMap() {
   });
   const routePts = sortedLocs.filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category) && l.lat && l.lng);
   const routePtIdx = new Map(routePts.map((l, i) => [l.id, i]));
+  const routeItems = sortedLocs.filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category));
+  const auxItems = sortedLocs.filter(l => !['Origin', 'Stop', 'Destination'].includes(l.category));
 
   const showForm = isAdding || editingLoc !== null;
   const formLoc = isAdding ? newLoc : (editingLoc as Partial<MoveLocation>);
@@ -244,13 +246,13 @@ export default function MoveMap() {
             </div>
           </div>
           {driveStart && <StatCard icon={<MapPin size={16} />} label="Drive Start" value={format(driveStart, 'MMM d')} accent />}
-          {estArrival && <StatCard icon={<MapPin size={16} />} label="Est. Arrival" value={format(estArrival, 'MMM d')} accent />}
+          {estArrival && <StatCard icon={<MapPin size={16} />} label="Est. Arrival" value={format(estArrival, "MMM d 'at' h:mma")} accent />}
         </div>
       )}
 
       <div className="map-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, height: 640 }}>
         {/* Map */}
-        <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid var(--color-border)', position: 'relative', boxShadow: 'var(--shadow-md)', minHeight: 320 }}>
+        <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid var(--color-border)', position: 'relative', boxShadow: 'var(--shadow-md)', minHeight: 320, isolation: 'isolate' }}>
           <MapContainer center={[36, -80]} zoom={5} style={{ height: '100%', width: '100%' }}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -333,78 +335,103 @@ export default function MoveMap() {
           )}
 
           {/* Locations list */}
-          <div style={{ border: '1px solid var(--color-border)', borderRadius: 12, overflow: 'hidden' }}>
-            {locations.length === 0 ? (
-              <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14 }}>
-                <Info size={32} color="var(--color-border)" style={{ margin: '0 auto 12px' }} />
-                <span style={{ fontWeight: 600, color: 'var(--color-foreground)' }}>Fat Necks, start here.</span>
-                <br />Add locations to plot the route.
-              </div>
-            ) : sortedLocs.map((loc, i) => {
-              const nextLoc = i < sortedLocs.length - 1 ? sortedLocs[i + 1] : null;
-              const idxA = routePtIdx.get(loc.id);
-              const idxB = nextLoc ? routePtIdx.get(nextLoc.id) : undefined;
-              const leg = (idxA !== undefined && idxB !== undefined && idxB === idxA + 1)
-                ? routeStats?.legs[idxA] : null;
-              const isLast = i === sortedLocs.length - 1;
-
-              return (
-                <React.Fragment key={loc.id}>
-                  <div
-                    style={{
-                      padding: '14px 16px',
-                      background: editingLoc?.id === loc.id ? 'var(--color-accent-soft)' : 'white',
-                      display: 'flex', alignItems: 'center', gap: 12,
-                      borderBottom: (!leg && !isLast) ? '1px solid var(--color-border)' : 'none',
-                      transition: 'background 0.15s',
-                    }}
-                    className="item-row"
-                  >
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--color-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {['Origin', 'Destination'].includes(loc.category)
-                        ? <Navigation size={15} color="var(--color-accent-dark)" />
-                        : <MapPin size={15} color="var(--color-accent-dark)" />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                        <span className="section-label">{loc.category}</span>
-                        {isOvernight(loc) && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6366f1', background: '#eef2ff', padding: '1px 6px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            <Moon size={9} /> Overnight
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => openEdit(loc)} title="Edit">
-                        <Pencil size={14} color="var(--color-secondary)" />
-                      </button>
-                      <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => deleteLoc(loc.id)} title="Delete">
-                        <Trash2 size={14} color="var(--color-border)" />
-                      </button>
-                    </div>
-                  </div>
-                  {leg && (
-                    <div style={{ padding: '5px 16px 5px 20px', background: 'var(--color-background)', borderBottom: isLast ? 'none' : '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 32, flexShrink: 0, gap: 2 }}>
-                        <div style={{ width: 1, height: 5, background: 'var(--color-border)' }} />
-                        <div style={{ width: 5, height: 5, borderRadius: '50%', border: '1px solid var(--color-border)', background: 'var(--color-background)' }} />
-                        <div style={{ width: 1, height: 5, background: 'var(--color-border)' }} />
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)' }}>
-                        {fmtDuration(Math.round(leg.durationSeconds * 0.8))}
-                      </span>
-                      <span style={{ fontSize: 11, color: 'var(--color-border)' }}>·</span>
-                      <span style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.75 }}>
-                        {Math.round(leg.distanceMiles)} mi
-                      </span>
-                    </div>
+          {locations.length === 0 ? (
+            <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14, background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
+              <Info size={32} color="var(--color-border)" style={{ margin: '0 auto 12px' }} />
+              <span style={{ fontWeight: 600, color: 'var(--color-foreground)' }}>Fat Necks, start here.</span>
+              <br />Add locations to plot the route.
+            </div>
+          ) : (
+            <>
+              {routeItems.length > 0 && (
+                <div style={{ position: 'relative' }}>
+                  {routeItems.length > 1 && (
+                    <div style={{ position: 'absolute', left: 22, top: 22, bottom: 22, width: 2, background: 'var(--color-border)', zIndex: 0 }} />
                   )}
-                </React.Fragment>
-              );
-            })}
-          </div>
+                  {routeItems.map((loc, i) => {
+                    const nextRouteLoc = i < routeItems.length - 1 ? routeItems[i + 1] : null;
+                    const idxA = routePtIdx.get(loc.id);
+                    const idxB = nextRouteLoc ? routePtIdx.get(nextRouteLoc.id) : undefined;
+                    const leg = (idxA !== undefined && idxB !== undefined && idxB === idxA + 1)
+                      ? routeStats?.legs[idxA] : null;
+                    const isOrigin = loc.category === 'Origin';
+                    const isDest = loc.category === 'Destination';
+                    const isOvernightStop = isOvernight(loc);
+                    const isLastRoute = i === routeItems.length - 1;
+
+                    return (
+                      <React.Fragment key={loc.id}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: leg ? 2 : isLastRoute ? 0 : 8 }}>
+                          <div style={{ width: 46, flexShrink: 0, display: 'flex', justifyContent: 'center', paddingTop: 13, position: 'relative', zIndex: 1 }}>
+                            {isOrigin && (
+                              <div style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--color-accent)', border: '2.5px solid white', boxShadow: '0 0 0 3px rgba(192,107,62,0.2)' }} />
+                            )}
+                            {isDest && (
+                              <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--color-accent-soft)', border: '2px solid var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Home size={11} color="var(--color-accent-dark)" />
+                              </div>
+                            )}
+                            {isOvernightStop && (
+                              <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#eef2ff', border: '2px solid #6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <Moon size={9} color="#6366f1" />
+                              </div>
+                            )}
+                            {!isOrigin && !isDest && !isOvernightStop && (
+                              <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'white', border: '2px solid var(--color-border)', marginTop: 5 }} />
+                            )}
+                          </div>
+                          <div style={{ flex: 1, background: editingLoc?.id === loc.id ? 'var(--color-accent-soft)' : 'var(--color-surface)', borderRadius: 8, border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.15s' }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                                <span className="section-label">{isOrigin ? 'Start' : isDest ? 'Destination' : 'Stop'}</span>
+                                {isOvernightStop && (
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 700, color: '#6366f1', background: '#eef2ff', padding: '1px 6px', borderRadius: 'var(--radius-pill)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    <Moon size={9} /> Overnight
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                              <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => openEdit(loc)} title="Edit"><Pencil size={14} color="var(--color-secondary)" /></button>
+                              <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => deleteLoc(loc.id)} title="Delete"><Trash2 size={14} color="var(--color-border)" /></button>
+                            </div>
+                          </div>
+                        </div>
+                        {leg && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingLeft: 58, paddingTop: 3, paddingBottom: 3, marginBottom: isLastRoute ? 0 : 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)' }}>{fmtDuration(Math.round(leg.durationSeconds * 0.8))}</span>
+                            <span style={{ fontSize: 10, color: 'var(--color-border)' }}>·</span>
+                            <span style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.7 }}>{Math.round(leg.distanceMiles)} mi</span>
+                          </div>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              )}
+              {auxItems.length > 0 && (
+                <div style={{ marginTop: routeItems.length > 0 ? 8 : 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className="section-label" style={{ paddingLeft: 2 }}>Other Stops</div>
+                  {auxItems.map(loc => (
+                    <div key={loc.id} style={{ background: editingLoc?.id === loc.id ? 'var(--color-accent-soft)' : 'var(--color-surface)', borderRadius: 8, border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, transition: 'background 0.15s' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--color-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <MapPin size={14} color="var(--color-accent-dark)" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</div>
+                        <span className="section-label" style={{ marginTop: 2, display: 'block' }}>{loc.category}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => openEdit(loc)} title="Edit"><Pencil size={14} color="var(--color-secondary)" /></button>
+                        <button className="btn btn-ghost btn-sm" style={{ padding: '0 6px' }} onClick={() => deleteLoc(loc.id)} title="Delete"><Trash2 size={14} color="var(--color-border)" /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

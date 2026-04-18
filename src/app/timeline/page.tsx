@@ -22,10 +22,7 @@ type TimelineItem = {
   isLast?: boolean;
 };
 
-type TypeFilter = 'all' | ItemType;
-
-const FILTER_OPTIONS: { value: TypeFilter; label: string; Icon: React.ReactNode }[] = [
-  { value: 'all',    label: 'All',       Icon: null },
+const TYPE_CHIPS: { value: ItemType; label: string; Icon: React.ReactNode }[] = [
   { value: 'anchor', label: 'Key Dates', Icon: null },
   { value: 'event',  label: 'Events',    Icon: <CalendarCheck size={12} /> },
   { value: 'task',   label: 'Tasks',     Icon: <CheckCircle2 size={12} /> },
@@ -39,7 +36,7 @@ export default function TimelinePage() {
   const [selected, setSelected] = useState<TimelineItem | null>(null);
   const [addModal, setAddModal] = useState(false);
   const [editEvent, setEditEvent] = useState<MoveEvent | null>(null);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [activeTypes, setActiveTypes] = useState<Set<ItemType>>(new Set());
   const [search, setSearch] = useState('');
 
   const anyModal = selected !== null || addModal || editEvent !== null;
@@ -95,8 +92,16 @@ export default function TimelinePage() {
     })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
+  const toggleType = (type: ItemType) => {
+    setActiveTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type); else next.add(type);
+      return next;
+    });
+  };
+
   const items = allItems
-    .filter(i => typeFilter === 'all' || i.type === typeFilter)
+    .filter(i => activeTypes.size === 0 || activeTypes.has(i.type))
     .filter(i => !search || i.title.toLowerCase().includes(search.toLowerCase()));
 
   // Group by month
@@ -112,7 +117,7 @@ export default function TimelinePage() {
     fetchAll();
   };
 
-  const isFiltering = typeFilter !== 'all' || !!search;
+  const isFiltering = activeTypes.size > 0 || !!search;
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 64 }}>
@@ -135,18 +140,24 @@ export default function TimelinePage() {
 
       {/* Type filter chips */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 32, flexWrap: 'wrap', alignItems: 'center' }}>
-        {FILTER_OPTIONS.map(({ value, label, Icon }) => (
+        <button
+          onClick={() => setActiveTypes(new Set())}
+          className={`filter-chip ${activeTypes.size === 0 ? 'filter-chip-active' : ''}`}
+        >
+          All
+        </button>
+        {TYPE_CHIPS.map(({ value, label, Icon }) => (
           <button
             key={value}
-            onClick={() => setTypeFilter(value)}
-            className={`filter-chip ${typeFilter === value ? 'filter-chip-active' : ''}`}
+            onClick={() => toggleType(value)}
+            className={`filter-chip ${activeTypes.has(value) ? 'filter-chip-active' : ''}`}
           >
             {Icon}
             {label}
           </button>
         ))}
         {isFiltering && (
-          <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setTypeFilter('all'); }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setActiveTypes(new Set()); }}>
             <X size={13} /> Clear
           </button>
         )}
