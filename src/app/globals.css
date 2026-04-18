@@ -1,16 +1,16 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #f4f1ea;
-  --color-foreground: #2d2a26;
+  --color-background: #f0ebe3;
+  --color-foreground: #252018;
   --color-surface: #ffffff;
-  --color-accent: #7a9e87;
-  --color-accent-dark: #5e7d6b;
-  --color-accent-soft: #eef4f1;
-  --color-success: #7a9e87;
-  --color-success-soft: #eef4f1;
-  --color-secondary: #8c8882;
-  --color-border: #e7e5ec;
+  --color-accent: #7c8f68;
+  --color-accent-dark: #5f6e4f;
+  --color-accent-soft: #eaefea;
+  --color-success: #7c8f68;
+  --color-success-soft: #eaefea;
+  --color-secondary: #8a8278;
+  --color-border: #d9d4cc;
 
   --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-serif: 'Lora', Georgia, 'Times New Roman', serif;
@@ -20,9 +20,9 @@
   --radius-lg: 20px;
   --radius-pill: 100px;
 
-  --shadow-sm: 0 1px 4px rgba(45, 42, 38, 0.07), 0 1px 2px rgba(45, 42, 38, 0.04);
-  --shadow-md: 0 4px 20px rgba(45, 42, 38, 0.08);
-  --shadow-float: 0 8px 32px rgba(45, 42, 38, 0.12);
+  --shadow-sm: 0 1px 4px rgba(37, 32, 24, 0.08), 0 1px 2px rgba(37, 32, 24, 0.05);
+  --shadow-md: 0 4px 20px rgba(37, 32, 24, 0.10);
+  --shadow-float: 0 8px 32px rgba(37, 32, 24, 0.14);
 }
 
 /* ─── Reset ─────────────────────────────── */
@@ -54,13 +54,8 @@ body:has(.modal-backdrop) { overflow: hidden; }
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 64px;
-  background: #0f172a;
-  background-image:
-    radial-gradient(circle, rgba(240,180,50,0.18) 1px, transparent 1px),
-    radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
-  background-size: 48px 48px, 22px 22px;
-  background-position: 0 0, 11px 11px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  background: #131210;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   display: flex;
   align-items: center;
   padding: 0 24px;
@@ -72,12 +67,7 @@ body:has(.modal-backdrop) { overflow: hidden; }
 .sidebar {
   width: 240px;
   flex-shrink: 0;
-  background: #0f172a;
-  background-image:
-    radial-gradient(circle, rgba(240,180,50,0.18) 1px, transparent 1px),
-    radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px);
-  background-size: 48px 48px, 22px 22px;
-  background-position: 0 0, 11px 11px;
+  background: #131210;
   border-right: 1px solid rgba(255,255,255,0.06);
   position: fixed;
   top: 64px; bottom: 0; left: 0;
@@ -344,7 +334,7 @@ h2 { font-size: 12px; font-weight: 700; color: var(--color-foreground); text-tra
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(45, 42, 38, 0.4);
+  background: rgba(37, 32, 24, 0.45);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
