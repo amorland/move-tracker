@@ -140,9 +140,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="main-content">
             {children}
             <footer style={{ marginTop: 80, borderTop: '1px solid var(--color-border)', padding: '32px 0', textAlign: 'center' }}>
-              <div style={{ fontSize: 14, fontFamily: 'var(--font-serif)', color: 'var(--color-foreground)', marginBottom: 6 }}>Andrew, Tory & Remy</div>
-              <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginBottom: 12 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
-              <div style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.65, fontStyle: 'italic', maxWidth: 480, margin: '0 auto' }}>Starland Moving™ is a wholly-owned subsidiary of Starland Enterprises™ — quietly incorporated in 2017, officially licensed in 2022, and currently relocating its entire operation to Cold Spring, NY.</div>
+              <div style={{ fontSize: 13, color: 'var(--color-secondary)', fontFamily: 'var(--font-serif)', letterSpacing: '0.04em', marginBottom: 8 }}>
+                Andrew · Tory · Remy · Winston · Harper
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--color-secondary)', opacity: 0.7, marginBottom: 14 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</div>
+              <div style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.55, fontStyle: 'italic', maxWidth: 420, margin: '0 auto', lineHeight: 1.6, padding: '0 16px' }}>Starland Moving™ is a Starland Enterprises™ production — incorporated 2017, licensed 2022.</div>
             </footer>
           </main>
         </div>
