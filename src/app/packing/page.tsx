@@ -55,11 +55,11 @@ export default function InventoryPage() {
   };
 
   const resolveItem = async (item: PackingItem) => {
-    await saveItem({ ...item, status: 'Resolved' });
+    await saveItem({ ...item, status: 'Packed' as PackingStatus });
   };
 
   const moveItem = async (item: PackingItem, newAction: PackingAction) => {
-    await saveItem({ ...item, action: newAction, status: 'Unresolved' });
+    await saveItem({ ...item, action: newAction, status: 'Not Packed' as PackingStatus });
   };
 
   const filteredItems = items.filter(i => {
@@ -115,7 +115,7 @@ export default function InventoryPage() {
           <h1 style={{ marginBottom: '8px', letterSpacing: '0.02em' }}>Inventory Resolution</h1>
           <p className="section-subtitle" style={{ marginBottom: 0 }}>Decide the fate of every item in your home.</p>
         </div>
-        <button className="btn btn-primary" style={{ gap: '10px', height: '48px', padding: '0 24px', borderRadius: '12px' }} onClick={() => { setEditingItem({ action: activeTab, status: 'Unresolved', priority: 'Medium', room: 'Kitchen' }); setIsModalOpen(true); }}>
+        <button className="btn btn-primary" style={{ gap: '10px', height: '48px', padding: '0 24px', borderRadius: '12px' }} onClick={() => { setEditingItem({ action: activeTab, status: 'Not Packed' as PackingStatus, priority: 'Medium' as PackingPriority, room: 'Kitchen' }); setIsModalOpen(true); }}>
           <Plus size={20} /> Add Item
         </button>
       </div>
@@ -272,13 +272,16 @@ function InventoryModal({ item, onClose, onSave }: { item: Partial<PackingItem>,
   const [notes, setNotes] = useState(item.notes || (item as any).notes || '');
 
   const handleSave = () => {
+    const s = String(item.status || 'Unresolved').toLowerCase();
+    const finalStatus = (s === 'resolved' || s === 'packed') ? 'Packed' : 'Not Packed';
+    
     onSave({
       ...item,
       itemName,
       room,
       action,
       notes,
-      status: (item.status === 'Resolved' ? 'Resolved' : 'Unresolved') as PackingStatus,
+      status: finalStatus as PackingStatus,
       priority: (item.priority || 'Medium') as PackingPriority
     });
   };

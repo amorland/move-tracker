@@ -56,8 +56,7 @@ export async function PATCH(request: Request) {
     if (updateData.status) {
       const s = String(updateData.status).toLowerCase();
       if (s === 'resolved' || s === 'packed') {
-        // Try to guess the correct 'Resolved' equivalent for this DB
-        updateData.status = 'Resolved'; 
+        updateData.status = 'Packed'; 
       } else {
         updateData.status = 'Not Packed';
       }
