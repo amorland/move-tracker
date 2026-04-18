@@ -286,9 +286,9 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
       style={{
         padding: '16px 20px',
         borderRadius: 12,
-        background: isAnchor ? 'linear-gradient(90deg, rgba(240,180,50,0.07) 0%, var(--color-accent-soft) 100%)' : 'var(--color-surface)',
-        border: `1px solid ${isAnchor ? 'var(--color-accent)' : 'var(--color-border)'}`,
-        borderLeft: isAnchor ? '3px solid #f0b432' : undefined,
+        background: 'var(--color-surface)',
+        border: '1px solid var(--color-border)',
+        borderLeft: isAnchor ? '3px solid #f0b432' : '1px solid var(--color-border)',
         display: 'flex', alignItems: 'center', gap: 16,
         cursor: 'pointer', transition: 'all 0.15s',
         opacity: isDone ? 0.65 : 1,

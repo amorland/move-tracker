@@ -10,9 +10,9 @@ A private web app for Andrew and Tory's move from Clearwater, FL to Cold Spring,
 - **Vitest** for tests
 - **Deployed on Vercel**
 
-## Design System — "Plaster & Carbon"
+## Design System — "Washi"
 
-Warm graphite nav/sidebar (`#131210`) against a plaster-putty content area (`#f0ebe3`). Pure white (`#ffffff`) surfaces pop clearly against the background, giving every card and panel strong visual presence. Olive-sage (`#7c8f68`) for primary actions and completion states; gold (`#f0b432`) reserved for the star logo and key date accents. Borders at `#d9d4cc` — warm and visible, providing structure without hard lines. Lora serif for headings, DM Sans for body.
+Warm near-black nav/sidebar (`#1c1917`) against a barely-warm near-white content area (`#faf8f5`). Pure white surfaces with very quiet warm borders (`#ece8e1`) — structure comes from whitespace and typographic hierarchy, not heavy decoration. Terracotta (`#c06b3e`) as the single accent: used only for CTAs, active states, and interactive elements. Gold (`#f0b432`) reserved for the star logo and key date marker. Lora serif for headings, DM Sans for body.
 
 ## Pages
 
