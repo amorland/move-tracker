@@ -1,21 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Task, Category, MoveEvent } from '@/lib/types';
+import Link from 'next/link';
+import { MoveSettings, Task, MoveEvent } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import { CheckCircle2, Calendar, MapPin, Bell, Plus, X, ChevronRight, Trash2 } from 'lucide-react';
+import { CheckCircle2, Calendar, MapPin, Bell, Plus, X, ChevronRight, Trash2, Star, Pencil } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
+import { useScrollLock } from '@/lib/useScrollLock';
+
+type ItemType = 'anchor' | 'event' | 'task';
 
 type TimelineItem = {
   id: string;
   title: string;
   date: Date;
-  type: 'anchor' | 'event' | 'task';
+  type: ItemType;
   status: string;
   time?: string | null;
   notes?: string | null;
   rawEvent?: MoveEvent;
 };
+
+type TypeFilter = 'all' | ItemType;
 
 export default function TimelinePage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
@@ -23,7 +29,12 @@ export default function TimelinePage() {
   const [events, setEvents] = useState<MoveEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<TimelineItem | null>(null);
-  const [eventModal, setEventModal] = useState(false);
+  const [addModal, setAddModal] = useState(false);
+  const [editEvent, setEditEvent] = useState<MoveEvent | null>(null);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+
+  const anyModal = selected !== null || addModal || editEvent !== null;
+  useScrollLock(anyModal);
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -44,7 +55,7 @@ export default function TimelinePage() {
 
   const milestones = getMilestones(settings);
 
-  const items: TimelineItem[] = [
+  const allItems: TimelineItem[] = [
     ...milestones
       .filter(m => m.date)
       .map(m => ({
@@ -75,6 +86,8 @@ export default function TimelinePage() {
     })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
+  const items = typeFilter === 'all' ? allItems : allItems.filter(i => i.type === typeFilter);
+
   // Group by month
   const grouped: Record<string, TimelineItem[]> = {};
   for (const item of items) {
@@ -88,24 +101,44 @@ export default function TimelinePage() {
     fetchAll();
   };
 
+  const filterLabels: { value: TypeFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'anchor', label: 'Key Dates' },
+    { value: 'event', label: 'Events' },
+    { value: 'task', label: 'Tasks' },
+  ];
+
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 64 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 40, flexWrap: 'wrap', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Timeline</h1>
-          <p className="page-subtitle">Chronology of your move.</p>
+          <h1>The Journey</h1>
+          <p className="page-subtitle">Clearwater → Cold Spring</p>
         </div>
-        <button className="btn btn-primary btn-lg" onClick={() => setEventModal(true)}>
+        <button className="btn btn-primary btn-lg" onClick={() => setAddModal(true)}>
           <Plus size={18} /> Add Event
         </button>
+      </div>
+
+      {/* Type filter chips */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 32, flexWrap: 'wrap' }}>
+        {filterLabels.map(({ value, label }) => (
+          <button
+            key={value}
+            onClick={() => setTypeFilter(value)}
+            className={`filter-chip ${typeFilter === value ? 'filter-chip-active' : ''}`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {Object.keys(grouped).length === 0 ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
           <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
           <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>
-            Your timeline is empty. Set key dates on the Overview page, or add an event here.
+            {typeFilter !== 'all' ? 'No items match this filter.' : 'Your timeline is empty. Set key dates on the Overview page, or add an event here.'}
           </p>
         </div>
       ) : (
@@ -139,7 +172,7 @@ export default function TimelinePage() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <TypeIcon type={selected.type} />
+                <TypeIcon type={selected.type} confirmed={selected.status === 'confirmed'} />
                 <h2 style={{ margin: 0 }}>{selected.type === 'anchor' ? 'Key Date' : selected.type === 'event' ? 'Event' : 'Task'}</h2>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ padding: '0 8px' }}><X size={18} /></button>
@@ -167,12 +200,24 @@ export default function TimelinePage() {
                   <p style={{ fontSize: 14, color: 'var(--color-secondary)', lineHeight: 1.6 }}>{selected.notes}</p>
                 </div>
               )}
+              {selected.type === 'anchor' && (
+                <div>
+                  <Link href="/" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>
+                    Edit on Overview →
+                  </Link>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               {selected.type === 'event' && selected.rawEvent && (
-                <button className="btn btn-secondary" style={{ marginRight: 'auto', color: '#b91c1c' }} onClick={() => deleteEvent(selected.rawEvent!.id)}>
-                  <Trash2 size={14} /> Delete
-                </button>
+                <>
+                  <button className="btn btn-secondary" style={{ marginRight: 'auto', color: '#b91c1c' }} onClick={() => deleteEvent(selected.rawEvent!.id)}>
+                    <Trash2 size={14} /> Delete
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => { setEditEvent(selected.rawEvent!); setSelected(null); }}>
+                    <Pencil size={14} /> Edit
+                  </button>
+                </>
               )}
               <button className="btn btn-primary" onClick={() => setSelected(null)}>Close</button>
             </div>
@@ -181,8 +226,20 @@ export default function TimelinePage() {
       )}
 
       {/* Add event modal */}
-      {eventModal && (
-        <AddEventModal onClose={() => setEventModal(false)} onSaved={() => { setEventModal(false); fetchAll(); }} />
+      {addModal && (
+        <EventFormModal
+          onClose={() => setAddModal(false)}
+          onSaved={() => { setAddModal(false); fetchAll(); }}
+        />
+      )}
+
+      {/* Edit event modal */}
+      {editEvent && (
+        <EventFormModal
+          existing={editEvent}
+          onClose={() => setEditEvent(null)}
+          onSaved={() => { setEditEvent(null); fetchAll(); }}
+        />
       )}
     </div>
   );
@@ -200,8 +257,8 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
       style={{
         padding: '16px 20px',
         borderRadius: 12,
-        background: isAnchor && isConfirmed ? 'var(--color-accent-soft)' : 'var(--color-surface)',
-        border: `1px solid ${isAnchor && isConfirmed ? 'var(--color-accent)' : 'var(--color-border)'}`,
+        background: isAnchor ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+        border: `1px solid ${isAnchor ? 'var(--color-accent)' : 'var(--color-border)'}`,
         display: 'flex', alignItems: 'center', gap: 16,
         cursor: 'pointer', transition: 'all 0.15s',
         opacity: isDone ? 0.65 : 1,
@@ -229,18 +286,31 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
 }
 
 function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
-  const color = confirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)';
-  if (type === 'anchor') return <MapPin size={16} color={color} />;
-  if (type === 'event') return <Bell size={16} color={color} />;
-  return <CheckCircle2 size={16} color={color} />;
+  const isAccent = type === 'anchor' || confirmed;
+  const bg = isAccent ? 'var(--color-accent-soft)' : 'var(--color-background)';
+  const border = isAccent ? 'var(--color-accent)' : 'var(--color-border)';
+  const color = isAccent ? 'var(--color-accent-dark)' : 'var(--color-secondary)';
+  return (
+    <div style={{ width: 36, height: 36, borderRadius: '50%', background: bg, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {type === 'anchor'
+        ? <Star size={15} color={color} fill={color} />
+        : type === 'event'
+        ? <Bell size={15} color={color} />
+        : <CheckCircle2 size={15} color={color} />}
+    </div>
+  );
 }
 
-function AddEventModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [confirmed, setConfirmed] = useState(false);
-  const [notes, setNotes] = useState('');
+function EventFormModal({ existing, onClose, onSaved }: {
+  existing?: MoveEvent;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(existing?.title ?? '');
+  const [date, setDate] = useState(existing?.date ?? '');
+  const [time, setTime] = useState(existing?.time ?? '');
+  const [confirmed, setConfirmed] = useState(existing?.is_confirmed ?? false);
+  const [notes, setNotes] = useState(existing?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -248,10 +318,11 @@ function AddEventModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     if (!title.trim()) { setError('Title is required.'); return; }
     if (!date) { setError('Date is required.'); return; }
     setSaving(true);
+    const body = { title: title.trim(), date, time: time || null, is_confirmed: confirmed, notes: notes || null };
     const res = await fetch('/api/events', {
-      method: 'POST',
+      method: existing ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: title.trim(), date, time: time || null, is_confirmed: confirmed, notes: notes || null }),
+      body: JSON.stringify(existing ? { ...body, id: existing.id } : body),
     });
     if (res.ok) onSaved();
     else { const e = await res.json(); setError(e.error || 'Error saving event'); setSaving(false); }
@@ -261,7 +332,7 @@ function AddEventModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2 style={{ margin: 0 }}>Add Event</h2>
+          <h2 style={{ margin: 0 }}>{existing ? 'Edit Event' : 'Add Event'}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '0 8px' }}><X size={18} /></button>
         </div>
         <div className="modal-body">
@@ -270,7 +341,7 @@ function AddEventModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           )}
           <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Title</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Home inspection" autoFocus />
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Home inspection" autoFocus={!existing} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
@@ -302,7 +373,7 @@ function AddEventModal({ onClose, onSaved }: { onClose: () => void; onSaved: () 
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : 'Add Event'}
+            {saving ? 'Saving…' : existing ? 'Save Changes' : 'Add Event'}
           </button>
         </div>
       </div>

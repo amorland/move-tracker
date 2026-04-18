@@ -26,11 +26,13 @@ const ACTION_COLORS: Record<BelongingAction, { bg: string; color: string }> = {
   Trash:  { bg: 'var(--color-background)', color: 'var(--color-secondary)' },
 };
 
+type ResolvedFilter = 'all' | 'active' | 'done';
+
 export default function BelongingsPage() {
   const [items, setItems] = useState<Belonging[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState<BelongingAction | 'All'>('All');
-  const [showResolved, setShowResolved] = useState(false);
+  const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>('all');
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<Partial<Belonging> | null>(null);
 
@@ -67,7 +69,8 @@ export default function BelongingsPage() {
 
   const visible = items.filter(i => {
     if (actionFilter !== 'All' && i.action !== actionFilter) return false;
-    if (showResolved ? i.status !== 'resolved' : i.status !== 'unresolved') return false;
+    if (resolvedFilter === 'active' && i.status !== 'unresolved') return false;
+    if (resolvedFilter === 'done' && i.status !== 'resolved') return false;
     if (search && !i.itemName.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -75,8 +78,11 @@ export default function BelongingsPage() {
   const resolvedCount = items.filter(i => i.status === 'resolved').length;
   const unresolvedCount = items.filter(i => i.status === 'unresolved').length;
 
-  const countFor = (action: BelongingAction | 'All') =>
-    items.filter(i => (action === 'All' || i.action === action) && i.status === (showResolved ? 'resolved' : 'unresolved')).length;
+  const actionCount = (a: BelongingAction | 'All') =>
+    items.filter(i => (a === 'All' || i.action === a)).length;
+
+  // Group visible items by room
+  const sortedRooms = [...new Set(visible.map(i => i.room))].sort();
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading belongings…</div>;
 
@@ -85,8 +91,8 @@ export default function BelongingsPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Belongings</h1>
-          <p className="page-subtitle">{unresolvedCount} to resolve · {resolvedCount} done</p>
+          <h1>The Big Sort</h1>
+          <p className="page-subtitle">{unresolvedCount} in the air · {resolvedCount} sorted</p>
         </div>
         <button
           className="btn btn-primary btn-lg"
@@ -106,50 +112,74 @@ export default function BelongingsPage() {
         />
       </div>
 
-      {/* Filter chips */}
+      {/* Filters */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        {(['All', ...ACTIONS] as const).map(a => {
-          const count = countFor(a);
-          return (
-            <button
-              key={a}
-              onClick={() => setActionFilter(a)}
-              className={`filter-chip ${actionFilter === a ? 'filter-chip-active' : ''}`}
-            >
-              {a !== 'All' && ACTION_ICONS[a]}
-              {a}
-              {count > 0 && <span style={{ fontSize: 10, opacity: 0.75 }}>({count})</span>}
-            </button>
-          );
-        })}
+        {(['All', ...ACTIONS] as const).map(a => (
+          <button
+            key={a}
+            onClick={() => setActionFilter(a)}
+            className={`filter-chip ${actionFilter === a ? 'filter-chip-active' : ''}`}
+          >
+            {a !== 'All' && ACTION_ICONS[a]}
+            {a === 'All' ? 'All types' : a}
+            <span style={{ fontSize: 10, opacity: 0.6 }}>({actionCount(a)})</span>
+          </button>
+        ))}
         <div style={{ flex: 1 }} />
-        <button
-          onClick={() => setShowResolved(v => !v)}
-          className={`filter-chip ${showResolved ? 'filter-chip-active' : ''}`}
-        >
-          {showResolved ? `Resolved (${resolvedCount})` : `Show resolved (${resolvedCount})`}
-        </button>
+        <div className="seg-control">
+          {([['all', 'All'], ['active', 'Active'], ['done', 'Done']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => setResolvedFilter(val)}
+              className={`seg-btn ${resolvedFilter === val ? 'seg-active' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Items list */}
+      {/* Items list grouped by room */}
       <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
         {visible.length === 0 ? (
           <div style={{ padding: '64px 24px', textAlign: 'center' }}>
             <Box size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>
-              {showResolved ? 'No resolved items here.' : 'Nothing to resolve here.'}
-            </p>
+            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>Nothing here.</p>
           </div>
-        ) : visible.map((item, i) => (
-          <BelongingRow
-            key={item.id}
-            item={item}
-            isLast={i === visible.length - 1}
-            onToggle={() => toggleResolved(item)}
-            onEdit={() => setModal(item)}
-            onDelete={() => deleteItem(item.id)}
-          />
-        ))}
+        ) : sortedRooms.map((room, roomIdx) => {
+          const roomItems = visible.filter(i => i.room === room);
+          const roomResolved = roomItems.filter(i => i.status === 'resolved').length;
+          const isLastRoom = roomIdx === sortedRooms.length - 1;
+          return (
+            <div key={room}>
+              {/* Room label */}
+              <div style={{
+                padding: '8px 16px',
+                background: 'var(--color-background)',
+                borderTop: roomIdx > 0 ? '1px solid var(--color-border)' : 'none',
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <span className="section-label">{room}</span>
+                {roomResolved > 0 && (
+                  <span style={{ fontSize: 10, color: 'var(--color-accent-dark)', background: 'var(--color-accent-soft)', padding: '2px 7px', borderRadius: 'var(--radius-pill)', fontWeight: 700 }}>
+                    {roomResolved}/{roomItems.length} sorted
+                  </span>
+                )}
+              </div>
+              {/* Room items */}
+              {roomItems.map((item, itemIdx) => (
+                <BelongingRow
+                  key={item.id}
+                  item={item}
+                  isLast={isLastRoom && itemIdx === roomItems.length - 1}
+                  onToggle={() => toggleResolved(item)}
+                  onEdit={() => setModal(item)}
+                  onDelete={() => deleteItem(item.id)}
+                />
+              ))}
+            </div>
+          );
+        })}
       </div>
 
       {modal && (
@@ -171,12 +201,12 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
       style={{
         display: 'flex', alignItems: 'stretch',
         borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
-        background: done ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+        background: done ? 'var(--color-background)' : 'var(--color-surface)',
         transition: 'background 0.2s',
       }}
     >
       {/* Action badge */}
-      <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0, opacity: done ? 0.4 : 1, transition: 'opacity 0.2s' }}>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: '4px 10px', borderRadius: 'var(--radius-pill)',
@@ -191,13 +221,21 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
 
       {/* Item info — click to edit */}
       <div style={{ flex: 1, padding: '13px 8px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{
+          fontSize: 14, fontWeight: 500,
+          color: 'var(--color-secondary)',
+          textDecoration: done ? 'line-through' : 'none',
+          opacity: done ? 0.7 : 1,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          transition: 'all 0.2s',
+        }}>
           {item.itemName}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-          <span className="section-label">{item.room}</span>
-          {item.notes && <span style={{ fontSize: 12, color: 'var(--color-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{item.notes}</span>}
-        </div>
+        {item.notes && (
+          <div style={{ fontSize: 12, color: 'var(--color-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, marginTop: 2, opacity: done ? 0.5 : 0.8 }}>
+            {item.notes}
+          </div>
+        )}
       </div>
 
       {/* Right: edit/delete (hover) + resolve pill */}
@@ -214,7 +252,7 @@ function BelongingRow({ item, isLast, onToggle, onEdit, onDelete }: {
           onClick={e => { e.stopPropagation(); onToggle(); }}
           className={`done-pill ${done ? 'done-pill-active' : ''}`}
         >
-          {done ? <><Check size={13} strokeWidth={3} /> Resolved</> : 'Resolve'}
+          {done ? <><Check size={13} strokeWidth={3} /> Sorted</> : 'Sort it'}
         </button>
       </div>
     </div>

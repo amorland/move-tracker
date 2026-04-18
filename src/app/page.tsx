@@ -129,7 +129,7 @@ export default function OverviewPage() {
           </div>
           <div>
             <h1>Starland Moving</h1>
-            <p className="page-subtitle" style={{ marginTop: 2, fontSize: 13 }}>Andrew · Tory · Remy · Harper · Winston</p>
+            <p className="page-subtitle" style={{ marginTop: 2, fontSize: 13 }}>Clearwater, FL → Cold Spring, NY · Summer 2026</p>
           </div>
         </div>
         {daysUntilDrive !== null && daysUntilDrive >= 0 && (

@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <title>Starland Move Tracker</title>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>
         {/* Header */}
@@ -63,27 +63,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             aria-label="Toggle menu"
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, width: 20 }}>
-              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(45deg) translate(5px,5px)' : 'none' }} />
-              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, opacity: sidebarOpen ? 0 : 1, transition: 'all .2s' }} />
-              <div style={{ height: 2, background: 'var(--color-foreground)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(-45deg) translate(5px,-5px)' : 'none' }} />
+              <div style={{ height: 2, background: 'rgba(255,255,255,0.8)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(45deg) translate(5px,5px)' : 'none' }} />
+              <div style={{ height: 2, background: 'rgba(255,255,255,0.8)', borderRadius: 2, opacity: sidebarOpen ? 0 : 1, transition: 'all .2s' }} />
+              <div style={{ height: 2, background: 'rgba(255,255,255,0.8)', borderRadius: 2, transition: 'all .2s', transform: sidebarOpen ? 'rotate(-45deg) translate(5px,-5px)' : 'none' }} />
             </div>
           </button>
 
           {/* Logo */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--color-accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Star size={16} color="white" fill="white" />
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(240,180,50,0.12)', border: '1px solid rgba(240,180,50,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Star size={16} color="#f0b432" fill="#f0b432" />
             </div>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1 }}>Starland</div>
-              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--color-secondary)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1, marginTop: 3 }}>Moving Hub</div>
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.06em', lineHeight: 1, color: 'white' }}>Starland</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1, marginTop: 3 }}>Moving Hub</div>
             </div>
           </div>
 
           <div style={{ flex: 1 }} />
 
           {/* Desktop logout */}
-          <button onClick={handleLogout} className="desktop-only btn btn-ghost btn-sm" style={{ gap: 6 }}>
+          <button onClick={handleLogout} className="desktop-only btn btn-ghost btn-sm" style={{ gap: 6, color: 'rgba(255,255,255,0.55)' }}>
             <LogOut size={14} />
             <span>Logout</span>
           </button>
@@ -94,7 +94,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {sidebarOpen && (
             <div
               className="mobile-only"
-              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 49 }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 49 }}
               onClick={() => setSidebarOpen(false)}
             />
           )}
@@ -114,13 +114,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             ))}
             <div style={{ flex: 1 }} />
             <div className="divider" style={{ margin: '16px 0' }} />
-            <button onClick={handleLogout} className="nav-link" style={{ color: 'var(--color-secondary)' }}>
+            <button onClick={handleLogout} className="nav-link" style={{ color: 'rgba(255,255,255,0.38)' }}>
               <LogOut size={18} />
               <span>Logout</span>
             </button>
           </aside>
 
-          {/* Mobile sidebar (full width overlay) */}
+          {/* Mobile sidebar */}
           <aside className={`sidebar mobile-only ${sidebarOpen ? 'open' : ''}`} style={{ width: '80vw', zIndex: 50 }}>
             <div className="section-label" style={{ padding: '0 8px', marginBottom: 16 }}>Navigation</div>
             {NAV.map(({ href, label, Icon }) => (
@@ -134,7 +134,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
             ))}
             <div style={{ flex: 1 }} />
-            <button onClick={handleLogout} className="nav-link" style={{ color: 'var(--color-secondary)' }}>
+            <button onClick={handleLogout} className="nav-link" style={{ color: 'rgba(255,255,255,0.38)' }}>
               <LogOut size={18} />
               <span>Logout</span>
             </button>

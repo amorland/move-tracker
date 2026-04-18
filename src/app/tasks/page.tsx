@@ -16,7 +16,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('All');
   const [search, setSearch] = useState('');
-  const [expandedCompleted, setExpandedCompleted] = useState<Set<number>>(new Set());
+  const [showCompleted, setShowCompleted] = useState(false);
   const [modalTask, setModalTask] = useState<Partial<Task> | null>(null);
   const [defaultCategoryId, setDefaultCategoryId] = useState<number | null>(null);
 
@@ -72,17 +72,22 @@ export default function TasksPage() {
     if (res.ok) { setModalTask(null); fetchData(); }
   };
 
-  const openNewTask = (categoryId: number) => {
-    setModalTask({ categoryId, title: '', status: 'Not Started', owner: null, dueDate: null, notes: '' });
-  };
-
   const filtered = tasks.filter(t => {
     if (ownerFilter !== 'All' && t.owner !== ownerFilter) return false;
     if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
+  const incomplete = filtered.filter(t => t.status !== 'Complete');
+  const complete = filtered.filter(t => t.status === 'Complete');
+
+  // Group incomplete tasks by category, preserving category order
+  const grouped = categories
+    .map(cat => ({ cat, tasks: incomplete.filter(t => t.categoryId === cat.id) }))
+    .filter(g => g.tasks.length > 0);
+
   const totalDone = tasks.filter(t => t.status === 'Complete').length;
+  const isFiltering = ownerFilter !== 'All' || !!search;
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading tasks…</div>;
 
@@ -91,16 +96,16 @@ export default function TasksPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Tasks</h1>
+          <h1>The List</h1>
           <p className="page-subtitle">{totalDone} of {tasks.length} complete</p>
         </div>
-        <button className="btn btn-primary btn-lg" onClick={() => openNewTask(defaultCategoryId ?? 0)}>
+        <button className="btn btn-primary btn-lg" onClick={() => setModalTask({ categoryId: defaultCategoryId ?? 0, title: '', status: 'Not Started', owner: null, dueDate: null, notes: '' })}>
           <Plus size={18} /> Add Task
         </button>
       </div>
 
       {/* Search + Owner filter */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
         <div className="search-bar">
           <Search size={16} className="search-bar-icon" />
           <input
@@ -109,7 +114,7 @@ export default function TasksPage() {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {(['All', 'Andrew', 'Tory'] as const).map(o => (
             <button
               key={o}
@@ -119,79 +124,76 @@ export default function TasksPage() {
               {o === 'All' ? 'All owners' : o}
             </button>
           ))}
-          {(search || ownerFilter !== 'All') && (
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => { setSearch(''); setOwnerFilter('All'); }}
-            >
+          {isFiltering && (
+            <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setOwnerFilter('All'); }}>
               <X size={13} /> Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* Category sections */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {categories.map(cat => {
-          const catTasks = filtered.filter(t => t.categoryId === cat.id);
-          const incomplete = catTasks.filter(t => t.status !== 'Complete');
-          const complete = catTasks.filter(t => t.status === 'Complete');
-          const showCompleted = expandedCompleted.has(cat.id);
+      {/* Single flat task list */}
+      <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden', marginBottom: 32 }}>
+        {grouped.length === 0 && complete.length === 0 && (
+          <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14 }}>
+            {isFiltering ? 'No tasks match your filters.' : 'No tasks yet. Add one above.'}
+          </div>
+        )}
 
-          if (catTasks.length === 0 && (ownerFilter !== 'All' || search)) return null;
-
-          return (
-            <div key={cat.id}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <h2 style={{ margin: 0 }}>{cat.name}</h2>
-                <button className="btn btn-ghost btn-sm" onClick={() => openNewTask(cat.id)} style={{ gap: 6 }}>
-                  <Plus size={14} /> Add
-                </button>
-              </div>
-
-              <div style={{ background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
-                {catTasks.length === 0 && (
-                  <div style={{ padding: '28px 24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14 }}>
-                    No tasks in this category.
-                  </div>
-                )}
-                {incomplete.map((task, i) => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    isLast={i === incomplete.length - 1 && complete.length === 0}
-                    onToggle={() => toggleComplete(task)}
-                    onCycleOwner={() => cycleOwner(task)}
-                    onEdit={() => setModalTask(task)}
-                    onDelete={() => deleteTask(task.id)}
-                  />
-                ))}
-                {complete.length > 0 && (
-                  <>
-                    <button
-                      onClick={() => setExpandedCompleted(prev => { const n = new Set(prev); n.has(cat.id) ? n.delete(cat.id) : n.add(cat.id); return n; })}
-                      style={{ width: '100%', padding: '10px 20px', background: 'var(--color-background)', border: 'none', borderTop: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}
-                    >
-                      {showCompleted ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                      {complete.length} completed
-                    </button>
-                    {showCompleted && complete.map((task, i) => (
-                      <TaskRow
-                        key={task.id}
-                        task={task}
-                        isLast={i === complete.length - 1}
-                        onToggle={() => toggleComplete(task)}
-                        onCycleOwner={() => cycleOwner(task)}
-                        onEdit={() => setModalTask(task)}
-                        onDelete={() => deleteTask(task.id)}
-                      />
-                    ))}
-                  </>
-                )}
-              </div>
+        {grouped.map(({ cat, tasks: catTasks }, groupIdx) => (
+          <div key={cat.id}>
+            {/* Category divider */}
+            <div style={{
+              padding: '8px 16px',
+              background: 'var(--color-background)',
+              borderTop: groupIdx > 0 ? '1px solid var(--color-border)' : 'none',
+            }}>
+              <span className="section-label">{cat.name}</span>
             </div>
-          );
-        })}
+            {catTasks.map((task, i) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                isLast={false}
+                onToggle={() => toggleComplete(task)}
+                onCycleOwner={() => cycleOwner(task)}
+                onEdit={() => setModalTask(task)}
+                onDelete={() => deleteTask(task.id)}
+              />
+            ))}
+          </div>
+        ))}
+
+        {/* Completed section */}
+        {complete.length > 0 && (
+          <>
+            <button
+              onClick={() => setShowCompleted(v => !v)}
+              style={{
+                width: '100%', padding: '10px 20px',
+                background: 'var(--color-background)', border: 'none',
+                borderTop: grouped.length > 0 ? '1px solid var(--color-border)' : 'none',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)',
+                textTransform: 'uppercase', letterSpacing: '0.08em',
+              }}
+            >
+              {showCompleted ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+              {complete.length} completed
+            </button>
+            {showCompleted && complete.map((task, i) => (
+              <TaskRow
+                key={task.id}
+                task={task}
+                isLast={i === complete.length - 1}
+                onToggle={() => toggleComplete(task)}
+                onCycleOwner={() => cycleOwner(task)}
+                onEdit={() => setModalTask(task)}
+                onDelete={() => deleteTask(task.id)}
+              />
+            ))}
+          </>
+        )}
       </div>
 
       {modalTask && (
@@ -212,38 +214,52 @@ function TaskRow({ task, isLast, onToggle, onCycleOwner, onEdit, onDelete }: {
       style={{
         display: 'flex', alignItems: 'stretch',
         borderBottom: isLast ? 'none' : '1px solid var(--color-border)',
-        background: done ? 'var(--color-accent-soft)' : 'var(--color-surface)',
+        background: done ? 'var(--color-background)' : 'var(--color-surface)',
         transition: 'background 0.2s',
       }}
     >
-      {/* Task info — click to edit */}
-      <div style={{ flex: 1, padding: '14px 16px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
-        <div style={{ fontSize: 14, fontWeight: 500, color: done ? 'var(--color-secondary)' : 'var(--color-foreground)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {task.title}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-          {task.dueDate && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)' }}>
-              <Calendar size={10} /> Due {format(parseISO(task.dueDate), 'MMM d')}
-            </span>
-          )}
-          {done && task.completedAt && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-accent-dark)' }}>
-              <CheckCircle2 size={10} /> Done {format(parseISO(task.completedAt), 'MMM d')}
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Right: owner tag + edit/delete (hover) + done pill */}
-      <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6, flexShrink: 0 }}>
+      {/* Left: owner tag */}
+      <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0, minWidth: 72 }}>
         <button
           onClick={e => { e.stopPropagation(); onCycleOwner(); }}
           className={`owner-tag ${task.owner ? 'owner-tag-set' : ''}`}
           title="Cycle owner"
+          style={{ opacity: done ? 0.4 : 1 }}
         >
           {task.owner ?? '—'}
         </button>
+      </div>
+
+      {/* Task info — click to edit */}
+      <div style={{ flex: 1, padding: '13px 8px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
+        <div style={{
+          fontSize: 14, fontWeight: 500,
+          color: 'var(--color-secondary)',
+          textDecoration: done ? 'line-through' : 'none',
+          opacity: done ? 0.7 : 1,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          transition: 'all 0.2s',
+        }}>
+          {task.title}
+        </div>
+        {(task.dueDate || (done && task.completedAt)) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
+            {task.dueDate && !done && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)', opacity: 0.8 }}>
+                <Calendar size={10} /> {format(parseISO(task.dueDate), 'MMM d')}
+              </span>
+            )}
+            {done && task.completedAt && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-accent-dark)', opacity: 0.7 }}>
+                <CheckCircle2 size={10} /> {format(parseISO(task.completedAt), 'MMM d')}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Right: edit/delete (hover) + done pill */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6, flexShrink: 0 }}>
         <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
             <Pencil size={14} />
@@ -298,12 +314,7 @@ function TaskModal({ task, categories, onClose, onSave }: {
                   style={{ flex: 1, minWidth: 0 }}
                 />
                 {editing.dueDate && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => setEditing({ ...editing, dueDate: null })}
-                    style={{ flexShrink: 0 }}
-                  >
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditing({ ...editing, dueDate: null })} style={{ flexShrink: 0 }}>
                     Clear
                   </button>
                 )}
