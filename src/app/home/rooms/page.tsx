@@ -4,7 +4,7 @@ import HomeSubnav from '@/components/HomeSubnav';
 import { Belonging, Room, RoomItem } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { Box, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const FLOOR_ORDER = ['Basement', 'Main Floor', 'Second Floor', 'Third Floor', 'Exterior', 'Flexible', 'Multiple', 'Unassigned floor'];
 const ROOM_ORDER = [
@@ -26,6 +26,34 @@ const ROOM_ORDER = [
   'Garage',
   'Outdoor / Yard',
 ];
+
+function getSourceRoomHints(roomName?: string | null) {
+  const name = (roomName || '').toLowerCase();
+
+  if (name.includes('living')) return ['Living Room'];
+  if (name.includes('dining')) return ['Dining Room'];
+  if (name.includes('kitchen')) return ['Kitchen'];
+  if (name.includes('mud')) return ['Garage', 'Storage', 'Other'];
+  if (name.includes('study') || name.includes('office')) return ['Office'];
+  if (name.includes('master')) return ['Master Bedroom', 'Bedroom 2', 'Bedroom 3'];
+  if (name.includes('second bedroom')) return ['Bedroom 2', 'Bedroom 3', 'Master Bedroom'];
+  if (name.includes('third bedroom') || name.includes('fourth bedroom')) return ['Bedroom 3', 'Bedroom 2', 'Master Bedroom'];
+  if (name.includes('bath')) return ['Bathroom'];
+  if (name.includes('garage')) return ['Garage', 'Storage'];
+  if (name.includes('outdoor') || name.includes('yard')) return ['Outdoor/Patio', 'Garage'];
+  if (name.includes('basement') || name.includes('yoga')) return ['Bedroom 3', 'Office', 'Other'];
+
+  return [];
+}
+
+function groupBelongingsByRoom(belongings: Belonging[]) {
+  return [...new Set(belongings.map(belonging => belonging.room))]
+    .sort()
+    .map(room => ({
+      room,
+      items: belongings.filter(belonging => belonging.room === room),
+    }));
+}
 
 export default function HomeRoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -254,8 +282,32 @@ function RoomItemModal({
   onSave: (item: Partial<RoomItem>) => void;
 }) {
   const [editing, setEditing] = useState(item);
+  const [belongingSearch, setBelongingSearch] = useState('');
 
   const selectedBelonging = belongings.find(belonging => belonging.id === editing.belongingId);
+  const selectedRoom = rooms.find(room => room.id === editing.roomId);
+  const sourceRoomHints = useMemo(() => getSourceRoomHints(selectedRoom?.name), [selectedRoom?.name]);
+  const suggestedBelongings = useMemo(
+    () => belongings.filter(belonging => sourceRoomHints.includes(belonging.room)),
+    [belongings, sourceRoomHints],
+  );
+  const visibleBelongings = useMemo(() => {
+    const query = belongingSearch.trim().toLowerCase();
+    if (!query) return belongings;
+    return belongings.filter(belonging =>
+      belonging.itemName.toLowerCase().includes(query) || belonging.room.toLowerCase().includes(query),
+    );
+  }, [belongings, belongingSearch]);
+  const groupedBelongings = useMemo(() => groupBelongingsByRoom(visibleBelongings), [visibleBelongings]);
+
+  const pickBelonging = (belongingId: number) => {
+    const belonging = belongings.find(item => item.id === belongingId);
+    setEditing({
+      ...editing,
+      belongingId,
+      itemName: belonging?.itemName ?? '',
+    });
+  };
 
   const setSource = (itemSource: RoomItem['itemSource']) => {
     if (itemSource === 'existing_belonging') {
@@ -297,21 +349,56 @@ function RoomItemModal({
             </select>
           </div>
           {editing.itemSource === 'existing_belonging' ? (
-            <div>
-              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Belonging</label>
-              <select
-                value={editing.belongingId ?? ''}
-                onChange={e => {
-                  const belonging = belongings.find(item => item.id === Number(e.target.value));
-                  setEditing({
-                    ...editing,
-                    belongingId: Number(e.target.value),
-                    itemName: belonging?.itemName ?? '',
-                  });
-                }}
-              >
-                {belongings.map(belonging => <option key={belonging.id} value={belonging.id}>{belonging.itemName}</option>)}
-              </select>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {suggestedBelongings.length > 0 && (
+                <div>
+                  <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>
+                    Same-room picks
+                  </label>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {suggestedBelongings.slice(0, 8).map(belonging => (
+                      <button
+                        key={belonging.id}
+                        type="button"
+                        onClick={() => pickBelonging(belonging.id)}
+                        className={`filter-chip ${editing.belongingId === belonging.id ? 'filter-chip-active' : ''}`}
+                      >
+                        {belonging.itemName}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Find belonging</label>
+                <input
+                  value={belongingSearch}
+                  onChange={e => setBelongingSearch(e.target.value)}
+                  placeholder={selectedRoom ? `Search ${selectedRoom.name.toLowerCase()} or any old room…` : 'Search belongings…'}
+                />
+              </div>
+              <div>
+                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Belonging</label>
+                <select
+                  value={editing.belongingId ?? ''}
+                  onChange={e => pickBelonging(Number(e.target.value))}
+                >
+                  {groupedBelongings.map(group => (
+                    <optgroup key={group.room} label={group.room}>
+                      {group.items.map(belonging => (
+                        <option key={belonging.id} value={belonging.id}>
+                          {belonging.itemName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+              {selectedBelonging && (
+                <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
+                  From old room: <span style={{ color: 'var(--color-foreground)', fontWeight: 600 }}>{selectedBelonging.room}</span>
+                </div>
+              )}
             </div>
           ) : (
             <div>

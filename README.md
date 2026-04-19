@@ -112,6 +112,12 @@ The House area is split into:
 
 The House subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages. Its local home tab is labeled `HQ`.
 
+When adding room items from existing belongings, the Rooms page now favors the common case:
+
+- same-room suggestions first
+- searchable belongings lookup
+- full belongings grouped by old room
+
 ## Data Model
 
 The current app uses these major tables:
