@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Task, Belonging, Category, MoveLocation, TimelineEntry } from '@/lib/types';
+import { MoveSettings, Task, Belonging, Category, MoveLocation, TimelineEntry, MoveEvent } from '@/lib/types';
 import { format, parseISO, differenceInCalendarDays, addSeconds, startOfDay } from 'date-fns';
 import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save } from 'lucide-react';
 import Link from 'next/link';
@@ -37,6 +37,7 @@ export default function OverviewPage() {
   const [routeLocations, setRouteLocations] = useState<MoveLocation[]>([]);
   const [showRouteDetails, setShowRouteDetails] = useState(false);
   const [homeEntries, setHomeEntries] = useState<TimelineEntry[]>([]);
+  const [events, setEvents] = useState<MoveEvent[]>([]);
 
   const [dateModal, setDateModal] = useState<{ key: string; label: string } | null>(null);
   const [tempDate, setTempDate] = useState('');
@@ -46,12 +47,13 @@ export default function OverviewPage() {
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [sRes, cRes, bRes, lRes, homeRes] = await Promise.all([
+    const [sRes, cRes, bRes, lRes, homeRes, eventRes] = await Promise.all([
       fetch('/api/settings'),
       fetch('/api/categories'),
       fetch('/api/belongings'),
       fetch('/api/locations'),
       fetch('/api/timeline?limit=20'),
+      fetch('/api/events'),
     ]);
     const s = await sRes.json();
     sanitise(s);
@@ -62,7 +64,9 @@ export default function OverviewPage() {
     setBelongings(await bRes.json());
     const locs: MoveLocation[] = await lRes.json();
     const homeTimeline: TimelineEntry[] = await homeRes.json();
+    const eventData: MoveEvent[] = await eventRes.json();
     setHomeEntries(homeTimeline.filter(entry => ['home_purchase', 'loan', 'home_updates'].includes(entry.trackKey || '')));
+    setEvents(eventData);
     setLoading(false);
 
     const visibleStops = locs
@@ -221,6 +225,7 @@ export default function OverviewPage() {
   }
   const resolvedTotal = belongings.filter(b => b.status === 'resolved').length;
   const resolvePercent = belongings.length ? Math.round((resolvedTotal / belongings.length) * 100) : 0;
+  const purchaseMilestones = buildPurchaseMilestones(settings, events, homeEntries);
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
@@ -358,13 +363,7 @@ export default function OverviewPage() {
             </span>
           </Link>
         </div>
-        {homeEntries.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--color-secondary)', textAlign: 'center', padding: '12px 0 4px' }}>
-            No home purchase milestones yet.
-          </div>
-        ) : (
-          <HomePurchaseTimeline entries={homeEntries} />
-        )}
+        <HomePurchaseProcessTimeline milestones={purchaseMilestones} />
       </div>
 
       {/* Overview grid — Tasks + Belongings */}
@@ -550,83 +549,123 @@ function TimelineLegendDot({ type, label }: { type: 'confirmed' | 'estimated' | 
   );
 }
 
-function HomePurchaseTimeline({ entries }: { entries: TimelineEntry[] }) {
-  const today = startOfDay(new Date());
-  const purchaseEntries = [...entries]
-    .filter(entry => entry.trackKey === 'home_purchase' || entry.trackKey === 'loan')
-    .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+type PurchaseMilestone = {
+  key: string;
+  label: string;
+  date: string | null;
+  status: 'confirmed' | 'estimated' | 'unset';
+};
 
-  if (purchaseEntries.length === 0) {
-    return (
-      <div style={{ fontSize: 13, color: 'var(--color-secondary)', textAlign: 'center', padding: '12px 0 4px' }}>
-        No purchase or loan milestones yet.
-      </div>
-    );
-  }
+const PURCHASE_SHORT: Record<string, string> = {
+  offerSubmitted: 'Offer',
+  offerAccepted: 'Accepted',
+  contractsSigned: 'Contracts',
+  loanPackage: 'Loan',
+  commitmentDate: 'Commitment',
+  closingDate: 'Closing',
+};
 
-  const completedEntries = purchaseEntries.filter(entry => entry.status === 'complete' || parseISO(entry.date) < today);
-  const upcomingEntries = purchaseEntries.filter(entry => entry.status !== 'complete' && parseISO(entry.date) >= today);
-  const recentCompleted = completedEntries.slice(-2);
-  const visibleEntries = [...new Map(
-    [...recentCompleted, ...upcomingEntries.slice(0, 4)].map(entry => [entry.id, entry])
-  ).values()]
-    .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-  const fallbackEntries = purchaseEntries.slice(0, 5);
-  const timelineEntries = visibleEntries.length > 0 ? visibleEntries : fallbackEntries;
-  const nextUpcoming = upcomingEntries[0] || null;
-  const openCount = purchaseEntries.filter(entry => entry.status !== 'complete').length;
-  const completeCount = purchaseEntries.filter(entry => entry.status === 'complete' || parseISO(entry.date) < today).length;
+function buildPurchaseMilestones(
+  settings: MoveSettings | null,
+  events: MoveEvent[],
+  timelineEntries: TimelineEntry[],
+): PurchaseMilestone[] {
+  const findEvent = (matcher: (title: string) => boolean) =>
+    events.find(event => matcher(event.title.toLowerCase()));
+  const findEntry = (matcher: (title: string) => boolean) =>
+    timelineEntries.find(entry => matcher(entry.title.toLowerCase()));
+  const entryStatus = (entry?: TimelineEntry | null): 'confirmed' | 'estimated' | 'unset' => {
+    if (!entry) return 'unset';
+    return entry.status === 'confirmed' || entry.status === 'complete' ? 'confirmed' : 'estimated';
+  };
+  const eventStatus = (event?: MoveEvent | null): 'confirmed' | 'estimated' | 'unset' => {
+    if (!event) return 'unset';
+    return event.is_confirmed ? 'confirmed' : 'estimated';
+  };
 
+  const offerSubmitted = findEntry(title => title.includes('offer submitted'));
+  const offerAcceptedEvent = findEvent(title => title.includes('memorandum of agreement'));
+  const contractsSignedEvent = findEvent(title => title.includes('contract of sale signed'));
+  const loanPackageEntry = findEntry(title => title.includes('underwriting documentation package assembled') || title.includes('mortgage underwriting documents submitted'));
+  const commitmentEvent = findEvent(title => title.includes('mortgage commitment deadline'));
+
+  return [
+    {
+      key: 'offerSubmitted',
+      label: 'Offer Submitted',
+      date: offerSubmitted?.date ?? null,
+      status: entryStatus(offerSubmitted),
+    },
+    {
+      key: 'offerAccepted',
+      label: 'Offer Accepted',
+      date: offerAcceptedEvent?.date ?? null,
+      status: eventStatus(offerAcceptedEvent),
+    },
+    {
+      key: 'contractsSigned',
+      label: 'Contracts Signed',
+      date: contractsSignedEvent?.date ?? null,
+      status: eventStatus(contractsSignedEvent),
+    },
+    {
+      key: 'loanPackage',
+      label: 'Loan Package Submitted',
+      date: loanPackageEntry?.date ?? null,
+      status: entryStatus(loanPackageEntry),
+    },
+    {
+      key: 'commitmentDate',
+      label: 'Loan Commitment Date',
+      date: commitmentEvent?.date ?? null,
+      status: eventStatus(commitmentEvent),
+    },
+    {
+      key: 'closingDate',
+      label: 'Closing Date',
+      date: settings?.closingDate ?? null,
+      status: settings?.closingDate
+        ? (settings.isClosingDateConfirmed ? 'confirmed' : 'estimated')
+        : 'unset',
+    },
+  ];
+}
+
+function HomePurchaseProcessTimeline({ milestones }: { milestones: PurchaseMilestone[] }) {
   return (
     <div>
-      <div style={{ position: 'relative', marginBottom: 18 }}>
-        <div style={{ position: 'absolute', left: `calc(100% / ${timelineEntries.length * 2})`, right: `calc(100% / ${timelineEntries.length * 2})`, top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
+      <div style={{ position: 'relative', marginBottom: 16 }}>
+        <div style={{ position: 'absolute', left: 'calc(100% / 12)', right: 'calc(100% / 12)', top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
         <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
-          {timelineEntries.map((entry) => {
-            const entryDate = parseISO(entry.date);
-            const isComplete = entry.status === 'complete' || entryDate < today;
-            const isBlocked = entry.status === 'blocked';
-            const isLoan = entry.trackKey === 'loan';
-            const borderColor = isBlocked ? '#b91c1c' : isLoan ? '#1f6b5b' : 'var(--color-accent)';
-            const bgColor = isBlocked ? '#fff0f0' : isComplete ? (isLoan ? '#1f6b5b' : 'var(--color-accent)') : 'var(--color-surface)';
-            const ringColor = isLoan ? '#eef7f3' : 'var(--color-accent-soft)';
-
+          {milestones.map((milestone) => {
+            const isConfirmed = milestone.status === 'confirmed';
+            const isUnset = milestone.status === 'unset';
             return (
-              <div key={entry.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 4px' }}>
+              <div key={milestone.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 2px' }}>
                 <div style={{
-                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                  background: bgColor,
-                  border: `2px solid ${borderColor}`,
-                  boxShadow: isComplete ? `0 0 0 3px ${ringColor}` : 'none',
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  flexShrink: 0,
+                  background: isConfirmed ? 'var(--color-accent)' : 'var(--color-surface)',
+                  border: `2px ${isUnset ? 'dashed' : 'solid'} ${isUnset ? 'var(--color-border)' : 'var(--color-accent)'}`,
+                  boxShadow: isConfirmed ? '0 0 0 3px var(--color-accent-soft)' : 'none',
                 }} />
-                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: isBlocked ? '#b91c1c' : isLoan ? '#1f6b5b' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
-                  {isLoan ? 'Loan' : 'Purchase'}
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: isUnset ? 'var(--color-border)' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
+                  {PURCHASE_SHORT[milestone.key] || milestone.label}
                 </div>
-                <div style={{ fontSize: 11, fontWeight: isComplete ? 700 : 500, color: isBlocked ? '#b91c1c' : 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 108 }}>
-                  {entry.title}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
-                  {format(entryDate, 'MMM d')}
+                <div style={{ fontSize: 11, fontWeight: isConfirmed ? 700 : 500, color: isUnset ? 'var(--color-border)' : 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2 }}>
+                  {milestone.date ? format(parseISO(milestone.date), 'MMM d') : '—'}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', paddingTop: 14, borderTop: '1px solid var(--color-border)' }}>
-        <div style={{ minWidth: 0 }}>
-          <div className="section-label" style={{ marginBottom: 4 }}>Next Up</div>
-          <div style={{ fontSize: 13, color: 'var(--color-foreground)', fontWeight: 600 }}>
-            {nextUpcoming
-              ? `${nextUpcoming.title} · ${format(parseISO(nextUpcoming.date), 'MMM d, yyyy')}`
-              : 'Purchase milestone timeline is complete'}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span className="badge badge-neutral">{completeCount} complete</span>
-          <span className="badge badge-neutral">{openCount} upcoming</span>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
+        <TimelineLegendDot type="confirmed" label="Confirmed" />
+        <TimelineLegendDot type="estimated" label="Estimated" />
+        <TimelineLegendDot type="unset" label="Pending / unset" />
       </div>
     </div>
   );
