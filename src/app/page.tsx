@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { MoveSettings, Task, Belonging, Category, MoveLocation, TimelineEntry, MoveEvent } from '@/lib/types';
 import { format, parseISO, differenceInCalendarDays, addSeconds, startOfDay } from 'date-fns';
-import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save, House, CarFront, CheckSquare, Package, Map } from 'lucide-react';
 import Link from 'next/link';
 import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
 
@@ -250,6 +250,14 @@ export default function OverviewPage() {
         )}
       </div>
 
+      <div className="overview-grid" style={{ marginBottom: 28 }}>
+        <QuickLinkCard href="/home" title="House" subtitle="Purchase, rooms, docs" icon={<House size={18} />} />
+        <QuickLinkCard href="/tasks" title="Tasks" subtitle={`${tasks.length} move tasks`} icon={<CheckSquare size={18} />} />
+        <QuickLinkCard href="/belongings" title="Stuff" subtitle={`${belongings.length} inventory items`} icon={<Package size={18} />} />
+        <QuickLinkCard href="/drive-plan" title="Cars" subtitle="People and gear by car" icon={<CarFront size={18} />} />
+        <QuickLinkCard href="/map" title="Route" subtitle="Stops and drive days" icon={<Map size={18} />} />
+      </div>
+
       {/* Mini Timeline */}
       <div className="mini-timeline">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -269,139 +277,6 @@ export default function OverviewPage() {
           <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>Tap any date to edit</span>
         </div>
       </div>
-
-      {/* Route summary */}
-      {routeSummary && (
-        <div className="mini-timeline" style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <h2 style={{ margin: 0 }}>The Route</h2>
-            <Link href="/map" style={{ textDecoration: 'none' }}>
-              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                Open <ChevronRight size={12} />
-              </span>
-            </Link>
-          </div>
-
-          {/* Drive stops — same visual structure as MiniTimeline */}
-          {routeLocations.length >= 2 && (() => {
-            const driveBase = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
-            return (
-              <div style={{ position: 'relative', marginBottom: 16 }}>
-                <div style={{ position: 'absolute', left: `calc(100% / ${routeLocations.length * 2})`, right: `calc(100% / ${routeLocations.length * 2})`, top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${routeLocations.length * 2 - 1}, minmax(0, 1fr))`,
-                    position: 'relative',
-                    zIndex: 1,
-                    rowGap: 8,
-                    alignItems: 'start',
-                  }}
-                >
-                  {routeLocations.map((loc, idx) => {
-                    const isOrigin = loc.category === 'Origin';
-                    const isDest = loc.category === 'Destination';
-                    const overnight = loc.category === 'Stop' && !!loc.notes?.startsWith('[overnight]');
-                    let stopDate: string | null = null;
-                    if (driveBase) {
-                      if (isDest && routeSummary.estArrival) {
-                        stopDate = format(routeSummary.estArrival, 'MMM d');
-                      } else if (isOrigin) {
-                        stopDate = format(driveBase, 'MMM d');
-                      } else {
-                        const priorOvernights = routeLocations
-                          .slice(0, idx)
-                          .filter(item => item.category === 'Stop' && !!item.notes?.startsWith('[overnight]')).length;
-                        stopDate = format(
-                          new Date(driveBase.getFullYear(), driveBase.getMonth(), driveBase.getDate() + priorOvernights),
-                          'MMM d',
-                        );
-                      }
-                    }
-                    return (
-                      <div key={loc.id} style={{ display: 'contents' }}>
-                        <div
-                          style={{
-                            gridColumn: idx * 2 + 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '0 2px',
-                          }}
-                        >
-                          <div style={{
-                            width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                            background: overnight ? '#eef2ff' : isOrigin ? 'var(--color-accent)' : 'var(--color-surface)',
-                            border: `2px solid ${overnight ? '#6366f1' : 'var(--color-accent)'}`,
-                            boxShadow: overnight ? '0 0 0 3px #eef2ff' : '0 0 0 3px var(--color-accent-soft)',
-                          }} />
-                          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: overnight ? '#6366f1' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
-                            {isOrigin ? 'Start' : isDest ? 'End' : 'Night'}
-                          </div>
-                          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                            {loc.name}
-                          </div>
-                          {stopDate && (
-                            <div style={{ fontSize: 10, color: 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
-                              {stopDate}
-                            </div>
-                          )}
-                        </div>
-                        {idx < routeLocations.length - 1 && routeSummary.dayDurations[idx] && (
-                          <div
-                            style={{
-                              gridColumn: idx * 2 + 2,
-                              alignSelf: 'start',
-                              justifySelf: 'center',
-                              marginTop: 28,
-                              fontSize: 10,
-                              fontWeight: 700,
-                              color: 'var(--color-secondary)',
-                              background: 'var(--color-background)',
-                              border: '1px solid var(--color-border)',
-                              borderRadius: 999,
-                              padding: '4px 8px',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {fmtDuration(routeSummary.dayDurations[idx])}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Stats toggle */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: showRouteDetails ? 12 : 0 }}>
-            <button
-              onClick={() => setShowRouteDetails(v => !v)}
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: 11, color: 'var(--color-secondary)', gap: 4 }}
-            >
-              {showRouteDetails ? 'Hide details' : 'Show details'}
-            </button>
-          </div>
-
-          {/* Stats row */}
-          {showRouteDetails && (
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 12 }}>
-              <RouteStat label="Distance" value={`${Math.round(routeSummary.distanceMiles).toLocaleString()} mi`} />
-              <RouteDiv />
-              <RouteStat label="Drive Time" value={fmtDuration(routeSummary.adjustedDuration)} />
-              {routeSummary.daysOfDriving > 1 && <><RouteDiv /><RouteStat label="Days" value={`${routeSummary.daysOfDriving}`} /></>}
-              <RouteDiv />
-              <RouteStat label="Departs" value="9:00 AM" />
-              {settings.driveStartDate && <><RouteDiv /><RouteStat label="Drive Start" value={format(parseISO(settings.driveStartDate), 'MMM d')} accent /></>}
-              {routeSummary.estArrival && <><RouteDiv /><RouteStat label="Drive End" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent /></>}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Home purchase timeline */}
       <div className="mini-timeline" style={{ marginBottom: 28 }}>
@@ -520,6 +395,137 @@ export default function OverviewPage() {
         </div>
       </div>
 
+      {/* Route summary */}
+      {routeSummary && (
+        <div className="mini-timeline" style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <h2 style={{ margin: 0 }}>The Route</h2>
+            <Link href="/map" style={{ textDecoration: 'none' }}>
+              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                Open <ChevronRight size={12} />
+              </span>
+            </Link>
+          </div>
+
+          {/* Drive stops — same visual structure as MiniTimeline */}
+          {routeLocations.length >= 2 && (() => {
+            const driveBase = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
+            return (
+              <div style={{ position: 'relative', marginBottom: 16 }}>
+                <div style={{ position: 'absolute', left: `calc(100% / ${routeLocations.length * 2})`, right: `calc(100% / ${routeLocations.length * 2})`, top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${routeLocations.length * 2 - 1}, minmax(0, 1fr))`,
+                    position: 'relative',
+                    zIndex: 1,
+                    rowGap: 8,
+                    alignItems: 'start',
+                  }}
+                >
+                  {routeLocations.map((loc, idx) => {
+                    const isOrigin = loc.category === 'Origin';
+                    const isDest = loc.category === 'Destination';
+                    const overnight = loc.category === 'Stop' && !!loc.notes?.startsWith('[overnight]');
+                    let stopDate: string | null = null;
+                    if (driveBase) {
+                      if (isDest && routeSummary.estArrival) {
+                        stopDate = format(routeSummary.estArrival, 'MMM d');
+                      } else if (isOrigin) {
+                        stopDate = format(driveBase, 'MMM d');
+                      } else {
+                        const priorOvernights = routeLocations
+                          .slice(0, idx)
+                          .filter(item => item.category === 'Stop' && !!item.notes?.startsWith('[overnight]')).length;
+                        stopDate = format(
+                          new Date(driveBase.getFullYear(), driveBase.getMonth(), driveBase.getDate() + priorOvernights),
+                          'MMM d',
+                        );
+                      }
+                    }
+                    return (
+                      <div key={loc.id} style={{ display: 'contents' }}>
+                        <div
+                          style={{
+                            gridColumn: idx * 2 + 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '0 2px',
+                          }}
+                        >
+                          <div style={{
+                            width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                            background: overnight ? '#eef2ff' : isOrigin ? 'var(--color-accent)' : 'var(--color-surface)',
+                            border: `2px solid ${overnight ? '#6366f1' : 'var(--color-accent)'}`,
+                            boxShadow: overnight ? '0 0 0 3px #eef2ff' : '0 0 0 3px var(--color-accent-soft)',
+                          }} />
+                          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: overnight ? '#6366f1' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
+                            {isOrigin ? 'Start' : isDest ? 'End' : 'Night'}
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                            {loc.name}
+                          </div>
+                          {stopDate && (
+                            <div style={{ fontSize: 10, color: 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
+                              {stopDate}
+                            </div>
+                          )}
+                        </div>
+                        {idx < routeLocations.length - 1 && routeSummary.dayDurations[idx] && (
+                          <div
+                            style={{
+                              gridColumn: idx * 2 + 2,
+                              alignSelf: 'start',
+                              justifySelf: 'center',
+                              marginTop: 28,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: 'var(--color-secondary)',
+                              background: 'var(--color-background)',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: 999,
+                              padding: '4px 8px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {fmtDuration(routeSummary.dayDurations[idx])}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: showRouteDetails ? 12 : 0 }}>
+            <button
+              onClick={() => setShowRouteDetails(v => !v)}
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: 11, color: 'var(--color-secondary)', gap: 4 }}
+            >
+              {showRouteDetails ? 'Hide details' : 'Show details'}
+            </button>
+          </div>
+
+          {showRouteDetails && (
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 12 }}>
+              <RouteStat label="Distance" value={`${Math.round(routeSummary.distanceMiles).toLocaleString()} mi`} />
+              <RouteDiv />
+              <RouteStat label="Drive Time" value={fmtDuration(routeSummary.adjustedDuration)} />
+              {routeSummary.daysOfDriving > 1 && <><RouteDiv /><RouteStat label="Days" value={`${routeSummary.daysOfDriving}`} /></>}
+              <RouteDiv />
+              <RouteStat label="Departs" value="9:00 AM" />
+              {settings.driveStartDate && <><RouteDiv /><RouteStat label="Drive Start" value={format(parseISO(settings.driveStartDate), 'MMM d')} accent /></>}
+              {routeSummary.estArrival && <><RouteDiv /><RouteStat label="Drive End" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent /></>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Date edit modal */}
       {dateModal && (
         <div className="modal-backdrop" onClick={() => setDateModal(null)}>
@@ -596,6 +602,34 @@ function TimelineLegendDot({ type, label }: { type: 'confirmed' | 'estimated' | 
       }} />
       <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{label}</span>
     </div>
+  );
+}
+
+function QuickLinkCard({
+  href,
+  title,
+  subtitle,
+  icon,
+}: {
+  href: string;
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <Link href={href} style={{ textDecoration: 'none' }}>
+      <div className="card" style={{ height: '100%' }}>
+        <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-background)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-accent-dark)', flexShrink: 0 }}>
+            {icon}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--color-foreground)' }}>{title}</div>
+            <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 4 }}>{subtitle}</div>
+          </div>
+        </div>
+      </div>
+    </Link>
   );
 }
 

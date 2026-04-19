@@ -19,7 +19,7 @@ Warm paper tones throughout. Three key values: `#faf8f5` (content background), `
 
 | Area | Route | Description |
 |------|-------|-------------|
-| **HQ** | `/` | At-a-glance dashboard with move dates, drive progress, house progress, task completion, and stuff progress |
+| **HQ** | `/` | Command-center dashboard with quick links, move dates, house progress, execution status, and the route summary |
 | **The List** | `/tasks` | Move tasks grouped by category with owner toggles, due dates, completion tracking, notes, and attached document links |
 | **Stuff** | `/belongings` | Stuff grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
 | **The Journey** | `/timeline` | Combined move timeline for key dates, tasks, custom events, and derived drive stops |
@@ -47,6 +47,18 @@ When dates are confirmed the API enforces ordering constraints:
 - arrival must precede closing
 - U-Pack delivery must follow closing
 - final pickup must be exactly 3 days after delivery
+
+### HQ Layout
+
+The main `HQ` page is structured to keep the highest-signal items first:
+
+- quick links to the main work areas
+- move timeline
+- home purchase timeline
+- move execution cards for tasks and stuff
+- route summary at the bottom
+
+The idea is that `HQ` works as a command center rather than a landing page full of full-detail widgets.
 
 ### Drive Timeline
 
