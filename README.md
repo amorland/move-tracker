@@ -1,6 +1,6 @@
 # Starland™ Moving
 
-A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel home-planning work: purchase/loan timeline tracking, document links, room planning, and future home projects. Access is gated by a shared app password, while private documents are intended to be stored as secure external links such as Google Drive URLs.
+A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel home-planning work: purchase/loan timeline tracking, document links, room planning, a crude visual layout planner, and future home projects. It also includes a dedicated drive loadout planner for assigning people, pets, and cargo across multiple vehicles. Access is gated by a shared app password, while private documents are intended to be stored as secure external links such as Google Drive URLs.
 
 ## Stack
 
@@ -24,11 +24,13 @@ Warm paper tones throughout. Three key values: `#faf8f5` (content background), `
 | **The Big Sort** | `/belongings` | Belongings grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
 | **The Journey** | `/timeline` | Combined move timeline for key dates, tasks, custom events, and derived drive stops |
 | **The Route** | `/map` | Leaflet map with OSRM routing, route stats, overnight stops, and trip ETA logic |
+| **Drive Plan** | `/drive-plan` | Vehicle loadout planner for assigning drivers, passengers, pets, bikes, plants, and cargo across multiple cars |
 | **Home Planning** | `/home` | Home dashboard with summaries for timeline, tasks, documents, and navigation into the dedicated Home subsection |
 | **Home Timeline** | `/home/timeline` | Purchase, loan, and home update timeline entries shown in a vertical timeline layout with document attachments |
 | **Home Tasks** | `/home/tasks` | Planning tasks for purchase, loan, setup, and updates with grouped filters, owner/status tracking, and attachments |
 | **Home Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
 | **Rooms** | `/home/rooms` | Room-by-room planning for existing brought items and planned purchases |
+| **Visual Layout** | `/home/layout` | Crude drag-and-drop room layout planner built on top of saved rooms and room items |
 | **Projects** | `/home/projects` | Future home improvement and renovation planning |
 
 ## Core Concepts
@@ -49,6 +51,17 @@ When dates are confirmed the API enforces ordering constraints:
 ### Drive Timeline
 
 Drive time uses a `0.8x` correction factor on OSRM duration. Overnight stops are encoded with a `[overnight]` prefix in location notes. The route panel and the timeline both derive drive-day entries from the stored route stops.
+
+### Drive Planning
+
+The app includes a separate `Drive Plan` workspace for convoy planning. It models:
+
+- vehicles
+- people and pets
+- cargo and vehicle add-ons
+- per-item assignment to a vehicle
+
+The planner is meant for trying different trip configurations such as who drives which car, where the dogs ride, whether an extra driver is needed, and what large trip cargo should go in each vehicle.
 
 ### Documents And Attachments
 
@@ -77,6 +90,7 @@ The Home area is split into:
 - timeline entries for purchase, loan, and updates
 - planning tasks grouped into `purchase`, `loan`, `home_setup`, and `updates`
 - room planning with `existing_belonging` and `planned_purchase` items
+- a visual layout page that reuses room items and stores rough on-canvas placement
 - future projects with status and priority tracking
 
 The Home subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages.
@@ -91,6 +105,8 @@ The current app uses these major tables:
 - `belongings`
 - `events`
 - `locations`
+- `drive_vehicles`
+- `drive_loadout_items`
 - `tracks`
 - `timeline_entries`
 - `planning_tasks`
@@ -130,11 +146,12 @@ npm test
 npm run test:watch
 ```
 
-Current coverage is `68` tests across `11` files covering:
+Current coverage is `76` tests across `13` files covering:
 
 - `dateUtils` milestone validation
 - move API routes: belongings, tasks, events, settings
 - home API routes: documents, timeline, planning tasks, rooms, room items, home projects
+- drive-planning API routes: drive vehicles and drive loadout items
 
 Tests use mocked Supabase clients rather than a live database.
 
@@ -149,6 +166,8 @@ src/
 │   │   ├── categories/      # Move task categories + tasks (combined GET)
 │   │   ├── document-links/  # Generic attachment links
 │   │   ├── documents/       # Generic document link records
+│   │   ├── drive-loadout-items/ # Drive planner cargo/passenger items
+│   │   ├── drive-vehicles/  # Drive planner vehicles
 │   │   ├── events/          # Move timeline event CRUD
 │   │   ├── home-projects/   # Future home project CRUD
 │   │   ├── locations/       # Map locations CRUD
@@ -160,8 +179,10 @@ src/
 │   │   ├── timeline/        # Home timeline CRUD
 │   │   └── tracks/          # Track metadata
 │   ├── belongings/          # The Big Sort page
+│   ├── drive-plan/          # Vehicle / passenger / cargo planner
 │   ├── home/
 │   │   ├── documents/       # Home documents page
+│   │   ├── layout/          # Visual room layout planner
 │   │   ├── projects/        # Home projects page
 │   │   ├── rooms/           # Room planning page
 │   │   ├── tasks/           # Home tasks page
@@ -191,6 +212,7 @@ src/
 
 - App authentication is still a shared password cookie, not per-user auth
 - Documents are intended as external links, not uploaded private files
-- Room planning is a room-and-item MVP, not a blueprint-aware floorplan editor
+- Room planning and visual layout are still crude MVPs, not blueprint-accurate floorplan tools
+- Drive planning does not currently enforce true seat/cargo constraints; it is a flexible planning board rather than a hard validator
 - The app can seed planning structure from organized document sets, but document-derived updates still rely on review logic rather than full OCR / workflow automation
 - Production build verification may require a non-sandboxed environment because Turbopack can fail under sandbox restrictions
