@@ -440,10 +440,12 @@ h2 { font-size: 12px; font-weight: 700; color: var(--color-foreground); text-tra
 
 /* ─── Map grid ───────────────────────────── */
 .map-grid { display: grid; grid-template-columns: 1fr 360px; height: 640px; }
+.map-side-panel { overflow-y: auto; }
 @media (max-width: 900px) {
   .map-grid { display: flex; flex-direction: column; grid-template-columns: unset; height: auto; }
   .map-grid > div:first-child { height: 400px; order: 2; }
-  .map-grid > div:last-child { order: 1; overflow-y: visible; }
+  .map-grid > div:last-child { order: 1; }
+  .map-side-panel { overflow-y: visible; }
 }
 
 /* ─── Milestone row hover ────────────────── */

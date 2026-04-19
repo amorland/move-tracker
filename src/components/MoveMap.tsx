@@ -253,7 +253,7 @@ export default function MoveMap() {
         </div>
 
         {/* Side panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
+        <div className="map-side-panel" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Add / Edit form */}
           {showForm && (

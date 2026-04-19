@@ -33,6 +33,7 @@ export default function OverviewPage() {
     daysOfDriving: number;
     estArrival: Date | null;
   } | null>(null);
+  const [routeLocations, setRouteLocations] = useState<MoveLocation[]>([]);
 
   const [dateModal, setDateModal] = useState<{ key: string; label: string } | null>(null);
   const [tempDate, setTempDate] = useState('');
@@ -57,6 +58,18 @@ export default function OverviewPage() {
     setBelongings(await bRes.json());
     const locs: MoveLocation[] = await lRes.json();
     setLoading(false);
+
+    const visibleStops = locs
+      .filter(l => l.category === 'Origin' || l.category === 'Destination' ||
+        (l.category === 'Stop' && !!l.notes?.startsWith('[overnight]')))
+      .sort((a, b) => {
+        if (a.category === 'Origin') return -1;
+        if (b.category === 'Origin') return 1;
+        if (a.category === 'Destination') return 1;
+        if (b.category === 'Destination') return -1;
+        return (a.id ?? 0) - (b.id ?? 0);
+      });
+    setRouteLocations(visibleStops);
 
     const routePoints = locs
       .filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category) && l.lat && l.lng)
@@ -212,7 +225,7 @@ export default function OverviewPage() {
       {/* Route summary */}
       {routeSummary && (
         <div className="mini-timeline" style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <h2 style={{ margin: 0 }}>The Route</h2>
             <Link href="/map" style={{ textDecoration: 'none' }}>
               <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -220,12 +233,47 @@ export default function OverviewPage() {
               </span>
             </Link>
           </div>
-          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', rowGap: 16 }}>
-            <RouteStat label="Total Distance" value={`${Math.round(routeSummary.distanceMiles).toLocaleString()} mi`} />
+
+          {/* Drive stops — same visual structure as MiniTimeline */}
+          {routeLocations.length >= 2 && (
+            <div style={{ position: 'relative', marginBottom: 20 }}>
+              <div style={{ position: 'absolute', left: `calc(100% / ${routeLocations.length * 2})`, right: `calc(100% / ${routeLocations.length * 2})`, top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
+              <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
+                {routeLocations.map(loc => {
+                  const isOrigin = loc.category === 'Origin';
+                  const isDest = loc.category === 'Destination';
+                  const overnight = loc.category === 'Stop' && !!loc.notes?.startsWith('[overnight]');
+                  return (
+                    <div key={loc.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 2px' }}>
+                      <div style={{
+                        width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                        background: overnight ? '#eef2ff' : isOrigin ? 'var(--color-accent)' : 'var(--color-surface)',
+                        border: `2px solid ${overnight ? '#6366f1' : 'var(--color-accent)'}`,
+                        boxShadow: overnight ? '0 0 0 3px #eef2ff' : '0 0 0 3px var(--color-accent-soft)',
+                      }} />
+                      <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: overnight ? '#6366f1' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
+                        {isOrigin ? 'Start' : isDest ? 'End' : 'Night'}
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                        {loc.name}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Stats row */}
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 12 }}>
+            <RouteStat label="Distance" value={`${Math.round(routeSummary.distanceMiles).toLocaleString()} mi`} />
+            <RouteDiv />
             <RouteStat label="Drive Time" value={fmtDuration(routeSummary.adjustedDuration)} />
-            {routeSummary.daysOfDriving > 1 && <RouteStat label="Days of Driving" value={`${routeSummary.daysOfDriving}`} />}
-            {settings.driveStartDate && <RouteStat label="Drive Start" value={format(parseISO(settings.driveStartDate), 'MMM d')} accent />}
-            {routeSummary.estArrival && <RouteStat label="Est. Arrival" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent />}
+            {routeSummary.daysOfDriving > 1 && <><RouteDiv /><RouteStat label="Days" value={`${routeSummary.daysOfDriving}`} /></>}
+            <RouteDiv />
+            <RouteStat label="Departs" value="9:00 AM" />
+            {settings.driveStartDate && <><RouteDiv /><RouteStat label="Drive Start" value={format(parseISO(settings.driveStartDate), 'MMM d')} accent /></>}
+            {routeSummary.estArrival && <><RouteDiv /><RouteStat label="Arrives" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent /></>}
           </div>
         </div>
       )}
@@ -379,11 +427,15 @@ function fmtDuration(seconds: number) {
 
 function RouteStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div>
+    <div style={{ padding: '0 8px' }}>
       <div className="section-label">{label}</div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: accent ? 'var(--color-accent-dark)' : 'var(--color-foreground)', marginTop: 3 }}>{value}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: accent ? 'var(--color-accent-dark)' : 'var(--color-foreground)', marginTop: 3 }}>{value}</div>
     </div>
   );
+}
+
+function RouteDiv() {
+  return <div style={{ width: 1, height: 28, background: 'var(--color-border)', margin: '0 4px', flexShrink: 0, alignSelf: 'center' }} />;
 }
 
 function TimelineLegendDot({ type, label }: { type: 'confirmed' | 'estimated' | 'unset'; label: string }) {
