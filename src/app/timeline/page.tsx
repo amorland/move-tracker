@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { MoveSettings, Task, MoveEvent } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
-import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Pencil, Search } from 'lucide-react';
+import { MoveSettings, Task, MoveEvent, MoveLocation } from '@/lib/types';
+import { format, parseISO, addDays } from 'date-fns';
+import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Pencil, Search, Moon } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 import { useScrollLock } from '@/lib/useScrollLock';
 
-type ItemType = 'anchor' | 'event' | 'task';
+type ItemType = 'anchor' | 'event' | 'task' | 'drive';
 
 type TimelineItem = {
   id: string;
@@ -26,12 +26,14 @@ const TYPE_CHIPS: { value: ItemType; label: string; Icon: React.ReactNode }[] = 
   { value: 'anchor', label: 'Key Dates', Icon: null },
   { value: 'event',  label: 'Events',    Icon: <CalendarCheck size={12} /> },
   { value: 'task',   label: 'Tasks',     Icon: <CheckCircle2 size={12} /> },
+  { value: 'drive',  label: 'Drive',     Icon: <Moon size={12} /> },
 ];
 
 export default function TimelinePage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<MoveEvent[]>([]);
+  const [locations, setLocations] = useState<MoveLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<TimelineItem | null>(null);
   const [addModal, setAddModal] = useState(false);
@@ -45,21 +47,50 @@ export default function TimelinePage() {
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
-    const [sRes, cRes, eRes] = await Promise.all([
+    const [sRes, cRes, eRes, lRes] = await Promise.all([
       fetch('/api/settings'),
       fetch('/api/categories'),
       fetch('/api/events'),
+      fetch('/api/locations'),
     ]);
     setSettings(await sRes.json());
     const { tasks: ts } = await cRes.json();
     setTasks(ts);
     setEvents(await eRes.json());
+    setLocations(await lRes.json());
     setLoading(false);
   };
 
   if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading timeline…</div>;
 
   const milestones = getMilestones(settings);
+
+  const driveStops = settings.driveStartDate ? (() => {
+    const base = parseISO(settings.driveStartDate);
+    const driveStatus = settings.isDriveStartConfirmed ? 'confirmed' : 'estimated';
+    const visibleStops = locations
+      .filter(l => l.category === 'Origin' || l.category === 'Destination' ||
+        (l.category === 'Stop' && !!l.notes?.startsWith('[overnight]')))
+      .sort((a, b) => {
+        if (a.category === 'Origin') return -1;
+        if (b.category === 'Origin') return 1;
+        if (a.category === 'Destination') return 1;
+        if (b.category === 'Destination') return -1;
+        return (a.id ?? 0) - (b.id ?? 0);
+      });
+    return visibleStops.map((loc, idx): TimelineItem => {
+      const isOrigin = loc.category === 'Origin';
+      const isDest = loc.category === 'Destination';
+      return {
+        id: `drive-${loc.id}`,
+        title: isOrigin ? `Depart ${loc.name}` : isDest ? `Arrive ${loc.name}` : `Overnight: ${loc.name}`,
+        date: addDays(base, idx),
+        type: 'drive' as const,
+        status: driveStatus,
+        notes: loc.notes?.replace(/^\[overnight\]\s*/, '') || null,
+      };
+    });
+  })() : [];
 
   const allItems: TimelineItem[] = [
     ...milestones
@@ -90,6 +121,7 @@ export default function TimelinePage() {
       notes: e.notes,
       rawEvent: e,
     })),
+    ...driveStops,
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const toggleType = (type: ItemType) => {
@@ -209,7 +241,7 @@ export default function TimelinePage() {
             <div className="modal-header">
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <TypeIcon type={selected.type} confirmed={selected.status === 'confirmed'} />
-                <h2 style={{ margin: 0 }}>{selected.type === 'anchor' ? 'Key Date' : selected.type === 'event' ? 'Event' : 'Task'}</h2>
+                <h2 style={{ margin: 0 }}>{selected.type === 'anchor' ? 'Key Date' : selected.type === 'event' ? 'Event' : selected.type === 'drive' ? 'Drive Stop' : 'Task'}</h2>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ padding: '0 8px' }}><X size={18} /></button>
             </div>
@@ -330,6 +362,13 @@ function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
     return (
       <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(240,180,50,0.15)', border: '1.5px solid #f0b432', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0b432' }} />
+      </div>
+    );
+  }
+  if (type === 'drive') {
+    return (
+      <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#eef2ff', border: '1.5px solid #6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Moon size={14} color="#6366f1" />
       </div>
     );
   }
