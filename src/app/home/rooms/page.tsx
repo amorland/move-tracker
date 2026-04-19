@@ -109,7 +109,7 @@ export default function HomeRoomsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Rooms</h1>
-          <p className="page-subtitle">Assign your brought furniture and likely new purchases across the 25 Chestnut room list</p>
+          <p className="page-subtitle">Where we think the big pieces go.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setRoomModal({ name: '', floor: '', notes: '' })}>
           <Plus size={18} /> Add Room
@@ -122,7 +122,7 @@ export default function HomeRoomsPage() {
         {rooms.length === 0 ? (
           <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             <Box size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No rooms yet. Add your first room above.</p>
+            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No rooms yet. Add one and we&apos;ll start placing stuff.</p>
           </div>
         ) : orderedRooms.map(room => {
           const roomItems = items.filter(item => item.roomId === room.id);
@@ -152,7 +152,7 @@ export default function HomeRoomsPage() {
                   <div style={{ fontSize: 13, color: 'var(--color-secondary)' }}>{room.notes}</div>
                 )}
                 {roomItems.length === 0 ? (
-                  <div style={{ fontSize: 13, color: 'var(--color-secondary)' }}>No items assigned yet.</div>
+                  <div style={{ fontSize: 13, color: 'var(--color-secondary)' }}>Nothing assigned here yet.</div>
                 ) : roomItems.map(item => (
                   <div key={item.id} className="task-row" style={{ display: 'flex', alignItems: 'stretch', background: 'var(--color-background)', borderRadius: 8, border: '1px solid var(--color-border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0 }}>

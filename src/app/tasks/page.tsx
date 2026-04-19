@@ -98,7 +98,7 @@ export default function TasksPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The List</h1>
-          <p className="page-subtitle">{totalDone} of {tasks.length} move tasks complete for Clearwater, U-Pack, and the drive north</p>
+          <p className="page-subtitle">{totalDone} of {tasks.length} done. Still a little bit feral, but getting there.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setModalTask({ categoryId: defaultCategoryId ?? 0, title: '', status: 'Not Started', owner: null, dueDate: null, notes: '' })}>
           <Plus size={18} /> Add Task
@@ -137,7 +137,7 @@ export default function TasksPage() {
       <div style={{ marginBottom: 32 }}>
         {grouped.length === 0 && complete.length === 0 && (
           <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14, background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
-            {isFiltering ? 'No tasks match your filters.' : 'No tasks yet. Add one above.'}
+            {isFiltering ? 'Nothing matches the filters.' : 'Nothing on the list yet.'}
           </div>
         )}
 

@@ -12,10 +12,10 @@ const NAV = [
   { href: '/',          label: 'Overview',   Icon: LayoutDashboard },
   { href: '/home',       label: 'House',      Icon: House           },
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
-  { href: '/belongings',label: 'Belongings', Icon: Package         },
+  { href: '/belongings',label: 'Stuff',      Icon: Package         },
   { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },
   { href: '/map',       label: 'Route',      Icon: Map             },
-  { href: '/drive-plan', label: 'Loadout',   Icon: CarFront        },
+  { href: '/drive-plan', label: 'Cars',      Icon: CarFront        },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

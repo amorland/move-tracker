@@ -62,7 +62,7 @@ export default function TimelinePage() {
     setLoading(false);
   };
 
-  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading timeline…</div>;
+  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading our timeline…</div>;
 
   const milestones = getMilestones(settings);
 
@@ -158,7 +158,7 @@ export default function TimelinePage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Journey</h1>
-          <p className="page-subtitle">Andrew and Tory&apos;s move, route, and purchase timeline from Clearwater to Cold Spring</p>
+          <p className="page-subtitle">Move dates, drive dates, and house dates in one line.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAddModal(true)}>
           <Plus size={18} /> Add Event
@@ -200,7 +200,7 @@ export default function TimelinePage() {
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
           <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
           <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>
-            {isFiltering ? 'No items match your search.' : 'Your timeline is empty. Set key dates on the Overview page, or add an event here.'}
+            {isFiltering ? 'Nothing matches the search.' : 'Nothing on the timeline yet. Add a date or event.'}
           </p>
         </div>
       ) : (

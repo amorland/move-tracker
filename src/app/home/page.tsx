@@ -58,7 +58,7 @@ export default function HomePage() {
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ marginBottom: 28 }}>
         <h1>House Planning</h1>
-        <p className="page-subtitle">25 Chestnut purchase progress, room setup, documents, and early project planning</p>
+        <p className="page-subtitle">Where we stand on 25 Chestnut.</p>
       </div>
 
       <HomeSubnav />

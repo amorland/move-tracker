@@ -61,7 +61,7 @@ export default function HomeProjectsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>House Projects</h1>
-          <p className="page-subtitle">Hardwood floors, repairs, and other early 25 Chestnut project ideas</p>
+          <p className="page-subtitle">The maybe-later list, starting with floors and fixes.</p>
         </div>
         <button
           className="btn btn-primary btn-lg"
@@ -100,7 +100,7 @@ export default function HomeProjectsPage() {
         {visible.length === 0 ? (
           <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No projects match your filters.</p>
+            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>Nothing matches the filters.</p>
           </div>
         ) : (
           visible.map(project => (

@@ -106,7 +106,7 @@ export default function BelongingsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Big Sort</h1>
-          <p className="page-subtitle">{unresolvedCount} still in the air · {resolvedCount} sorted across what you&apos;re bringing, selling, donating, or trashing</p>
+          <p className="page-subtitle">{unresolvedCount} still in the air · {resolvedCount} sorted across what we&apos;re bringing, selling, donating, or trashing</p>
         </div>
         <button
           className="btn btn-primary btn-lg"

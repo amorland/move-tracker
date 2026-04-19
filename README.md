@@ -1,6 +1,6 @@
 # Starland™ Moving
 
-A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel home-planning work: purchase/loan timeline tracking, document links, room planning, a crude visual layout planner, and future home projects. It also includes a dedicated drive loadout planner for assigning people, pets, and cargo across multiple vehicles. Access is gated by a shared app password, while private documents are intended to be stored as secure external links such as Google Drive URLs.
+A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel house-planning work: purchase/loan timeline tracking, document links, room planning, a crude visual layout planner, and future house projects. It also includes a dedicated car-planning workspace for assigning people, pets, and cargo across multiple vehicles. Access is gated by a shared app password, while private documents are intended to be stored as secure external links such as Google Drive URLs.
 
 ## Stack
 
@@ -21,14 +21,14 @@ Warm paper tones throughout. Three key values: `#faf8f5` (content background), `
 |------|-------|-------------|
 | **Overview** | `/` | At-a-glance dashboard with Move Timeline, Drive Timeline, Home Timeline, move task completion, and belongings progress |
 | **The List** | `/tasks` | Move tasks grouped by category with owner toggles, due dates, completion tracking, notes, and attached document links |
-| **The Big Sort** | `/belongings` | Belongings grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
+| **The Big Sort** | `/belongings` | Stuff grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
 | **The Journey** | `/timeline` | Combined move timeline for key dates, tasks, custom events, and derived drive stops |
 | **The Route** | `/map` | Leaflet map with OSRM routing, route stats, overnight stops, and trip ETA logic |
-| **Drive Plan** | `/drive-plan` | Vehicle loadout planner for assigning drivers, passengers, pets, bikes, plants, and cargo across multiple cars |
-| **Home Planning** | `/home` | Home dashboard with summaries for timeline, tasks, documents, and navigation into the dedicated Home subsection |
-| **Home Timeline** | `/home/timeline` | Purchase, loan, and home update timeline entries shown in a vertical timeline layout with document attachments |
-| **Home Tasks** | `/home/tasks` | Planning tasks for purchase, loan, setup, and updates with grouped filters, owner/status tracking, and attachments |
-| **Home Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
+| **Cars** | `/drive-plan` | Car planner for assigning drivers, passengers, pets, bikes, plants, and cargo across the Mazda and Subaru |
+| **House Planning** | `/home` | House dashboard with purchase progress, summaries, and navigation into the dedicated House subsection |
+| **House Timeline** | `/home/timeline` | Purchase, loan, and house update entries shown in a vertical timeline layout with document attachments |
+| **House Tasks** | `/home/tasks` | Planning tasks for purchase, loan, setup, and updates with grouped filters, owner/status tracking, and attachments |
+| **House Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
 | **Rooms** | `/home/rooms` | Room-by-room planning for existing brought items and planned purchases |
 | **Visual Layout** | `/home/layout` | Crude drag-and-drop room layout planner built on top of saved rooms and room items |
 | **Projects** | `/home/projects` | Future home improvement and renovation planning |
@@ -52,9 +52,15 @@ When dates are confirmed the API enforces ordering constraints:
 
 Drive time uses a `0.8x` correction factor on OSRM duration. Overnight stops are encoded with a `[overnight]` prefix in location notes. The route panel and the timeline both derive drive-day entries from the stored route stops.
 
-### Drive Planning
+On the main Overview page, the Route widget now:
 
-The app includes a separate `Drive Plan` workspace for convoy planning. It models:
+- keeps the first overnight on the same calendar day as drive start
+- shows the per-day drive time between each overnight stop
+- calculates the final-day arrival from the actual last drive segment rather than an even split
+
+### Car Planning
+
+The app includes a separate `Cars` workspace for convoy planning. It models:
 
 - vehicles
 - people and pets
@@ -83,9 +89,9 @@ To avoid collisions between old move tasks and new home planning tasks, the atta
 - `event`
 - `timeline_entry`
 
-### Home Planning
+### House Planning
 
-The Home area is split into:
+The House area is split into:
 
 - timeline entries for purchase, loan, and updates
 - planning tasks grouped into `purchase`, `loan`, `home_setup`, and `updates`
@@ -93,7 +99,7 @@ The Home area is split into:
 - a visual layout page that reuses room items and stores rough on-canvas placement
 - future projects with status and priority tracking
 
-The Home subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages.
+The House subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages.
 
 ## Data Model
 
@@ -179,15 +185,15 @@ src/
 │   │   ├── timeline/        # Home timeline CRUD
 │   │   └── tracks/          # Track metadata
 │   ├── belongings/          # The Big Sort page
-│   ├── drive-plan/          # Vehicle / passenger / cargo planner
+│   ├── drive-plan/          # Cars page
 │   ├── home/
-│   │   ├── documents/       # Home documents page
+│   │   ├── documents/       # House documents page
 │   │   ├── layout/          # Visual room layout planner
-│   │   ├── projects/        # Home projects page
+│   │   ├── projects/        # House projects page
 │   │   ├── rooms/           # Room planning page
-│   │   ├── tasks/           # Home tasks page
-│   │   ├── timeline/        # Home timeline page
-│   │   └── page.tsx         # Home dashboard
+│   │   ├── tasks/           # House tasks page
+│   │   ├── timeline/        # House timeline page
+│   │   └── page.tsx         # House dashboard
 │   ├── login/               # Login page
 │   ├── map/                 # Route page
 │   ├── tasks/               # Move tasks page

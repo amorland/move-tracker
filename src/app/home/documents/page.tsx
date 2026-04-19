@@ -57,7 +57,7 @@ export default function HomeDocumentsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>House Documents</h1>
-          <p className="page-subtitle">{documents.length} saved links across 25 Chestnut, the BCU file, and related move items</p>
+          <p className="page-subtitle">{documents.length} saved links for Chestnut, BCU, and the move file.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAdding(true)}>
           <Plus size={18} /> Add Document
@@ -87,7 +87,7 @@ export default function HomeDocumentsPage() {
         {visible.length === 0 ? (
           <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             <FileText size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No documents match your filters.</p>
+            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>Nothing matches the filters.</p>
           </div>
         ) : (
           visible.map(document => (

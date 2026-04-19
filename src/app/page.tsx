@@ -33,6 +33,7 @@ export default function OverviewPage() {
     daysOfDriving: number;
     estArrival: Date | null;
     finalDayDuration: number | null;
+    dayDurations: number[];
   } | null>(null);
   const [routeLocations, setRouteLocations] = useState<MoveLocation[]>([]);
   const [showRouteDetails, setShowRouteDetails] = useState(false);
@@ -139,6 +140,7 @@ export default function OverviewPage() {
             daysOfDriving,
             estArrival,
             finalDayDuration,
+            dayDurations,
           });
         }
       } catch {}
@@ -234,7 +236,7 @@ export default function OverviewPage() {
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Fat Necks on the Move</h1>
-          <p className="page-subtitle">Clearwater, FL → Cold Spring, NY · Summer 2026</p>
+          <p className="page-subtitle">Where we stand between Clearwater and Cold Spring.</p>
         </div>
         {driveDate && driveCountdownLabel && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>
@@ -286,7 +288,16 @@ export default function OverviewPage() {
             return (
               <div style={{ position: 'relative', marginBottom: 16 }}>
                 <div style={{ position: 'absolute', left: `calc(100% / ${routeLocations.length * 2})`, right: `calc(100% / ${routeLocations.length * 2})`, top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
-                <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${routeLocations.length * 2 - 1}, minmax(0, 1fr))`,
+                    position: 'relative',
+                    zIndex: 1,
+                    rowGap: 8,
+                    alignItems: 'start',
+                  }}
+                >
                   {routeLocations.map((loc, idx) => {
                     const isOrigin = loc.category === 'Origin';
                     const isDest = loc.category === 'Destination';
@@ -295,27 +306,66 @@ export default function OverviewPage() {
                     if (driveBase) {
                       if (isDest && routeSummary.estArrival) {
                         stopDate = format(routeSummary.estArrival, 'MMM d');
+                      } else if (isOrigin) {
+                        stopDate = format(driveBase, 'MMM d');
                       } else {
-                        stopDate = format(new Date(driveBase.getFullYear(), driveBase.getMonth(), driveBase.getDate() + idx), 'MMM d');
+                        const priorOvernights = routeLocations
+                          .slice(0, idx)
+                          .filter(item => item.category === 'Stop' && !!item.notes?.startsWith('[overnight]')).length;
+                        stopDate = format(
+                          new Date(driveBase.getFullYear(), driveBase.getMonth(), driveBase.getDate() + priorOvernights),
+                          'MMM d',
+                        );
                       }
                     }
                     return (
-                      <div key={loc.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '0 2px' }}>
-                        <div style={{
-                          width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                          background: overnight ? '#eef2ff' : isOrigin ? 'var(--color-accent)' : 'var(--color-surface)',
-                          border: `2px solid ${overnight ? '#6366f1' : 'var(--color-accent)'}`,
-                          boxShadow: overnight ? '0 0 0 3px #eef2ff' : '0 0 0 3px var(--color-accent-soft)',
-                        }} />
-                        <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: overnight ? '#6366f1' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
-                          {isOrigin ? 'Start' : isDest ? 'End' : 'Night'}
+                      <div key={loc.id} style={{ display: 'contents' }}>
+                        <div
+                          style={{
+                            gridColumn: idx * 2 + 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '0 2px',
+                          }}
+                        >
+                          <div style={{
+                            width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                            background: overnight ? '#eef2ff' : isOrigin ? 'var(--color-accent)' : 'var(--color-surface)',
+                            border: `2px solid ${overnight ? '#6366f1' : 'var(--color-accent)'}`,
+                            boxShadow: overnight ? '0 0 0 3px #eef2ff' : '0 0 0 3px var(--color-accent-soft)',
+                          }} />
+                          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: overnight ? '#6366f1' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
+                            {isOrigin ? 'Start' : isDest ? 'End' : 'Night'}
+                          </div>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
+                            {loc.name}
+                          </div>
+                          {stopDate && (
+                            <div style={{ fontSize: 10, color: 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
+                              {stopDate}
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                          {loc.name}
-                        </div>
-                        {stopDate && (
-                          <div style={{ fontSize: 10, color: 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
-                            {stopDate}
+                        {idx < routeLocations.length - 1 && routeSummary.dayDurations[idx] && (
+                          <div
+                            style={{
+                              gridColumn: idx * 2 + 2,
+                              alignSelf: 'start',
+                              justifySelf: 'center',
+                              marginTop: 28,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              color: 'var(--color-secondary)',
+                              background: 'var(--color-background)',
+                              border: '1px solid var(--color-border)',
+                              borderRadius: 999,
+                              padding: '4px 8px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {fmtDuration(routeSummary.dayDurations[idx])}
                           </div>
                         )}
                       </div>
@@ -463,7 +513,7 @@ export default function OverviewPage() {
                 );
               })}
               {belongings.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0 }}>No items catalogued yet.</p>
+                <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0 }}>We haven&apos;t dumped any stuff in here yet.</p>
               )}
             </div>
           </div>

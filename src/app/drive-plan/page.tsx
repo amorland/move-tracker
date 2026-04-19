@@ -2,7 +2,7 @@
 
 import { DriveLoadoutItem, DriveLoadoutType, DriveVehicle } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
-import { CarFront, Dog, Baby, Bike, Briefcase, PackagePlus, Pencil, Plus, Trash2, User, X } from 'lucide-react';
+import { CarFront, Dog, Baby, Bike, Briefcase, Leaf, Package, PackagePlus, Pencil, Plus, Trash2, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 const DEFAULT_VEHICLES: Omit<DriveVehicle, 'id' | 'orderIndex'>[] = [
@@ -156,13 +156,13 @@ export default function DrivePlanPage() {
     <div style={{ maxWidth: 1180, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Loadout</h1>
-          <p className="page-subtitle">Test how Andrew, Tory, Remy, Winston, Harper, bikes, plants, and luggage split between the Mazda and Subaru</p>
+          <h1>Cars</h1>
+          <p className="page-subtitle">Who rides where, and what ends up in which car.</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {vehicles.length === 0 && items.length === 0 && (
             <button className="btn btn-secondary btn-lg" onClick={seedDefaults}>
-              <PackagePlus size={18} /> Load Suggested Setup
+              <PackagePlus size={18} /> Load Our Starter Split
             </button>
           )}
           <button className="btn btn-secondary btn-lg" onClick={() => setItemModal({ label: '', itemType: 'gear', assignedVehicleId: null, placement: '', required: true, notes: '' })}>
@@ -177,9 +177,9 @@ export default function DrivePlanPage() {
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <div className="section-label" style={{ marginBottom: 6 }}>Starland convoy setup</div>
+            <div className="section-label" style={{ marginBottom: 6 }}>Our convoy setup</div>
             <div style={{ fontSize: 13, color: 'var(--color-secondary)', maxWidth: 720 }}>
-              Drag people, pets, and cargo between the unassigned pool and each vehicle to test the Clearwater-to-Cold Spring split. Use notes for baby gear, dog access, plant temperature concerns, and roof-pod dependencies.
+              Drag people, pets, and gear between cars until the split actually feels sane.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -322,7 +322,7 @@ function DropZone({
         <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>{subtitle}</div>
       </div>
       {items.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Drop items here.</div>
+        <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Nothing parked here yet.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map(item => (
@@ -336,7 +336,7 @@ function DropZone({
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ color: 'var(--color-accent-dark)' }}>{itemIcon(item.itemType)}</span>
+                    <span style={{ color: 'var(--color-accent-dark)' }}>{itemIcon(item)}</span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)' }}>{item.label}</span>
                     {!item.required && <span className="badge badge-neutral">optional</span>}
                   </div>
@@ -472,11 +472,15 @@ function LoadoutItemModal({
   );
 }
 
-function itemIcon(type: DriveLoadoutType) {
-  if (type === 'adult') return <User size={14} />;
-  if (type === 'child') return <Baby size={14} />;
-  if (type === 'pet') return <Dog size={14} />;
-  if (type === 'vehicle_addon') return <CarFront size={14} />;
-  if (type === 'gear') return <Bike size={14} />;
+function itemIcon(item: Pick<DriveLoadoutItem, 'itemType' | 'label'>) {
+  if (item.itemType === 'adult') return <User size={14} />;
+  if (item.itemType === 'child') return <Baby size={14} />;
+  if (item.itemType === 'pet') return <Dog size={14} />;
+  if (item.itemType === 'vehicle_addon') return <PackagePlus size={14} />;
+  const label = item.label.toLowerCase();
+  if (label.includes('bike')) return <Bike size={14} />;
+  if (label.includes('plant')) return <Leaf size={14} />;
+  if (label.includes('luggage') || label.includes('bag')) return <Briefcase size={14} />;
+  if (label.includes('suppl')) return <Package size={14} />;
   return <Briefcase size={14} />;
 }

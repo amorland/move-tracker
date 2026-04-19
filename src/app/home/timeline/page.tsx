@@ -47,7 +47,7 @@ export default function HomeTimelinePage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>House Timeline</h1>
-          <p className="page-subtitle">Offer, contract, BCU loan, and early 25 Chestnut planning milestones</p>
+          <p className="page-subtitle">Offer, contract, BCU, closing. The whole little saga.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAdding(true)}>
           <Plus size={18} /> Add Entry
@@ -59,7 +59,7 @@ export default function HomeTimelinePage() {
       {entries.length === 0 ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
           <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-          <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No 25 Chestnut planning entries yet.</p>
+          <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>Nothing logged for 25 Chestnut yet.</p>
         </div>
       ) : (
         <div style={{ position: 'relative', paddingLeft: 56 }}>

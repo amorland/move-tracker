@@ -202,7 +202,7 @@ export default function MoveMap() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Route</h1>
-          <p className="page-subtitle">Andrew, Tory, Remy, Winston, and Harper from Clearwater to Cold Spring</p>
+          <p className="page-subtitle">Our drive north, stop by stop.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => { setIsAdding(true); setEditingLoc(null); }}>
           <Plus size={18} /> Add Location

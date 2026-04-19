@@ -98,7 +98,7 @@ export default function HomeLayoutPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Visual Layout</h1>
-          <p className="page-subtitle">A crude 25 Chestnut floor sketch for placing major furniture, the nursery, and early room plans</p>
+          <p className="page-subtitle">A rough sketch so we can drag furniture around before move-in.</p>
         </div>
         <Link href="/home/rooms" className="btn btn-secondary btn-lg" style={{ textDecoration: 'none' }}>
           Manage Rooms & Items

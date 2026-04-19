@@ -104,7 +104,7 @@ export default function HomeTasksPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>House Tasks</h1>
-          <p className="page-subtitle">{tasks.filter(task => task.status === 'Complete').length} of {tasks.length} Chestnut and loan tasks complete</p>
+          <p className="page-subtitle">{tasks.filter(task => task.status === 'Complete').length} of {tasks.length} done for 25 Chestnut and the loan.</p>
         </div>
         <button
           className="btn btn-primary btn-lg"
