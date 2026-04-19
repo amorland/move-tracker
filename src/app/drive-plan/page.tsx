@@ -321,7 +321,7 @@ function VehicleVisual({
     <div
       style={{
         position: 'relative',
-        minHeight: 320,
+        minHeight: 340,
         borderRadius: 18,
         border: '1px solid var(--color-border)',
         background: 'linear-gradient(180deg, #f5f1ea 0%, #eee7dc 100%)',
@@ -360,30 +360,42 @@ function VehicleVisual({
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
               {zone.label}
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {zoneItems.map(item => (
-                <button
-                  key={item.id}
-                  draggable
-                  onDragStart={e => e.dataTransfer.setData('text/plain', String(item.id))}
-                  onClick={() => onEditItem(item)}
-                  style={{
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-surface)',
-                    borderRadius: 999,
-                    padding: '4px 8px',
-                    fontSize: 11,
-                    color: 'var(--color-foreground)',
-                    cursor: 'grab',
-                    maxWidth: '100%',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {zoneItemIcon(item.itemType)} {item.label}
-                </button>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {zoneItems.length === 0 ? (
+                <div style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.8 }}>Empty</div>
+              ) : (
+                <>
+                  {zoneItems.slice(0, zone.key === 'cargo area' ? 2 : 1).map(item => (
+                    <button
+                      key={item.id}
+                      draggable
+                      onDragStart={e => e.dataTransfer.setData('text/plain', String(item.id))}
+                      onClick={() => onEditItem(item)}
+                      style={{
+                        border: '1px solid var(--color-border)',
+                        background: 'var(--color-surface)',
+                        borderRadius: 10,
+                        padding: '5px 8px',
+                        fontSize: 11,
+                        color: 'var(--color-foreground)',
+                        cursor: 'grab',
+                        maxWidth: '100%',
+                        textAlign: 'left',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {zoneItemIcon(item.itemType)} {item.label}
+                    </button>
+                  ))}
+                  {zoneItems.length > (zone.key === 'cargo area' ? 2 : 1) && (
+                    <div style={{ fontSize: 11, color: 'var(--color-secondary)' }}>
+                      +{zoneItems.length - (zone.key === 'cargo area' ? 2 : 1)} more
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
         );
@@ -588,11 +600,11 @@ function itemIcon(type: DriveLoadoutType) {
 }
 
 function zoneItemIcon(type: DriveLoadoutType) {
-  if (type === 'adult') return 'A';
-  if (type === 'child') return 'B';
-  if (type === 'pet') return 'P';
-  if (type === 'vehicle_addon') return 'R';
-  return 'G';
+  if (type === 'adult') return 'Driver';
+  if (type === 'child') return 'Baby';
+  if (type === 'pet') return 'Pet';
+  if (type === 'vehicle_addon') return 'Roof';
+  return 'Gear';
 }
 
 function placementBucket(item: DriveLoadoutItem) {

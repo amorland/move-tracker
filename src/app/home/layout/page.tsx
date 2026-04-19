@@ -15,22 +15,31 @@ type RoomTemplate = {
   label?: string;
 };
 
+const FLOOR_ORDER = ['Basement', 'Main Floor', 'Second Floor', 'Third Floor', 'Exterior', 'Flexible', 'Multiple', 'Unassigned floor'];
+
 const FLOOR_TEMPLATES: Record<string, RoomTemplate[]> = {
+  Basement: [
+    { match: ['Basement / Yoga Room'], x: 4, y: 10, w: 92, h: 72, label: 'Basement / Yoga Room' },
+  ],
   'Main Floor': [
-    { match: ['First Floor Living Room', 'Living Room'], x: 4, y: 20, w: 45, h: 62, label: 'Living Room' },
-    { match: ['Dining Room'], x: 51, y: 12, w: 20, h: 32, label: 'Dining' },
-    { match: ['Kitchen'], x: 72, y: 12, w: 24, h: 44, label: 'Kitchen' },
-    { match: ['Bathroom'], x: 52, y: 50, w: 14, h: 16, label: 'Bath' },
+    { match: ['Living Room'], x: 4, y: 18, w: 33, h: 58, label: 'Living Room' },
+    { match: ['Dining Room'], x: 39, y: 18, w: 18, h: 30, label: 'Dining' },
+    { match: ['Study / Lounge'], x: 39, y: 50, w: 18, h: 26, label: 'Study / Lounge' },
+    { match: ['Kitchen'], x: 59, y: 18, w: 24, h: 42, label: 'Kitchen' },
+    { match: ['Mud Room'], x: 84, y: 18, w: 12, h: 24, label: 'Mud Room' },
+    { match: ['Half Bath'], x: 84, y: 46, w: 12, h: 14, label: 'Half Bath' },
   ],
   'Second Floor': [
-    { match: ['Primary Bedroom'], x: 4, y: 8, w: 34, h: 34, label: 'Primary' },
-    { match: ['Bathroom'], x: 40, y: 8, w: 18, h: 18, label: 'Bath' },
-    { match: ['Bedroom 2'], x: 60, y: 8, w: 36, h: 30, label: 'Bedroom 2' },
-    { match: ['Office'], x: 4, y: 46, w: 34, h: 36, label: 'Office' },
-    { match: ['Yoga / Nursery', 'Bedroom 3'], x: 42, y: 40, w: 54, h: 42, label: 'Yoga / Nursery' },
+    { match: ['Office'], x: 4, y: 10, w: 28, h: 34, label: 'Office' },
+    { match: ['Master Bedroom'], x: 34, y: 10, w: 34, h: 42, label: 'Master Bedroom' },
+    { match: ['Master Bathroom'], x: 70, y: 10, w: 16, h: 20, label: 'Master Bath' },
+    { match: ['Second Bathroom'], x: 70, y: 32, w: 16, h: 20, label: 'Second Bath' },
+    { match: ['Second Bedroom'], x: 4, y: 48, w: 38, h: 32, label: 'Second Bedroom' },
   ],
-  'Lower Level': [
-    { match: ['Basement'], x: 4, y: 10, w: 92, h: 72, label: 'Basement' },
+  'Third Floor': [
+    { match: ['Third Bedroom'], x: 4, y: 12, w: 34, h: 34, label: 'Third Bedroom' },
+    { match: ['Third Bathroom'], x: 40, y: 12, w: 18, h: 20, label: 'Third Bath' },
+    { match: ['Fourth Bedroom'], x: 60, y: 12, w: 36, h: 42, label: 'Fourth Bedroom' },
   ],
   Exterior: [
     { match: ['Garage'], x: 4, y: 10, w: 36, h: 36, label: 'Garage' },
@@ -180,7 +189,7 @@ function FloorPlan({
     <div
       style={{
         position: 'relative',
-        minHeight: floor === 'Second Floor' ? 560 : 500,
+        minHeight: floor === 'Second Floor' || floor === 'Third Floor' ? 560 : 500,
         borderRadius: 18,
         border: '1px solid var(--color-border)',
         background: 'linear-gradient(180deg, #f8f4ec 0%, #efe6d8 100%)',
@@ -191,12 +200,23 @@ function FloorPlan({
     >
       <div style={{ position: 'absolute', inset: 16, borderRadius: 14, border: '1px solid rgba(0,0,0,0.05)', pointerEvents: 'none' }} />
       {floor === 'Main Floor' && (
-        <div style={{ position: 'absolute', left: '48.5%', top: '22%', width: '2%', height: '56%', borderRadius: 8, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+        <>
+          <div style={{ position: 'absolute', left: '37%', top: '20%', width: '2%', height: '56%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '57%', top: '18%', width: '2%', height: '58%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '83%', top: '18%', width: '1.5%', height: '42%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+        </>
       )}
       {floor === 'Second Floor' && (
         <>
-          <div style={{ position: 'absolute', left: '38%', top: '28%', width: '4%', height: '42%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', left: '42%', top: '26%', width: '16%', height: '6%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '32%', top: '10%', width: '2%', height: '70%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '68%', top: '10%', width: '2%', height: '42%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '70%', top: '30%', width: '16%', height: '2%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+        </>
+      )}
+      {floor === 'Third Floor' && (
+        <>
+          <div style={{ position: 'absolute', left: '38%', top: '12%', width: '2%', height: '42%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '58%', top: '12%', width: '2%', height: '42%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
         </>
       )}
       {rooms.map(room => {
@@ -333,11 +353,10 @@ function resolveTemplate(room: Room, templates: RoomTemplate[]) {
 }
 
 function orderedFloors(rooms: Room[]) {
-  const preferred = ['Main Floor', 'Second Floor', 'Lower Level', 'Exterior', 'Flexible', 'Multiple', 'Unassigned floor'];
   const seen = [...new Set(rooms.map(room => room.floor || 'Unassigned floor'))];
   return [
-    ...preferred.filter(floor => seen.includes(floor)),
-    ...seen.filter(floor => !preferred.includes(floor)),
+    ...FLOOR_ORDER.filter(floor => seen.includes(floor)),
+    ...seen.filter(floor => !FLOOR_ORDER.includes(floor)),
   ];
 }
 

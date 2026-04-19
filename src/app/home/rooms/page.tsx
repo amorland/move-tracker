@@ -6,6 +6,27 @@ import { useScrollLock } from '@/lib/useScrollLock';
 import { Box, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+const FLOOR_ORDER = ['Basement', 'Main Floor', 'Second Floor', 'Third Floor', 'Exterior', 'Flexible', 'Multiple', 'Unassigned floor'];
+const ROOM_ORDER = [
+  'Basement / Yoga Room',
+  'Half Bath',
+  'Living Room',
+  'Dining Room',
+  'Mud Room',
+  'Kitchen',
+  'Study / Lounge',
+  'Office',
+  'Master Bedroom',
+  'Master Bathroom',
+  'Second Bathroom',
+  'Second Bedroom',
+  'Third Bedroom',
+  'Third Bathroom',
+  'Fourth Bedroom',
+  'Garage',
+  'Outdoor / Yard',
+];
+
 export default function HomeRoomsPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [items, setItems] = useState<RoomItem[]>([]);
@@ -71,6 +92,18 @@ export default function HomeRoomsPage() {
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading rooms…</div>;
 
+  const orderedRooms = [...rooms].sort((a, b) => {
+    const floorA = FLOOR_ORDER.indexOf(a.floor || 'Unassigned floor');
+    const floorB = FLOOR_ORDER.indexOf(b.floor || 'Unassigned floor');
+    if (floorA !== floorB) return (floorA === -1 ? 999 : floorA) - (floorB === -1 ? 999 : floorB);
+
+    const roomA = ROOM_ORDER.indexOf(a.name);
+    const roomB = ROOM_ORDER.indexOf(b.name);
+    if (roomA !== roomB) return (roomA === -1 ? 999 : roomA) - (roomB === -1 ? 999 : roomB);
+
+    return a.name.localeCompare(b.name);
+  });
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
@@ -91,7 +124,7 @@ export default function HomeRoomsPage() {
             <Box size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
             <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No rooms yet. Add your first room above.</p>
           </div>
-        ) : rooms.map(room => {
+        ) : orderedRooms.map(room => {
           const roomItems = items.filter(item => item.roomId === room.id);
           return (
             <div key={room.id} className="card">
