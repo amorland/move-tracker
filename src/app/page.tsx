@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Task, Belonging, Category } from '@/lib/types';
-import { format, parseISO, differenceInDays } from 'date-fns';
+import { MoveSettings, Task, Belonging, Category, MoveLocation } from '@/lib/types';
+import { format, parseISO, differenceInDays, addSeconds } from 'date-fns';
 import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save } from 'lucide-react';
 import Link from 'next/link';
 import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
@@ -27,6 +27,12 @@ export default function OverviewPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [belongings, setBelongings] = useState<Belonging[]>([]);
   const [loading, setLoading] = useState(true);
+  const [routeSummary, setRouteSummary] = useState<{
+    distanceMiles: number;
+    adjustedDuration: number;
+    daysOfDriving: number;
+    estArrival: Date | null;
+  } | null>(null);
 
   const [dateModal, setDateModal] = useState<{ key: string; label: string } | null>(null);
   const [tempDate, setTempDate] = useState('');
@@ -36,10 +42,11 @@ export default function OverviewPage() {
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [sRes, cRes, bRes] = await Promise.all([
+    const [sRes, cRes, bRes, lRes] = await Promise.all([
       fetch('/api/settings'),
       fetch('/api/categories'),
       fetch('/api/belongings'),
+      fetch('/api/locations'),
     ]);
     const s = await sRes.json();
     sanitise(s);
@@ -48,7 +55,44 @@ export default function OverviewPage() {
     setCategories(cats);
     setTasks(ts);
     setBelongings(await bRes.json());
+    const locs: MoveLocation[] = await lRes.json();
     setLoading(false);
+
+    const routePoints = locs
+      .filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category) && l.lat && l.lng)
+      .sort((a, b) => {
+        if (a.category === 'Origin') return -1;
+        if (b.category === 'Origin') return 1;
+        if (a.category === 'Destination') return 1;
+        if (b.category === 'Destination') return -1;
+        return (a.id ?? 0) - (b.id ?? 0);
+      });
+    if (routePoints.length >= 2) {
+      try {
+        const coords = routePoints.map(p => `${p.lng},${p.lat}`).join(';');
+        const rRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`);
+        const rData = await rRes.json();
+        if (rData.routes?.[0]) {
+          const overnightCount = locs.filter(l => l.category === 'Stop' && l.notes?.startsWith('[overnight]')).length;
+          const daysOfDriving = overnightCount + 1;
+          const adjustedDuration = Math.round(rData.routes[0].duration * 0.8);
+          let estArrival: Date | null = null;
+          if (s.driveStartDate) {
+            const driveStart = parseISO(s.driveStartDate);
+            const lastDayStart = new Date(driveStart);
+            lastDayStart.setDate(lastDayStart.getDate() + (daysOfDriving - 1));
+            lastDayStart.setHours(9, 0, 0, 0);
+            estArrival = addSeconds(lastDayStart, adjustedDuration / daysOfDriving);
+          }
+          setRouteSummary({
+            distanceMiles: rData.routes[0].distance * 0.000621371,
+            adjustedDuration,
+            daysOfDriving,
+            estArrival,
+          });
+        }
+      } catch {}
+    }
   };
 
   const sanitise = (s: MoveSettings) => {
@@ -164,6 +208,27 @@ export default function OverviewPage() {
           <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>Tap any date to edit</span>
         </div>
       </div>
+
+      {/* Route summary */}
+      {routeSummary && (
+        <div className="mini-timeline" style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <h2 style={{ margin: 0 }}>The Route</h2>
+            <Link href="/map" style={{ textDecoration: 'none' }}>
+              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                Open <ChevronRight size={12} />
+              </span>
+            </Link>
+          </div>
+          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', rowGap: 16 }}>
+            <RouteStat label="Total Distance" value={`${Math.round(routeSummary.distanceMiles).toLocaleString()} mi`} />
+            <RouteStat label="Drive Time" value={fmtDuration(routeSummary.adjustedDuration)} />
+            {routeSummary.daysOfDriving > 1 && <RouteStat label="Days of Driving" value={`${routeSummary.daysOfDriving}`} />}
+            {settings.driveStartDate && <RouteStat label="Drive Start" value={format(parseISO(settings.driveStartDate), 'MMM d')} accent />}
+            {routeSummary.estArrival && <RouteStat label="Est. Arrival" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent />}
+          </div>
+        </div>
+      )}
 
       {/* Overview grid — Tasks + Belongings */}
       <div className="overview-grid">
@@ -302,6 +367,21 @@ export default function OverviewPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function fmtDuration(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function RouteStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div>
+      <div className="section-label">{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: accent ? 'var(--color-accent-dark)' : 'var(--color-foreground)', marginTop: 3 }}>{value}</div>
     </div>
   );
 }

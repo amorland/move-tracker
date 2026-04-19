@@ -5,8 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MoveLocation, MoveSettings } from '@/lib/types';
-import { MapPin, Navigation, Plus, Trash2, X, Clock, Route, Info, Moon, Pencil, Home } from 'lucide-react';
-import { format, parseISO, addSeconds } from 'date-fns';
+import { MapPin, Plus, Trash2, X, Info, Moon, Pencil, Home } from 'lucide-react';
 
 const OriginIcon = L.divIcon({
   html: '<div style="background:var(--color-accent);width:14px;height:14px;border:2.5px solid white;border-radius:50%;box-shadow:0 0 0 4px rgba(197,176,151,0.3)"></div>',
@@ -76,7 +75,6 @@ export default function MoveMap() {
   const [newLocOvernight, setNewLocOvernight] = useState(false);
   const [editingLoc, setEditingLoc] = useState<MoveLocation | null>(null);
   const [editOvernight, setEditOvernight] = useState(false);
-  const [departureTime, setDepartureTime] = useState('09:00');
 
   useEffect(() => { fetchAll(); }, []);
 
@@ -179,21 +177,6 @@ export default function MoveMap() {
     setBounds([[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]]);
   };
 
-  const overnightCount = locations.filter(isOvernight).length;
-  const daysOfDriving = overnightCount + 1;
-  const adjustedDuration = routeStats ? Math.round(routeStats.durationSeconds * 0.8) : 0;
-  const driveSecondsPerDay = adjustedDuration / daysOfDriving;
-
-  const driveStart = settings?.driveStartDate ? parseISO(settings.driveStartDate) : null;
-  let estArrival: Date | null = null;
-  if (driveStart && routeStats) {
-    const [depHour, depMin] = departureTime.split(':').map(Number);
-    const lastDayStart = new Date(driveStart);
-    lastDayStart.setDate(lastDayStart.getDate() + (daysOfDriving - 1));
-    lastDayStart.setHours(depHour, depMin, 0, 0);
-    estArrival = addSeconds(lastDayStart, driveSecondsPerDay);
-  }
-
   // Build sorted list + route-leg index map for drive-time display
   const catOrder: Record<string, number> = { Origin: 0, Stop: 1, Destination: 2, Utility: 3, Errand: 4, Service: 5 };
   const sortedLocs = [...locations].sort((a, b) => {
@@ -226,31 +209,7 @@ export default function MoveMap() {
         </button>
       </div>
 
-      {routeStats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
-          <StatCard icon={<Route size={16} />} label="Total Distance" value={`${Math.round(routeStats.distanceMiles).toLocaleString()} mi`} />
-          <StatCard icon={<Clock size={16} />} label="Drive Time" value={fmtDuration(adjustedDuration)} />
-          {daysOfDriving > 1 && (
-            <StatCard icon={<Moon size={16} />} label="Days of Driving" value={`${daysOfDriving} days`} />
-          )}
-          <div style={{ padding: '14px 18px', borderRadius: 12, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ color: 'var(--color-secondary)' }}><Navigation size={16} /></div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="section-label" style={{ marginBottom: 4 }}>Departure</div>
-              <input
-                type="time"
-                value={departureTime}
-                onChange={e => setDepartureTime(e.target.value)}
-                style={{ fontSize: 18, fontWeight: 700, border: 'none', background: 'transparent', padding: 0, color: 'var(--color-foreground)', width: '100%', outline: 'none', lineHeight: 1 }}
-              />
-            </div>
-          </div>
-          {driveStart && <StatCard icon={<MapPin size={16} />} label="Drive Start" value={format(driveStart, 'MMM d')} accent />}
-          {estArrival && <StatCard icon={<MapPin size={16} />} label="Est. Arrival" value={format(estArrival, "MMM d 'at' h:mma")} accent />}
-        </div>
-      )}
-
-      <div className="map-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24, height: 640 }}>
+      <div className="map-grid" style={{ gap: 24 }}>
         {/* Map */}
         <div style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid var(--color-border)', position: 'relative', boxShadow: 'var(--shadow-md)', minHeight: 320, isolation: 'isolate' }}>
           <MapContainer center={[36, -80]} zoom={5} style={{ height: '100%', width: '100%' }}>
@@ -433,18 +392,6 @@ export default function MoveMap() {
             </>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent?: boolean }) {
-  return (
-    <div style={{ padding: '14px 18px', borderRadius: 12, background: accent ? 'var(--color-accent-soft)' : 'var(--color-surface)', border: `1px solid ${accent ? 'var(--color-accent)' : 'var(--color-border)'}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ color: accent ? 'var(--color-accent-dark)' : 'var(--color-secondary)' }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: 18, fontWeight: 700, color: accent ? 'var(--color-accent-dark)' : 'var(--color-foreground)', lineHeight: 1 }}>{value}</div>
-        <div className="section-label" style={{ marginTop: 3, color: accent ? 'var(--color-accent-dark)' : undefined }}>{label}</div>
       </div>
     </div>
   );
