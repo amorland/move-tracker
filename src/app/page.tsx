@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { MoveSettings, Task, Belonging, Category, MoveLocation, TimelineEntry } from '@/lib/types';
-import { format, parseISO, differenceInDays, addSeconds } from 'date-fns';
+import { format, parseISO, differenceInCalendarDays, addSeconds, startOfDay } from 'date-fns';
 import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save } from 'lucide-react';
 import Link from 'next/link';
 import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
@@ -32,6 +32,7 @@ export default function OverviewPage() {
     adjustedDuration: number;
     daysOfDriving: number;
     estArrival: Date | null;
+    finalDayDuration: number | null;
   } | null>(null);
   const [routeLocations, setRouteLocations] = useState<MoveLocation[]>([]);
   const [showRouteDetails, setShowRouteDetails] = useState(false);
@@ -50,7 +51,7 @@ export default function OverviewPage() {
       fetch('/api/categories'),
       fetch('/api/belongings'),
       fetch('/api/locations'),
-      fetch('/api/timeline?limit=6'),
+      fetch('/api/timeline?limit=20'),
     ]);
     const s = await sRes.json();
     sanitise(s);
@@ -94,19 +95,46 @@ export default function OverviewPage() {
           const overnightCount = locs.filter(l => l.category === 'Stop' && l.notes?.startsWith('[overnight]')).length;
           const daysOfDriving = overnightCount + 1;
           const adjustedDuration = Math.round(rData.routes[0].duration * 0.8);
+          const legs = Array.isArray(rData.routes[0].legs) ? rData.routes[0].legs : [];
+          const adjustedLegDurations = legs.map((leg: { duration?: number }) => Math.round((leg.duration || 0) * 0.8));
+          const dayDurations: number[] = [];
+          let currentDayDuration = 0;
+
+          adjustedLegDurations.forEach((legDuration: number, index: number) => {
+            currentDayDuration += legDuration;
+            const nextPoint = routePoints[index + 1];
+            const endsDrivingDay = nextPoint?.category === 'Destination'
+              || (nextPoint?.category === 'Stop' && !!nextPoint.notes?.startsWith('[overnight]'));
+
+            if (endsDrivingDay) {
+              dayDurations.push(currentDayDuration);
+              currentDayDuration = 0;
+            }
+          });
+
+          if (currentDayDuration > 0) {
+            dayDurations.push(currentDayDuration);
+          }
+
+          const finalDayDuration = dayDurations.length > 0
+            ? dayDurations[dayDurations.length - 1]
+            : daysOfDriving > 0
+              ? Math.round(adjustedDuration / daysOfDriving)
+              : null;
           let estArrival: Date | null = null;
-          if (s.driveStartDate) {
+          if (s.driveStartDate && finalDayDuration !== null) {
             const driveStart = parseISO(s.driveStartDate);
             const lastDayStart = new Date(driveStart);
             lastDayStart.setDate(lastDayStart.getDate() + (daysOfDriving - 1));
             lastDayStart.setHours(9, 0, 0, 0);
-            estArrival = addSeconds(lastDayStart, adjustedDuration / daysOfDriving);
+            estArrival = addSeconds(lastDayStart, finalDayDuration);
           }
           setRouteSummary({
             distanceMiles: rData.routes[0].distance * 0.000621371,
             adjustedDuration,
             daysOfDriving,
             estArrival,
+            finalDayDuration,
           });
         }
       } catch {}
@@ -166,7 +194,14 @@ export default function OverviewPage() {
   const taskPercent = tasks.length ? Math.round((completeTasks.length / tasks.length) * 100) : 0;
 
   const driveDate = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
-  const daysUntilDrive = driveDate ? differenceInDays(driveDate, new Date()) : null;
+  const daysUntilDrive = driveDate ? differenceInCalendarDays(driveDate, startOfDay(new Date())) : null;
+  const driveCountdownLabel = daysUntilDrive === 0
+    ? 'Drive starts today'
+    : daysUntilDrive === 1
+      ? 'Drive starts tomorrow'
+      : daysUntilDrive !== null && daysUntilDrive > 1
+        ? `Drive starts in ${daysUntilDrive} days`
+        : null;
 
   const categoryRows = categories
     .map(cat => ({
@@ -196,12 +231,13 @@ export default function OverviewPage() {
           <h1>Fat Necks on the Move</h1>
           <p className="page-subtitle">Clearwater, FL → Cold Spring, NY · Summer 2026</p>
         </div>
-        {daysUntilDrive !== null && daysUntilDrive >= 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>
-            <Clock size={14} color="var(--color-accent-dark)" />
+        {driveDate && driveCountdownLabel && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>
+            <Clock size={15} color="var(--color-accent-dark)" />
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--color-accent-dark)', lineHeight: 1 }}>{daysUntilDrive}</div>
-              <div className="section-label" style={{ color: 'var(--color-accent-dark)', opacity: 0.85, marginTop: 2 }}>days to drive</div>
+              <div className="section-label" style={{ color: 'var(--color-accent-dark)', opacity: 0.85, marginBottom: 4 }}>Drive Start</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-accent-dark)', lineHeight: 1.2 }}>{format(driveDate, 'EEEE, MMM d')}</div>
+              <div style={{ fontSize: 12, color: 'var(--color-accent-dark)', opacity: 0.9, marginTop: 4 }}>{driveCountdownLabel}</div>
             </div>
           </div>
         )}
@@ -306,16 +342,16 @@ export default function OverviewPage() {
               <RouteDiv />
               <RouteStat label="Departs" value="9:00 AM" />
               {settings.driveStartDate && <><RouteDiv /><RouteStat label="Drive Start" value={format(parseISO(settings.driveStartDate), 'MMM d')} accent /></>}
-              {routeSummary.estArrival && <><RouteDiv /><RouteStat label="Arrives" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent /></>}
+              {routeSummary.estArrival && <><RouteDiv /><RouteStat label="Drive End" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent /></>}
             </div>
           )}
         </div>
       )}
 
-      {/* Home timeline */}
+      {/* Home purchase timeline */}
       <div className="mini-timeline" style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>Home Timeline</h2>
+          <h2 style={{ margin: 0 }}>Home Purchase</h2>
           <Link href="/home/timeline" style={{ textDecoration: 'none' }}>
             <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
               Open <ChevronRight size={12} />
@@ -324,27 +360,10 @@ export default function OverviewPage() {
         </div>
         {homeEntries.length === 0 ? (
           <div style={{ fontSize: 13, color: 'var(--color-secondary)', textAlign: 'center', padding: '12px 0 4px' }}>
-            No home planning entries yet.
+            No home purchase milestones yet.
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {homeEntries.slice(0, 5).map(entry => (
-              <div key={entry.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {entry.title}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                    <span className="section-label" style={{ margin: 0 }}>{entry.trackName || 'Home'}</span>
-                    <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>
-                      {format(parseISO(entry.date), 'MMM d, yyyy')}
-                    </span>
-                  </div>
-                </div>
-                <StatusPill status={entry.status} />
-              </div>
-            ))}
-          </div>
+          <HomePurchaseTimeline entries={homeEntries} />
         )}
       </div>
 
@@ -527,6 +546,88 @@ function TimelineLegendDot({ type, label }: { type: 'confirmed' | 'estimated' | 
         border: `1.5px ${type === 'unset' ? 'dashed' : 'solid'} ${type === 'unset' ? 'var(--color-border)' : 'var(--color-accent)'}`,
       }} />
       <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{label}</span>
+    </div>
+  );
+}
+
+function HomePurchaseTimeline({ entries }: { entries: TimelineEntry[] }) {
+  const today = startOfDay(new Date());
+  const purchaseEntries = [...entries]
+    .filter(entry => entry.trackKey === 'home_purchase' || entry.trackKey === 'loan')
+    .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+
+  if (purchaseEntries.length === 0) {
+    return (
+      <div style={{ fontSize: 13, color: 'var(--color-secondary)', textAlign: 'center', padding: '12px 0 4px' }}>
+        No purchase or loan milestones yet.
+      </div>
+    );
+  }
+
+  const completedEntries = purchaseEntries.filter(entry => entry.status === 'complete' || parseISO(entry.date) < today);
+  const upcomingEntries = purchaseEntries.filter(entry => entry.status !== 'complete' && parseISO(entry.date) >= today);
+  const recentCompleted = completedEntries.slice(-2);
+  const visibleEntries = [...new Map(
+    [...recentCompleted, ...upcomingEntries.slice(0, 4)].map(entry => [entry.id, entry])
+  ).values()]
+    .sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+  const fallbackEntries = purchaseEntries.slice(0, 5);
+  const timelineEntries = visibleEntries.length > 0 ? visibleEntries : fallbackEntries;
+  const nextUpcoming = upcomingEntries[0] || null;
+  const openCount = purchaseEntries.filter(entry => entry.status !== 'complete').length;
+  const completeCount = purchaseEntries.filter(entry => entry.status === 'complete' || parseISO(entry.date) < today).length;
+
+  return (
+    <div>
+      <div style={{ position: 'relative', marginBottom: 18 }}>
+        <div style={{ position: 'absolute', left: `calc(100% / ${timelineEntries.length * 2})`, right: `calc(100% / ${timelineEntries.length * 2})`, top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
+        <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
+          {timelineEntries.map((entry) => {
+            const entryDate = parseISO(entry.date);
+            const isComplete = entry.status === 'complete' || entryDate < today;
+            const isBlocked = entry.status === 'blocked';
+            const isLoan = entry.trackKey === 'loan';
+            const borderColor = isBlocked ? '#b91c1c' : isLoan ? '#1f6b5b' : 'var(--color-accent)';
+            const bgColor = isBlocked ? '#fff0f0' : isComplete ? (isLoan ? '#1f6b5b' : 'var(--color-accent)') : 'var(--color-surface)';
+            const ringColor = isLoan ? '#eef7f3' : 'var(--color-accent-soft)';
+
+            return (
+              <div key={entry.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '0 4px' }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                  background: bgColor,
+                  border: `2px solid ${borderColor}`,
+                  boxShadow: isComplete ? `0 0 0 3px ${ringColor}` : 'none',
+                }} />
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: isBlocked ? '#b91c1c' : isLoan ? '#1f6b5b' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
+                  {isLoan ? 'Loan' : 'Purchase'}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: isComplete ? 700 : 500, color: isBlocked ? '#b91c1c' : 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 108 }}>
+                  {entry.title}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
+                  {format(entryDate, 'MMM d')}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', paddingTop: 14, borderTop: '1px solid var(--color-border)' }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="section-label" style={{ marginBottom: 4 }}>Next Up</div>
+          <div style={{ fontSize: 13, color: 'var(--color-foreground)', fontWeight: 600 }}>
+            {nextUpcoming
+              ? `${nextUpcoming.title} · ${format(parseISO(nextUpcoming.date), 'MMM d, yyyy')}`
+              : 'Purchase milestone timeline is complete'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span className="badge badge-neutral">{completeCount} complete</span>
+          <span className="badge badge-neutral">{openCount} upcoming</span>
+        </div>
+      </div>
     </div>
   );
 }
