@@ -19,7 +19,7 @@ Warm paper tones throughout. Three key values: `#faf8f5` (content background), `
 
 | Area | Route | Description |
 |------|-------|-------------|
-| **HQ** | `/` | Command-center dashboard with quick links, move dates, house progress, execution status, and the route summary |
+| **HQ** | `/` | Command-center dashboard with quick links, move dates, the route summary, and execution status |
 | **The List** | `/tasks` | Move tasks grouped by category with owner toggles, due dates, completion tracking, notes, and attached document links |
 | **Stuff** | `/belongings` | Stuff grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
 | **The Journey** | `/timeline` | Combined move timeline for key dates, tasks, custom events, and derived drive stops |
@@ -54,9 +54,8 @@ The main `HQ` page is structured to keep the highest-signal items first:
 
 - quick links to the main work areas
 - move timeline
-- home purchase timeline
+- route summary
 - move execution cards for tasks and stuff
-- route summary at the bottom
 
 The idea is that `HQ` works as a command center rather than a landing page full of full-detail widgets.
 
