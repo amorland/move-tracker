@@ -62,28 +62,40 @@ export default function HomeTimelinePage() {
           <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No home planning entries yet.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {entries.map(entry => (
-            <div
-              key={entry.id}
-              onClick={() => setSelected(entry)}
-              className="item-row"
-              style={{ padding: '14px 20px', background: 'var(--color-surface)', borderRadius: 10, boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}
-            >
-              <div style={{ width: 34, height: 34, borderRadius: '50%', background: entry.status === 'confirmed' ? 'var(--color-accent-soft)' : 'var(--color-background)', border: '1.5px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <CalendarCheck size={14} color={entry.status === 'confirmed' ? 'var(--color-accent-dark)' : 'var(--color-secondary)'} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                  <span className="section-label" style={{ margin: 0 }}>{entry.trackName}</span>
-                  <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{format(parseISO(entry.date), 'MMM d, yyyy')}</span>
-                  {entry.time && <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>· {entry.time}</span>}
+        <div style={{ position: 'relative', paddingLeft: 56 }}>
+          <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 2, background: 'var(--color-border)' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {entries.map(entry => (
+              <div key={entry.id} style={{ position: 'relative' }}>
+                <div style={{ position: 'absolute', left: -56, top: 16, width: 40, height: 40, borderRadius: 12, background: entry.trackKey === 'loan' ? '#eef7f3' : entry.trackKey === 'home_updates' ? '#f3f1ed' : 'var(--color-accent-soft)', border: `1px solid ${entry.trackKey === 'loan' ? '#b7d8c7' : entry.trackKey === 'home_updates' ? 'var(--color-border)' : 'var(--color-accent)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                  <CalendarCheck size={14} color={entry.trackKey === 'loan' ? '#1f6b5b' : entry.trackKey === 'home_updates' ? '#6b655d' : 'var(--color-accent-dark)'} />
+                </div>
+                <div
+                  onClick={() => setSelected(entry)}
+                  className="item-row"
+                  style={{ padding: '16px 18px', background: 'var(--color-surface)', borderRadius: 12, boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer' }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+                      <span className="section-label" style={{ margin: 0 }}>{entry.trackName}</span>
+                      <HomeTimelineStatus status={entry.status} />
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.title}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: 'var(--color-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{format(parseISO(entry.date), 'MMM d, yyyy')}</span>
+                      {entry.time && <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>· {entry.time}</span>}
+                    </div>
+                    {entry.notes && (
+                      <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 8, lineHeight: 1.5 }}>
+                        {entry.notes}
+                      </div>
+                    )}
+                  </div>
+                  <ChevronRight size={16} color="var(--color-border)" />
                 </div>
               </div>
-              <ChevronRight size={16} color="var(--color-border)" />
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -138,6 +150,19 @@ export default function HomeTimelinePage() {
       )}
     </div>
   );
+}
+
+function HomeTimelineStatus({ status }: { status: string }) {
+  if (status === 'confirmed') {
+    return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: '999px', background: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)', fontSize: 11, fontWeight: 700 }}>Confirmed</span>;
+  }
+  if (status === 'complete') {
+    return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: '999px', background: '#eef7f3', color: '#1f6b5b', fontSize: 11, fontWeight: 700 }}>Complete</span>;
+  }
+  if (status === 'blocked') {
+    return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: '999px', background: '#fff0f0', color: '#b91c1c', fontSize: 11, fontWeight: 700 }}>Blocked</span>;
+  }
+  return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: '999px', background: 'var(--color-background)', color: 'var(--color-secondary)', fontSize: 11, fontWeight: 700 }}>Estimated</span>;
 }
 
 function TimelineEntryModal({

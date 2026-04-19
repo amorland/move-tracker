@@ -122,27 +122,38 @@ export default function HomeTasksPage() {
           <input placeholder="Search home tasks…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button onClick={() => setTrackFilter('all')} className={`filter-chip ${trackFilter === 'all' ? 'filter-chip-active' : ''}`}>All tracks</button>
-          {tracks.map(track => (
-            <button key={track.id} onClick={() => setTrackFilter(track.key)} className={`filter-chip ${trackFilter === track.key ? 'filter-chip-active' : ''}`}>
-              {track.name}
-            </button>
-          ))}
+        <div>
+          <div className="section-label" style={{ marginBottom: 8 }}>Track</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => setTrackFilter('all')} className={`filter-chip ${trackFilter === 'all' ? 'filter-chip-active' : ''}`}>All tracks</button>
+            {tracks.map(track => (
+              <button key={track.id} onClick={() => setTrackFilter(track.key)} className={`filter-chip ${trackFilter === track.key ? 'filter-chip-active' : ''}`}>
+                {track.name}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {(['All', 'Andrew', 'Tory'] as const).map(owner => (
-            <button key={owner} onClick={() => setOwnerFilter(owner)} className={`filter-chip ${ownerFilter === owner ? 'filter-chip-active' : ''}`}>
-              {owner === 'All' ? 'All owners' : owner}
-            </button>
-          ))}
-          <div style={{ width: 1, height: 12, background: 'var(--color-border)' }} />
-          {(['all', 'purchase', 'loan', 'home_setup', 'updates'] as const).map(section => (
-            <button key={section} onClick={() => setSectionFilter(section)} className={`filter-chip ${sectionFilter === section ? 'filter-chip-active' : ''}`}>
-              {section === 'all' ? 'All sections' : section.replace('_', ' ')}
-            </button>
-          ))}
+        <div>
+          <div className="section-label" style={{ marginBottom: 8 }}>Owner</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {(['All', 'Andrew', 'Tory'] as const).map(owner => (
+              <button key={owner} onClick={() => setOwnerFilter(owner)} className={`filter-chip ${ownerFilter === owner ? 'filter-chip-active' : ''}`}>
+                {owner === 'All' ? 'All owners' : owner}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="section-label" style={{ marginBottom: 8 }}>Section</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {(['all', 'purchase', 'loan', 'home_setup', 'updates'] as const).map(section => (
+              <button key={section} onClick={() => setSectionFilter(section)} className={`filter-chip ${sectionFilter === section ? 'filter-chip-active' : ''}`}>
+                {section === 'all' ? 'All sections' : section.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -335,7 +346,7 @@ function PlanningTaskModal({
             <textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} style={{ height: 80, resize: 'none' }} />
           </div>
           {task.id ? (
-            <DocumentAttachmentSection entityType="task" entityId={task.id} />
+            <DocumentAttachmentSection entityType="planning_task" entityId={task.id} />
           ) : (
             <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Save the task first to attach documents.</div>
           )}

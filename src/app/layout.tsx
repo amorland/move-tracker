@@ -14,7 +14,7 @@ const NAV = [
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
   { href: '/belongings',label: 'Belongings', Icon: Package         },
   { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },
-  { href: '/map',       label: 'Move Map',   Icon: Map             },
+  { href: '/map',       label: 'Route',      Icon: Map             },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

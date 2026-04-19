@@ -106,6 +106,9 @@ CREATE TABLE IF NOT EXISTS document_links (
   created_at TEXT NOT NULL DEFAULT (now())::text
 );
 
+-- Normalize document link entity types to avoid collisions between move tasks and home planning tasks.
+UPDATE document_links SET entity_type = 'move_task' WHERE entity_type = 'task';
+
 CREATE INDEX IF NOT EXISTS idx_timeline_entries_track_date ON timeline_entries(track_id, date);
 CREATE INDEX IF NOT EXISTS idx_planning_tasks_track_status_due ON planning_tasks(track_id, status, due_date);
 CREATE INDEX IF NOT EXISTS idx_document_links_entity ON document_links(entity_type, entity_id);

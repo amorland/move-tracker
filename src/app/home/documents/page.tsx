@@ -71,12 +71,15 @@ export default function HomeDocumentsPage() {
           <Search size={16} className="search-bar-icon" />
           <input placeholder="Search documents…" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {CATEGORIES.map(category => (
-            <button key={category} onClick={() => setCategoryFilter(category)} className={`filter-chip ${categoryFilter === category ? 'filter-chip-active' : ''}`}>
-              {category === 'all' ? 'All categories' : category}
-            </button>
-          ))}
+        <div>
+          <div className="section-label" style={{ marginBottom: 8 }}>Category</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {CATEGORIES.map(category => (
+              <button key={category} onClick={() => setCategoryFilter(category)} className={`filter-chip ${categoryFilter === category ? 'filter-chip-active' : ''}`}>
+                {category === 'all' ? 'All categories' : category}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

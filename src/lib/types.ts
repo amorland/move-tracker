@@ -5,7 +5,7 @@ export type TimelineEntryStatus = 'estimated' | 'confirmed' | 'complete' | 'bloc
 export type TimelineEntryType = 'milestone' | 'event' | 'deadline' | 'submission' | 'closing_step' | 'project';
 export type DocumentProvider = 'google_drive' | 'manual_link';
 export type DocumentCategory = 'contract' | 'disclosure' | 'loan' | 'inspection' | 'receipt' | 'floorplan' | 'project' | 'other';
-export type LinkedEntityType = 'task' | 'event' | 'timeline_entry';
+export type LinkedEntityType = 'move_task' | 'planning_task' | 'event' | 'timeline_entry';
 export type PlanningTaskSection = 'purchase' | 'loan' | 'home_setup' | 'updates';
 
 export interface MoveSettings {

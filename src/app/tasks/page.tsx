@@ -329,7 +329,7 @@ function TaskModal({ task, categories, onClose, onSave }: {
             <textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} style={{ height: 80, resize: 'none' }} />
           </div>
           {task.id ? (
-            <DocumentAttachmentSection entityType="task" entityId={task.id} />
+            <DocumentAttachmentSection entityType="move_task" entityId={task.id} />
           ) : (
             <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
               Save the task first to attach documents.
