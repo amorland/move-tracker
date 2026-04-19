@@ -105,11 +105,11 @@ export default function DrivePlanPage() {
     fetchAll();
   };
 
-  const moveItem = async (itemId: number, vehicleId: number | null) => {
+  const moveItem = async (itemId: number, vehicleId: number | null, placement?: string | null) => {
     await fetch('/api/drive-loadout-items', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: itemId, assignedVehicleId: vehicleId }),
+      body: JSON.stringify({ id: itemId, assignedVehicleId: vehicleId, ...(placement !== undefined ? { placement } : {}) }),
     });
     fetchAll();
   };
@@ -244,7 +244,7 @@ function VehicleCard({
   vehicle: DriveVehicle;
   items: DriveLoadoutItem[];
   passengerCount: number;
-  onDropItem: (itemId: number, vehicleId: number | null) => void;
+  onDropItem: (itemId: number, vehicleId: number | null, placement?: string | null) => void;
   onEdit: () => void;
   onDelete: () => void;
   onEditItem: (item: Partial<DriveLoadoutItem>) => void;
@@ -277,6 +277,12 @@ function VehicleCard({
           <span className="badge badge-neutral">{vehicle.seats} seats</span>
           {vehicle.cargoSummary && <span className="badge badge-neutral">{vehicle.cargoSummary}</span>}
         </div>
+        <VehicleVisual
+          vehicle={vehicle}
+          items={items}
+          onDropItem={onDropItem}
+          onEditItem={onEditItem}
+        />
         <DropZone
           title="Assigned"
           subtitle="Drag in passengers, pets, and cargo"
@@ -286,6 +292,106 @@ function VehicleCard({
           onDeleteItem={onDeleteItem}
           compact
         />
+      </div>
+    </div>
+  );
+}
+
+function VehicleVisual({
+  vehicle,
+  items,
+  onDropItem,
+  onEditItem,
+}: {
+  vehicle: DriveVehicle;
+  items: DriveLoadoutItem[];
+  onDropItem: (itemId: number, vehicleId: number | null, placement?: string | null) => void;
+  onEditItem: (item: Partial<DriveLoadoutItem>) => void;
+}) {
+  const zones = [
+    { key: 'roof', label: 'Roof / Pod', x: 24, y: 4, w: 52, h: 14 },
+    { key: 'driver', label: 'Driver', x: 18, y: 24, w: 22, h: 18 },
+    { key: 'front seat', label: 'Front seat', x: 44, y: 24, w: 22, h: 18 },
+    { key: 'back seat', label: 'Back seat', x: 18, y: 48, w: 48, h: 20 },
+    { key: 'cargo area', label: 'Cargo', x: 70, y: 24, w: 18, h: 44 },
+    { key: 'easy access', label: 'Quick access', x: 18, y: 72, w: 34, h: 12 },
+  ] as const;
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        minHeight: 320,
+        borderRadius: 18,
+        border: '1px solid var(--color-border)',
+        background: 'linear-gradient(180deg, #f5f1ea 0%, #eee7dc 100%)',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ position: 'absolute', left: '9%', top: '19%', width: '82%', height: '61%', borderRadius: 28, background: '#d8d1c5', border: '2px solid #7a746d' }} />
+      <div style={{ position: 'absolute', left: '15%', top: '30%', width: '52%', height: '22%', borderRadius: 18, background: 'rgba(255,255,255,0.36)', border: '1px solid rgba(122,116,109,0.35)' }} />
+      <div style={{ position: 'absolute', left: '15%', bottom: '16%', width: '70%', height: '16%', borderRadius: 18, background: 'rgba(255,255,255,0.24)', border: '1px solid rgba(122,116,109,0.2)' }} />
+      <div style={{ position: 'absolute', left: '16%', bottom: '8%', width: '16%', height: 16, borderRadius: 16, background: '#3c3d42' }} />
+      <div style={{ position: 'absolute', right: '16%', bottom: '8%', width: '16%', height: 16, borderRadius: 16, background: '#3c3d42' }} />
+
+      {zones.map(zone => {
+        const zoneItems = items.filter(item => placementBucket(item) === zone.key);
+        return (
+          <div
+            key={zone.key}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => {
+              const raw = e.dataTransfer.getData('text/plain');
+              if (raw) onDropItem(Number(raw), vehicle.id, zone.key);
+            }}
+            style={{
+              position: 'absolute',
+              left: `${zone.x}%`,
+              top: `${zone.y}%`,
+              width: `${zone.w}%`,
+              height: `${zone.h}%`,
+              borderRadius: 14,
+              border: '1px dashed rgba(92,86,72,0.25)',
+              background: zone.key === 'roof' ? 'rgba(31,107,91,0.08)' : 'rgba(255,255,255,0.16)',
+              padding: 8,
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+              {zone.label}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {zoneItems.map(item => (
+                <button
+                  key={item.id}
+                  draggable
+                  onDragStart={e => e.dataTransfer.setData('text/plain', String(item.id))}
+                  onClick={() => onEditItem(item)}
+                  style={{
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-surface)',
+                    borderRadius: 999,
+                    padding: '4px 8px',
+                    fontSize: 11,
+                    color: 'var(--color-foreground)',
+                    cursor: 'grab',
+                    maxWidth: '100%',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {zoneItemIcon(item.itemType)} {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <div style={{ position: 'absolute', left: 14, top: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <CarFront size={16} color="var(--color-accent-dark)" />
+        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)' }}>{vehicle.name}</span>
       </div>
     </div>
   );
@@ -479,4 +585,27 @@ function itemIcon(type: DriveLoadoutType) {
   if (type === 'vehicle_addon') return <CarFront size={14} />;
   if (type === 'gear') return <Bike size={14} />;
   return <Briefcase size={14} />;
+}
+
+function zoneItemIcon(type: DriveLoadoutType) {
+  if (type === 'adult') return 'A';
+  if (type === 'child') return 'B';
+  if (type === 'pet') return 'P';
+  if (type === 'vehicle_addon') return 'R';
+  return 'G';
+}
+
+function placementBucket(item: DriveLoadoutItem) {
+  const placement = (item.placement || '').toLowerCase();
+  if (placement.includes('roof')) return 'roof';
+  if (placement.includes('driver')) return 'driver';
+  if (placement.includes('front')) return 'front seat';
+  if (placement.includes('back')) return 'back seat';
+  if (placement.includes('cargo')) return 'cargo area';
+  if (placement.includes('easy')) return 'easy access';
+
+  if (item.itemType === 'vehicle_addon') return 'roof';
+  if (item.itemType === 'adult') return 'front seat';
+  if (item.itemType === 'child' || item.itemType === 'pet') return 'back seat';
+  return 'cargo area';
 }
