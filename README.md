@@ -24,9 +24,9 @@ Warm paper tones throughout. Three key values: `#faf8f5` (content background), `
 | **The Big Sort** | `/belongings` | Belongings grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
 | **The Journey** | `/timeline` | Combined move timeline for key dates, tasks, custom events, and derived drive stops |
 | **The Route** | `/map` | Leaflet map with OSRM routing, route stats, overnight stops, and trip ETA logic |
-| **Home Planning** | `/home` | Home dashboard with summaries for timeline, tasks, and documents |
-| **Home Timeline** | `/home/timeline` | Purchase, loan, and home update timeline entries with document attachments |
-| **Home Tasks** | `/home/tasks` | Planning tasks for purchase, loan, setup, and updates with owner/status tracking and attachments |
+| **Home Planning** | `/home` | Home dashboard with summaries for timeline, tasks, documents, and navigation into the dedicated Home subsection |
+| **Home Timeline** | `/home/timeline` | Purchase, loan, and home update timeline entries shown in a vertical timeline layout with document attachments |
+| **Home Tasks** | `/home/tasks` | Planning tasks for purchase, loan, setup, and updates with grouped filters, owner/status tracking, and attachments |
 | **Home Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
 | **Rooms** | `/home/rooms` | Room-by-room planning for existing brought items and planned purchases |
 | **Projects** | `/home/projects` | Future home improvement and renovation planning |
@@ -50,17 +50,25 @@ When dates are confirmed the API enforces ordering constraints:
 
 Drive time uses a `0.8x` correction factor on OSRM duration. Overnight stops are encoded with a `[overnight]` prefix in location notes. The route panel and the timeline both derive drive-day entries from the stored route stops.
 
-### Documents
+### Documents And Attachments
 
 The app supports generic document links plus attachment records. The intended use is private Google Drive links or other secure external document URLs rather than storing private files directly in-app.
 
 Attachable entities currently include:
 
 - move tasks
+- home planning tasks
 - move events
 - home timeline entries
 
 The Home Documents page provides a central library view over saved links.
+
+To avoid collisions between old move tasks and new home planning tasks, the attachment model distinguishes between:
+
+- `move_task`
+- `planning_task`
+- `event`
+- `timeline_entry`
 
 ### Home Planning
 
@@ -70,6 +78,8 @@ The Home area is split into:
 - planning tasks grouped into `purchase`, `loan`, `home_setup`, and `updates`
 - room planning with `existing_belonging` and `planned_purchase` items
 - future projects with status and priority tracking
+
+The Home subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages.
 
 ## Data Model
 
@@ -182,4 +192,5 @@ src/
 - App authentication is still a shared password cookie, not per-user auth
 - Documents are intended as external links, not uploaded private files
 - Room planning is a room-and-item MVP, not a blueprint-aware floorplan editor
+- The app can seed planning structure from organized document sets, but document-derived updates still rely on review logic rather than full OCR / workflow automation
 - Production build verification may require a non-sandboxed environment because Turbopack can fail under sandbox restrictions
