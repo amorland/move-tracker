@@ -4,7 +4,7 @@ import './globals.css';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, CheckSquare, Package, Calendar, Map, LogOut, House
+  LayoutDashboard, CheckSquare, Package, Calendar, Map, LogOut, House, CarFront
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -15,6 +15,7 @@ const NAV = [
   { href: '/belongings',label: 'Belongings', Icon: Package         },
   { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },
   { href: '/map',       label: 'Route',      Icon: Map             },
+  { href: '/drive-plan', label: 'Drive Plan', Icon: CarFront       },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

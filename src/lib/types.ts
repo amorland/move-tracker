@@ -7,6 +7,7 @@ export type DocumentProvider = 'google_drive' | 'manual_link';
 export type DocumentCategory = 'contract' | 'disclosure' | 'loan' | 'inspection' | 'receipt' | 'floorplan' | 'project' | 'other';
 export type LinkedEntityType = 'move_task' | 'planning_task' | 'event' | 'timeline_entry';
 export type PlanningTaskSection = 'purchase' | 'loan' | 'home_setup' | 'updates';
+export type DriveLoadoutType = 'adult' | 'child' | 'pet' | 'gear' | 'vehicle_addon';
 
 export interface MoveSettings {
   id: number;
@@ -158,6 +159,10 @@ export interface RoomItem {
   status: 'planned' | 'placed' | 'undecided';
   dimensions: string | null;
   notes: string | null;
+  layoutX: number | null;
+  layoutY: number | null;
+  layoutW: number | null;
+  layoutH: number | null;
   sortIndex: number;
 }
 
@@ -171,4 +176,25 @@ export interface HomeProject {
   budgetNotes: string | null;
   notes: string | null;
   createdAt: string;
+}
+
+export interface DriveVehicle {
+  id: number;
+  name: string;
+  vehicleType: string;
+  seats: number;
+  cargoSummary: string | null;
+  driverName: string | null;
+  orderIndex: number;
+}
+
+export interface DriveLoadoutItem {
+  id: number;
+  label: string;
+  itemType: DriveLoadoutType;
+  assignedVehicleId: number | null;
+  placement: string | null;
+  required: boolean;
+  notes: string | null;
+  orderIndex: number;
 }

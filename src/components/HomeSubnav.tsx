@@ -9,6 +9,7 @@ const HOME_NAV = [
   { href: '/home/tasks', label: 'Tasks' },
   { href: '/home/documents', label: 'Documents' },
   { href: '/home/rooms', label: 'Rooms' },
+  { href: '/home/layout', label: 'Layout' },
   { href: '/home/projects', label: 'Projects' },
 ];
 

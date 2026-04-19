@@ -37,6 +37,10 @@ export async function POST(request: Request) {
       status: body.status || 'planned',
       dimensions: body.dimensions || null,
       notes: body.notes || null,
+      layout_x: body.layoutX ?? null,
+      layout_y: body.layoutY ?? null,
+      layout_w: body.layoutW ?? null,
+      layout_h: body.layoutH ?? null,
       sort_index: (last?.sort_index ?? -1) + 1,
     }])
     .select()
@@ -58,6 +62,10 @@ export async function PATCH(request: Request) {
   if ('status' in rest) update.status = rest.status;
   if ('dimensions' in rest) update.dimensions = rest.dimensions;
   if ('notes' in rest) update.notes = rest.notes;
+  if ('layoutX' in rest) update.layout_x = rest.layoutX;
+  if ('layoutY' in rest) update.layout_y = rest.layoutY;
+  if ('layoutW' in rest) update.layout_w = rest.layoutW;
+  if ('layoutH' in rest) update.layout_h = rest.layoutH;
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
 
   const { data, error } = await supabase
@@ -90,6 +98,10 @@ function normalise(row: Record<string, unknown>) {
     status: row.status ?? 'planned',
     dimensions: row.dimensions ?? null,
     notes: row.notes ?? null,
+    layoutX: row.layout_x ?? row.layoutX ?? null,
+    layoutY: row.layout_y ?? row.layoutY ?? null,
+    layoutW: row.layout_w ?? row.layoutW ?? null,
+    layoutH: row.layout_h ?? row.layoutH ?? null,
     sortIndex: row.sort_index ?? row.sortIndex ?? 0,
   };
 }

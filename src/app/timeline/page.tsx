@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { MoveSettings, Task, MoveEvent, MoveLocation } from '@/lib/types';
 import { format, parseISO, addDays } from 'date-fns';
-import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Pencil, Search, Moon } from 'lucide-react';
+import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Pencil, Search, CarFront } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 import { useScrollLock } from '@/lib/useScrollLock';
 import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
@@ -27,7 +27,7 @@ const TYPE_CHIPS: { value: ItemType; label: string; Icon: React.ReactNode }[] = 
   { value: 'anchor', label: 'Key Dates', Icon: null },
   { value: 'event',  label: 'Events',    Icon: <CalendarCheck size={12} /> },
   { value: 'task',   label: 'Tasks',     Icon: <CheckCircle2 size={12} /> },
-  { value: 'drive',  label: 'Drive',     Icon: <Moon size={12} /> },
+  { value: 'drive',  label: 'Drive',     Icon: <CarFront size={12} /> },
 ];
 
 export default function TimelinePage() {
@@ -372,7 +372,7 @@ function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
   if (type === 'drive') {
     return (
       <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#eef2ff', border: '1.5px solid #6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Moon size={14} color="#6366f1" />
+        <CarFront size={14} color="#6366f1" />
       </div>
     );
   }
