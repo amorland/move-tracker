@@ -7,6 +7,7 @@ import { format, parseISO, addDays } from 'date-fns';
 import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Pencil, Search, Moon } from 'lucide-react';
 import { getMilestones } from '@/lib/dateUtils';
 import { useScrollLock } from '@/lib/useScrollLock';
+import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
 
 type ItemType = 'anchor' | 'event' | 'task' | 'drive';
 
@@ -265,6 +266,9 @@ export default function TimelinePage() {
                   <p className="section-label" style={{ marginBottom: 4 }}>Notes</p>
                   <p style={{ fontSize: 14, color: 'var(--color-secondary)', lineHeight: 1.6 }}>{selected.notes}</p>
                 </div>
+              )}
+              {selected.type === 'event' && selected.rawEvent && (
+                <DocumentAttachmentSection entityType="event" entityId={selected.rawEvent.id} />
               )}
               {selected.type === 'anchor' && (
                 <Link href="/" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>

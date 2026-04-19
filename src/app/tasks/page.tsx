@@ -5,6 +5,7 @@ import { Category, Task, TaskOwner } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { Check, CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
 
 type OwnerFilter = TaskOwner | 'All';
 
@@ -327,6 +328,13 @@ function TaskModal({ task, categories, onClose, onSave }: {
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes</label>
             <textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} style={{ height: 80, resize: 'none' }} />
           </div>
+          {task.id ? (
+            <DocumentAttachmentSection entityType="task" entityId={task.id} />
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
+              Save the task first to attach documents.
+            </div>
+          )}
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>

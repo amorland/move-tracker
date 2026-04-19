@@ -4,12 +4,13 @@ import './globals.css';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, CheckSquare, Package, Calendar, Map, LogOut
+  LayoutDashboard, CheckSquare, Package, Calendar, Map, LogOut, House
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const NAV = [
   { href: '/',          label: 'Overview',   Icon: LayoutDashboard },
+  { href: '/home/timeline', label: 'Home',   Icon: House           },
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
   { href: '/belongings',label: 'Belongings', Icon: Package         },
   { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },

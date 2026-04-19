@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MoveSettings, Task, Belonging, Category, MoveLocation } from '@/lib/types';
+import { MoveSettings, Task, Belonging, Category, MoveLocation, TimelineEntry } from '@/lib/types';
 import { format, parseISO, differenceInDays, addSeconds } from 'date-fns';
 import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save } from 'lucide-react';
 import Link from 'next/link';
@@ -35,6 +35,7 @@ export default function OverviewPage() {
   } | null>(null);
   const [routeLocations, setRouteLocations] = useState<MoveLocation[]>([]);
   const [showRouteDetails, setShowRouteDetails] = useState(false);
+  const [homeEntries, setHomeEntries] = useState<TimelineEntry[]>([]);
 
   const [dateModal, setDateModal] = useState<{ key: string; label: string } | null>(null);
   const [tempDate, setTempDate] = useState('');
@@ -44,11 +45,12 @@ export default function OverviewPage() {
   useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    const [sRes, cRes, bRes, lRes] = await Promise.all([
+    const [sRes, cRes, bRes, lRes, homeRes] = await Promise.all([
       fetch('/api/settings'),
       fetch('/api/categories'),
       fetch('/api/belongings'),
       fetch('/api/locations'),
+      fetch('/api/timeline?limit=6'),
     ]);
     const s = await sRes.json();
     sanitise(s);
@@ -58,6 +60,8 @@ export default function OverviewPage() {
     setTasks(ts);
     setBelongings(await bRes.json());
     const locs: MoveLocation[] = await lRes.json();
+    const homeTimeline: TimelineEntry[] = await homeRes.json();
+    setHomeEntries(homeTimeline.filter(entry => ['home_purchase', 'loan', 'home_updates'].includes(entry.trackKey || '')));
     setLoading(false);
 
     const visibleStops = locs
@@ -308,6 +312,42 @@ export default function OverviewPage() {
         </div>
       )}
 
+      {/* Home timeline */}
+      <div className="mini-timeline" style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h2 style={{ margin: 0 }}>Home Timeline</h2>
+          <Link href="/home/timeline" style={{ textDecoration: 'none' }}>
+            <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+              Open <ChevronRight size={12} />
+            </span>
+          </Link>
+        </div>
+        {homeEntries.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--color-secondary)', textAlign: 'center', padding: '12px 0 4px' }}>
+            No home planning entries yet.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {homeEntries.slice(0, 5).map(entry => (
+              <div key={entry.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {entry.title}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                    <span className="section-label" style={{ margin: 0 }}>{entry.trackName || 'Home'}</span>
+                    <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>
+                      {format(parseISO(entry.date), 'MMM d, yyyy')}
+                    </span>
+                  </div>
+                </div>
+                <StatusPill status={entry.status} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Overview grid — Tasks + Belongings */}
       <div className="overview-grid">
 
@@ -447,6 +487,16 @@ export default function OverviewPage() {
       )}
     </div>
   );
+}
+
+function StatusPill({ status }: { status: string }) {
+  if (status === 'confirmed' || status === 'complete') {
+    return <span className="badge" style={{ background: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)' }}>{status === 'complete' ? 'Complete' : 'Confirmed'}</span>;
+  }
+  if (status === 'blocked') {
+    return <span className="badge" style={{ background: '#fff0f0', color: '#b91c1c' }}>Blocked</span>;
+  }
+  return <span className="badge badge-neutral">Estimated</span>;
 }
 
 function fmtDuration(seconds: number) {
