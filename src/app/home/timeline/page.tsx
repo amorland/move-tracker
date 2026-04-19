@@ -40,14 +40,14 @@ export default function HomeTimelinePage() {
     fetchAll();
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading home timeline…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Chestnut purchase timeline…</div>;
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Home Timeline</h1>
-          <p className="page-subtitle">Purchase, loan, and future updates</p>
+          <h1>House Timeline</h1>
+          <p className="page-subtitle">Offer, contract, BCU loan, and early 25 Chestnut planning milestones</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAdding(true)}>
           <Plus size={18} /> Add Entry
@@ -59,7 +59,7 @@ export default function HomeTimelinePage() {
       {entries.length === 0 ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
           <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-          <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No home planning entries yet.</p>
+          <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No 25 Chestnut planning entries yet.</p>
         </div>
       ) : (
         <div style={{ position: 'relative', paddingLeft: 56 }}>

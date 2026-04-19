@@ -191,7 +191,7 @@ export default function OverviewPage() {
     else { const e = await res.json(); setDateError(e.error || 'Unknown error'); }
   };
 
-  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading…</div>;
+  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading Andrew and Tory&apos;s move plan…</div>;
 
   const milestones = getMilestones(settings);
   const completeTasks = tasks.filter(t => t.status === 'Complete');

@@ -90,7 +90,7 @@ export default function HomeRoomsPage() {
     fetchAll();
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading rooms…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the 25 Chestnut room plan…</div>;
 
   const orderedRooms = [...rooms].sort((a, b) => {
     const floorA = FLOOR_ORDER.indexOf(a.floor || 'Unassigned floor');
@@ -109,7 +109,7 @@ export default function HomeRoomsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Rooms</h1>
-          <p className="page-subtitle">Assign brought items and plan new purchases by room</p>
+          <p className="page-subtitle">Assign your brought furniture and likely new purchases across the 25 Chestnut room list</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setRoomModal({ name: '', floor: '', notes: '' })}>
           <Plus size={18} /> Add Room

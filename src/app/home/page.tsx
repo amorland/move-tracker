@@ -2,7 +2,7 @@
 
 import HomeSubnav from '@/components/HomeSubnav';
 import { DocumentRecord, MoveEvent, MoveSettings, PlanningTask, Room, RoomItem, TimelineEntry } from '@/lib/types';
-import { CalendarCheck, CheckSquare, ChevronRight, FileText, Grid3X3, House } from 'lucide-react';
+import { CalendarCheck, CheckSquare, ChevronRight, FileText, Grid3X3 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -48,16 +48,17 @@ export default function HomePage() {
     setLoading(false);
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading home planning…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Chestnut house plan…</div>;
 
   const openTasks = tasks.filter(task => task.status !== 'Complete');
   const purchaseMilestones = buildPurchaseMilestones(settings, events, timelineEntries);
+  const pendingMilestones = purchaseMilestones.filter(milestone => milestone.status !== 'confirmed');
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ marginBottom: 28 }}>
-        <h1>Home Planning</h1>
-        <p className="page-subtitle">Purchase, loan, documents, and future update planning</p>
+        <h1>House Planning</h1>
+        <p className="page-subtitle">25 Chestnut purchase progress, room setup, documents, and early project planning</p>
       </div>
 
       <HomeSubnav />
@@ -76,7 +77,7 @@ export default function HomePage() {
 
       <div className="overview-grid" style={{ marginBottom: 28 }}>
         <SummaryCard
-          title="Timeline"
+          title="Purchase Timeline"
           subtitle={`${timelineEntries.length} recent items`}
           href="/home/timeline"
           icon={<CalendarCheck size={18} />}
@@ -89,12 +90,12 @@ export default function HomePage() {
         />
         <SummaryCard
           title="Documents"
-          subtitle={`${documents.length} saved links`}
+          subtitle={`${documents.length} Chestnut and loan links saved`}
           href="/home/documents"
           icon={<FileText size={18} />}
         />
         <SummaryCard
-          title="Visual Layout"
+          title="Layout"
           subtitle={`${roomItems.filter(item => item.roomId !== null).length} placed across ${rooms.length} rooms`}
           href="/home/layout"
           icon={<Grid3X3 size={18} />}
@@ -104,7 +105,7 @@ export default function HomePage() {
       <div className="overview-grid">
         <div className="card">
           <div className="card-header">
-            <h2 style={{ margin: 0 }}>Recent Timeline</h2>
+            <h2 style={{ margin: 0 }}>Pending Milestones</h2>
             <Link href="/home/timeline" style={{ textDecoration: 'none' }}>
               <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 Open <ChevronRight size={12} />
@@ -112,15 +113,17 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {timelineEntries.length === 0 ? (
-              <EmptyState text="No home planning timeline entries yet." />
+            {pendingMilestones.length === 0 ? (
+              <EmptyState text="No pending milestones. The purchase process is fully dated and confirmed." />
             ) : (
-              timelineEntries.slice(0, 5).map(entry => (
-                <div key={entry.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)' }}>{entry.title}</div>
+              pendingMilestones.map(milestone => (
+                <div key={milestone.key} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)' }}>{milestone.label}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                    <span className="section-label" style={{ margin: 0 }}>{entry.trackName}</span>
-                    <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{entry.date}</span>
+                    <span className="section-label" style={{ margin: 0 }}>{milestone.status === 'estimated' ? 'Estimated' : 'Pending'}</span>
+                    <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>
+                      {milestone.date ? format(parseISO(milestone.date), 'MMM d, yyyy') : 'Date not set'}
+                    </span>
                   </div>
                 </div>
               ))
@@ -152,34 +155,6 @@ export default function HomePage() {
               ))
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="card" style={{ marginTop: 24 }}>
-        <div className="card-header">
-          <h2 style={{ margin: 0 }}>Documents Snapshot</h2>
-          <Link href="/home/documents" style={{ textDecoration: 'none' }}>
-            <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              Open <ChevronRight size={12} />
-            </span>
-          </Link>
-        </div>
-        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {documents.length === 0 ? (
-            <EmptyState text="No documents saved yet." />
-          ) : (
-            documents.slice(0, 4).map(document => (
-              <div key={document.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-surface)' }}>
-                  <House size={14} color="var(--color-accent-dark)" />
-                </div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{document.title}</div>
-                  <div style={{ fontSize: 11, color: 'var(--color-secondary)', marginTop: 4 }}>{document.category}</div>
-                </div>
-              </div>
-            ))
-          )}
         </div>
       </div>
     </div>

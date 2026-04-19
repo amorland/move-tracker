@@ -98,7 +98,7 @@ export default function BelongingsPage() {
   // Group visible items by room
   const sortedRooms = [...new Set(visible.map(i => i.room))].sort();
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading belongings…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Starland inventory…</div>;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
@@ -106,7 +106,7 @@ export default function BelongingsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Big Sort</h1>
-          <p className="page-subtitle">{unresolvedCount} in the air · {resolvedCount} sorted</p>
+          <p className="page-subtitle">{unresolvedCount} still in the air · {resolvedCount} sorted across what you&apos;re bringing, selling, donating, or trashing</p>
         </div>
         <button
           className="btn btn-primary btn-lg"

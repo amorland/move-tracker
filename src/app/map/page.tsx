@@ -1,7 +1,6 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
 
 const MoveMap = dynamic(() => import('@/components/MoveMap'), { 
   ssr: false,
@@ -16,20 +15,8 @@ const MoveMap = dynamic(() => import('@/components/MoveMap'), {
 
 export default function MapPage() {
   return (
-    <div>
-      <div style={{ maxWidth: 1100, margin: '0 auto 20px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1>The Route</h1>
-          <p className="page-subtitle">Map the drive north and plan who rides where</p>
-        </div>
-        <Link href="/drive-plan" className="btn btn-secondary btn-lg" style={{ textDecoration: 'none' }}>
-          Open Drive Plan
-        </Link>
-      </div>
-
-      <div style={{ height: 'calc(100vh - 260px)' }}>
-        <MoveMap />
-      </div>
+    <div style={{ height: 'calc(100vh - 260px)' }}>
+      <MoveMap />
     </div>
   );
 }

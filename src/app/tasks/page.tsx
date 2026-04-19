@@ -90,7 +90,7 @@ export default function TasksPage() {
   const totalDone = tasks.filter(t => t.status === 'Complete').length;
   const isFiltering = ownerFilter !== 'All' || !!search;
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading tasks…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading Andrew and Tory&apos;s move tasks…</div>;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
@@ -98,7 +98,7 @@ export default function TasksPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The List</h1>
-          <p className="page-subtitle">{totalDone} of {tasks.length} complete</p>
+          <p className="page-subtitle">{totalDone} of {tasks.length} move tasks complete for Clearwater, U-Pack, and the drive north</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setModalTask({ categoryId: defaultCategoryId ?? 0, title: '', status: 'Not Started', owner: null, dueDate: null, notes: '' })}>
           <Plus size={18} /> Add Task

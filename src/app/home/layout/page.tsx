@@ -88,7 +88,7 @@ export default function HomeLayoutPage() {
     fetchAll();
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading visual planner…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the 25 Chestnut layout sketch…</div>;
 
   const floors = orderedFloors(rooms);
   const unplacedItems = items.filter(item => item.roomId === null);
@@ -98,7 +98,7 @@ export default function HomeLayoutPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Visual Layout</h1>
-          <p className="page-subtitle">A crude blueprint-inspired rendering of the house for placing major furniture and nursery plans</p>
+          <p className="page-subtitle">A crude 25 Chestnut floor sketch for placing major furniture, the nursery, and early room plans</p>
         </div>
         <Link href="/home/rooms" className="btn btn-secondary btn-lg" style={{ textDecoration: 'none' }}>
           Manage Rooms & Items

@@ -97,14 +97,14 @@ export default function HomeTasksPage() {
   const complete = visible.filter(task => task.status === 'Complete');
   const sectionOrder: PlanningTask['section'][] = ['purchase', 'loan', 'home_setup', 'updates'];
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading home tasks…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Chestnut task list…</div>;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Home Tasks</h1>
-          <p className="page-subtitle">{tasks.filter(task => task.status === 'Complete').length} of {tasks.length} complete</p>
+          <h1>House Tasks</h1>
+          <p className="page-subtitle">{tasks.filter(task => task.status === 'Complete').length} of {tasks.length} Chestnut and loan tasks complete</p>
         </div>
         <button
           className="btn btn-primary btn-lg"

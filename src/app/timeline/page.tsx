@@ -158,7 +158,7 @@ export default function TimelinePage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Journey</h1>
-          <p className="page-subtitle">Clearwater → Cold Spring</p>
+          <p className="page-subtitle">Andrew and Tory&apos;s move, route, and purchase timeline from Clearwater to Cold Spring</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAddModal(true)}>
           <Plus size={18} /> Add Event

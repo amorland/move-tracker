@@ -50,14 +50,14 @@ export default function HomeDocumentsPage() {
     fetchAll();
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading documents…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading Chestnut and loan documents…</div>;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Home Documents</h1>
-          <p className="page-subtitle">{documents.length} saved links across home planning and move items</p>
+          <h1>House Documents</h1>
+          <p className="page-subtitle">{documents.length} saved links across 25 Chestnut, the BCU file, and related move items</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAdding(true)}>
           <Plus size={18} /> Add Document

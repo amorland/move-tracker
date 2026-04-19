@@ -10,12 +10,12 @@ import { useState, useEffect } from 'react';
 
 const NAV = [
   { href: '/',          label: 'Overview',   Icon: LayoutDashboard },
-  { href: '/home',       label: 'Home',       Icon: House           },
+  { href: '/home',       label: 'House',      Icon: House           },
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
   { href: '/belongings',label: 'Belongings', Icon: Package         },
   { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },
   { href: '/map',       label: 'Route',      Icon: Map             },
-  { href: '/drive-plan', label: 'Drive Plan', Icon: CarFront       },
+  { href: '/drive-plan', label: 'Loadout',   Icon: CarFront        },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -15,14 +15,15 @@ const HOME_NAV = [
 
 export default function HomeSubnav() {
   const pathname = usePathname();
-  const current = HOME_NAV.find(item => item.href === pathname)?.label ?? 'Home';
+  const current = HOME_NAV.find(item => item.href === pathname)?.label ?? 'House';
 
   return (
     <div style={{ marginBottom: 24, padding: '14px 16px', border: '1px solid var(--color-border)', borderRadius: 14, background: 'var(--color-surface)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
         <div>
-          <div className="section-label" style={{ marginBottom: 4 }}>Home Planning</div>
-          <div style={{ fontSize: 13, color: 'var(--color-secondary)' }}>Currently viewing: <span style={{ color: 'var(--color-foreground)', fontWeight: 600 }}>{current}</span></div>
+          <div className="section-label" style={{ marginBottom: 4 }}>House Planning</div>
+          <div style={{ fontSize: 13, color: 'var(--color-secondary)', marginBottom: 2 }}>Currently viewing: <span style={{ color: 'var(--color-foreground)', fontWeight: 600 }}>{current}</span></div>
+          <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>25 Chestnut purchase tracking, room setup, layout, and projects</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>

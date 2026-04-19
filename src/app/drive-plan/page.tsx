@@ -148,7 +148,7 @@ export default function DrivePlanPage() {
     fetchAll();
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading drive plan…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the convoy loadout…</div>;
 
   const unassignedItems = items.filter(item => item.assignedVehicleId === null);
 
@@ -156,8 +156,8 @@ export default function DrivePlanPage() {
     <div style={{ maxWidth: 1180, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Drive Plan</h1>
-          <p className="page-subtitle">Try different vehicle, passenger, pet, and cargo configurations for the trip north</p>
+          <h1>Loadout</h1>
+          <p className="page-subtitle">Test how Andrew, Tory, Remy, Winston, Harper, bikes, plants, and luggage split between the Mazda and Subaru</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {vehicles.length === 0 && items.length === 0 && (
@@ -177,9 +177,9 @@ export default function DrivePlanPage() {
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <div className="section-label" style={{ marginBottom: 6 }}>How to use it</div>
+            <div className="section-label" style={{ marginBottom: 6 }}>Starland convoy setup</div>
             <div style={{ fontSize: 13, color: 'var(--color-secondary)', maxWidth: 720 }}>
-              Drag people, pets, and cargo between the unassigned pool and each vehicle to test road-trip setups. Use item notes for things like overnight access, temperature sensitivity, or roof-pod dependencies.
+              Drag people, pets, and cargo between the unassigned pool and each vehicle to test the Clearwater-to-Cold Spring split. Use notes for baby gear, dog access, plant temperature concerns, and roof-pod dependencies.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -213,9 +213,9 @@ export default function DrivePlanPage() {
       <div style={{ marginTop: 24 }}>
         <DropZone
           title="Unassigned Pool"
-          subtitle="Items not yet committed to a vehicle"
+          subtitle="Items you have not committed to the Mazda or Subaru yet"
           items={unassignedItems}
-          onDropItem={itemId => moveItem(itemId, null)}
+          onDropItem={itemId => moveItem(itemId, null, null)}
           onEditItem={setItemModal}
           onDeleteItem={deleteItem}
         />
@@ -277,133 +277,15 @@ function VehicleCard({
           <span className="badge badge-neutral">{vehicle.seats} seats</span>
           {vehicle.cargoSummary && <span className="badge badge-neutral">{vehicle.cargoSummary}</span>}
         </div>
-        <VehicleVisual
-          vehicle={vehicle}
-          items={items}
-          onDropItem={onDropItem}
-          onEditItem={onEditItem}
-        />
         <DropZone
-          title="Assigned"
-          subtitle="Drag in passengers, pets, and cargo"
+          title="Assigned to this vehicle"
+          subtitle="Driver, passengers, pets, bikes, gear, pod, and quick-access items"
           items={items}
-          onDropItem={itemId => onDropItem(itemId, vehicle.id)}
+          onDropItem={itemId => onDropItem(itemId, vehicle.id, null)}
           onEditItem={onEditItem}
           onDeleteItem={onDeleteItem}
           compact
         />
-      </div>
-    </div>
-  );
-}
-
-function VehicleVisual({
-  vehicle,
-  items,
-  onDropItem,
-  onEditItem,
-}: {
-  vehicle: DriveVehicle;
-  items: DriveLoadoutItem[];
-  onDropItem: (itemId: number, vehicleId: number | null, placement?: string | null) => void;
-  onEditItem: (item: Partial<DriveLoadoutItem>) => void;
-}) {
-  const zones = [
-    { key: 'roof', label: 'Roof / Pod', x: 24, y: 4, w: 52, h: 14 },
-    { key: 'driver', label: 'Driver', x: 18, y: 24, w: 22, h: 18 },
-    { key: 'front seat', label: 'Front seat', x: 44, y: 24, w: 22, h: 18 },
-    { key: 'back seat', label: 'Back seat', x: 18, y: 48, w: 48, h: 20 },
-    { key: 'cargo area', label: 'Cargo', x: 70, y: 24, w: 18, h: 44 },
-    { key: 'easy access', label: 'Quick access', x: 18, y: 72, w: 34, h: 12 },
-  ] as const;
-
-  return (
-    <div
-      style={{
-        position: 'relative',
-        minHeight: 340,
-        borderRadius: 18,
-        border: '1px solid var(--color-border)',
-        background: 'linear-gradient(180deg, #f5f1ea 0%, #eee7dc 100%)',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ position: 'absolute', left: '9%', top: '19%', width: '82%', height: '61%', borderRadius: 28, background: '#d8d1c5', border: '2px solid #7a746d' }} />
-      <div style={{ position: 'absolute', left: '15%', top: '30%', width: '52%', height: '22%', borderRadius: 18, background: 'rgba(255,255,255,0.36)', border: '1px solid rgba(122,116,109,0.35)' }} />
-      <div style={{ position: 'absolute', left: '15%', bottom: '16%', width: '70%', height: '16%', borderRadius: 18, background: 'rgba(255,255,255,0.24)', border: '1px solid rgba(122,116,109,0.2)' }} />
-      <div style={{ position: 'absolute', left: '16%', bottom: '8%', width: '16%', height: 16, borderRadius: 16, background: '#3c3d42' }} />
-      <div style={{ position: 'absolute', right: '16%', bottom: '8%', width: '16%', height: 16, borderRadius: 16, background: '#3c3d42' }} />
-
-      {zones.map(zone => {
-        const zoneItems = items.filter(item => placementBucket(item) === zone.key);
-        return (
-          <div
-            key={zone.key}
-            onDragOver={e => e.preventDefault()}
-            onDrop={e => {
-              const raw = e.dataTransfer.getData('text/plain');
-              if (raw) onDropItem(Number(raw), vehicle.id, zone.key);
-            }}
-            style={{
-              position: 'absolute',
-              left: `${zone.x}%`,
-              top: `${zone.y}%`,
-              width: `${zone.w}%`,
-              height: `${zone.h}%`,
-              borderRadius: 14,
-              border: '1px dashed rgba(92,86,72,0.25)',
-              background: zone.key === 'roof' ? 'rgba(31,107,91,0.08)' : 'rgba(255,255,255,0.16)',
-              padding: 8,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-              {zone.label}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {zoneItems.length === 0 ? (
-                <div style={{ fontSize: 11, color: 'var(--color-secondary)', opacity: 0.8 }}>Empty</div>
-              ) : (
-                <>
-                  {zoneItems.slice(0, zone.key === 'cargo area' ? 2 : 1).map(item => (
-                    <button
-                      key={item.id}
-                      draggable
-                      onDragStart={e => e.dataTransfer.setData('text/plain', String(item.id))}
-                      onClick={() => onEditItem(item)}
-                      style={{
-                        border: '1px solid var(--color-border)',
-                        background: 'var(--color-surface)',
-                        borderRadius: 10,
-                        padding: '5px 8px',
-                        fontSize: 11,
-                        color: 'var(--color-foreground)',
-                        cursor: 'grab',
-                        maxWidth: '100%',
-                        textAlign: 'left',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {zoneItemIcon(item.itemType)} {item.label}
-                    </button>
-                  ))}
-                  {zoneItems.length > (zone.key === 'cargo area' ? 2 : 1) && (
-                    <div style={{ fontSize: 11, color: 'var(--color-secondary)' }}>
-                      +{zoneItems.length - (zone.key === 'cargo area' ? 2 : 1)} more
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      <div style={{ position: 'absolute', left: 14, top: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <CarFront size={16} color="var(--color-accent-dark)" />
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)' }}>{vehicle.name}</span>
       </div>
     </div>
   );
@@ -597,27 +479,4 @@ function itemIcon(type: DriveLoadoutType) {
   if (type === 'vehicle_addon') return <CarFront size={14} />;
   if (type === 'gear') return <Bike size={14} />;
   return <Briefcase size={14} />;
-}
-
-function zoneItemIcon(type: DriveLoadoutType) {
-  if (type === 'adult') return 'Driver';
-  if (type === 'child') return 'Baby';
-  if (type === 'pet') return 'Pet';
-  if (type === 'vehicle_addon') return 'Roof';
-  return 'Gear';
-}
-
-function placementBucket(item: DriveLoadoutItem) {
-  const placement = (item.placement || '').toLowerCase();
-  if (placement.includes('roof')) return 'roof';
-  if (placement.includes('driver')) return 'driver';
-  if (placement.includes('front')) return 'front seat';
-  if (placement.includes('back')) return 'back seat';
-  if (placement.includes('cargo')) return 'cargo area';
-  if (placement.includes('easy')) return 'easy access';
-
-  if (item.itemType === 'vehicle_addon') return 'roof';
-  if (item.itemType === 'adult') return 'front seat';
-  if (item.itemType === 'child' || item.itemType === 'pet') return 'back seat';
-  return 'cargo area';
 }
