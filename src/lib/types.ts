@@ -140,3 +140,35 @@ export interface PlanningTask {
   sortIndex: number;
   createdAt: string;
 }
+
+export interface Room {
+  id: number;
+  name: string;
+  floor: string | null;
+  notes: string | null;
+  sortIndex: number;
+}
+
+export interface RoomItem {
+  id: number;
+  roomId: number | null;
+  belongingId: number | null;
+  itemName: string;
+  itemSource: 'existing_belonging' | 'planned_purchase';
+  status: 'planned' | 'placed' | 'undecided';
+  dimensions: string | null;
+  notes: string | null;
+  sortIndex: number;
+}
+
+export interface HomeProject {
+  id: number;
+  title: string;
+  area: string | null;
+  status: 'idea' | 'planning' | 'quoted' | 'scheduled' | 'complete';
+  priority: 'low' | 'medium' | 'high';
+  targetDate: string | null;
+  budgetNotes: string | null;
+  notes: string | null;
+  createdAt: string;
+}

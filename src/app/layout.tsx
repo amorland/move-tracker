@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 
 const NAV = [
   { href: '/',          label: 'Overview',   Icon: LayoutDashboard },
-  { href: '/home/timeline', label: 'Home',   Icon: House           },
+  { href: '/home',       label: 'Home',       Icon: House           },
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
   { href: '/belongings',label: 'Belongings', Icon: Package         },
   { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },

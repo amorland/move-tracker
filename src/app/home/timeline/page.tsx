@@ -1,6 +1,7 @@
 'use client';
 
 import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
+import HomeSubnav from '@/components/HomeSubnav';
 import { TimelineEntry, Track } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { format, parseISO } from 'date-fns';
@@ -52,6 +53,8 @@ export default function HomeTimelinePage() {
           <Plus size={18} /> Add Entry
         </button>
       </div>
+
+      <HomeSubnav />
 
       {entries.length === 0 ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>

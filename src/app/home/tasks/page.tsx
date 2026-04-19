@@ -1,6 +1,7 @@
 'use client';
 
 import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
+import HomeSubnav from '@/components/HomeSubnav';
 import { PlanningTask, TaskOwner, Track, TrackKey } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { format, parseISO } from 'date-fns';
@@ -112,6 +113,8 @@ export default function HomeTasksPage() {
           <Plus size={18} /> Add Task
         </button>
       </div>
+
+      <HomeSubnav />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
         <div className="search-bar">
