@@ -213,7 +213,7 @@ export default function DrivePlanPage() {
       <div style={{ marginTop: 24 }}>
         <DropZone
           title="Unassigned Pool"
-          subtitle="Items you have not committed to the Mazda or Subaru yet"
+          subtitle="Items not assigned to a car yet"
           items={unassignedItems}
           onDropItem={itemId => moveItem(itemId, null, null)}
           onEditItem={setItemModal}
@@ -279,7 +279,7 @@ function VehicleCard({
         </div>
         <DropZone
           title="Assigned to this vehicle"
-          subtitle="Driver, passengers, pets, bikes, gear, pod, and quick-access items"
+          subtitle="Driver, passengers, pets, and gear"
           items={items}
           onDropItem={itemId => onDropItem(itemId, vehicle.id, null)}
           onEditItem={onEditItem}

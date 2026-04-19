@@ -88,7 +88,7 @@ export default function HomeLayoutPage() {
     fetchAll();
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the 25 Chestnut layout sketch…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading layout…</div>;
 
   const floors = orderedFloors(rooms);
   const unplacedItems = items.filter(item => item.roomId === null);
@@ -98,7 +98,7 @@ export default function HomeLayoutPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Visual Layout</h1>
-          <p className="page-subtitle">A rough sketch so we can drag furniture around before move-in.</p>
+          <p className="page-subtitle">Drag big items into rooms.</p>
         </div>
         <Link href="/home/rooms" className="btn btn-secondary btn-lg" style={{ textDecoration: 'none' }}>
           Manage Rooms & Items
@@ -112,7 +112,7 @@ export default function HomeLayoutPage() {
           <div>
             <div className="section-label" style={{ marginBottom: 6 }}>Blueprint-inspired mode</div>
             <div style={{ fontSize: 13, color: 'var(--color-secondary)', maxWidth: 780 }}>
-              This view now arranges rooms as connected floor layouts rather than separate cards. It is still crude, but it is meant to be much closer to the real house shape and room relationships from the blueprint and listing materials.
+              A rough floor layout based on the blueprint and listing.
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -158,7 +158,7 @@ export default function TimelinePage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Journey</h1>
-          <p className="page-subtitle">Move dates, drive dates, and house dates in one line.</p>
+          <p className="page-subtitle">Move, drive, and house dates in one place.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAddModal(true)}>
           <Plus size={18} /> Add Event
@@ -272,7 +272,7 @@ export default function TimelinePage() {
               )}
               {selected.type === 'anchor' && (
                 <Link href="/" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>
-                  Edit on Overview →
+                  Edit on HQ →
                 </Link>
               )}
             </div>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const HOME_NAV = [
-  { href: '/home', label: 'Overview' },
+  { href: '/home', label: 'HQ' },
   { href: '/home/timeline', label: 'Timeline' },
   { href: '/home/tasks', label: 'Tasks' },
   { href: '/home/documents', label: 'Documents' },
@@ -23,7 +23,7 @@ export default function HomeSubnav() {
         <div>
           <div className="section-label" style={{ marginBottom: 4 }}>House Planning</div>
           <div style={{ fontSize: 13, color: 'var(--color-secondary)', marginBottom: 2 }}>Currently viewing: <span style={{ color: 'var(--color-foreground)', fontWeight: 600 }}>{current}</span></div>
-          <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>How we&apos;re tracking 25 Chestnut</div>
+          <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Purchase, rooms, docs, and projects.</div>
         </div>
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>

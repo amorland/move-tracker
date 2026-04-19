@@ -19,13 +19,13 @@ Warm paper tones throughout. Three key values: `#faf8f5` (content background), `
 
 | Area | Route | Description |
 |------|-------|-------------|
-| **Overview** | `/` | At-a-glance dashboard with Move Timeline, Drive Timeline, Home Timeline, move task completion, and belongings progress |
+| **HQ** | `/` | At-a-glance dashboard with move dates, drive progress, house progress, task completion, and stuff progress |
 | **The List** | `/tasks` | Move tasks grouped by category with owner toggles, due dates, completion tracking, notes, and attached document links |
-| **The Big Sort** | `/belongings` | Stuff grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
+| **Stuff** | `/belongings` | Stuff grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
 | **The Journey** | `/timeline` | Combined move timeline for key dates, tasks, custom events, and derived drive stops |
 | **The Route** | `/map` | Leaflet map with OSRM routing, route stats, overnight stops, and trip ETA logic |
 | **Cars** | `/drive-plan` | Car planner for assigning drivers, passengers, pets, bikes, plants, and cargo across the Mazda and Subaru |
-| **House Planning** | `/home` | House dashboard with purchase progress, summaries, and navigation into the dedicated House subsection |
+| **House Planning** | `/home` | House HQ with purchase progress, summaries, and navigation into the dedicated House subsection |
 | **House Timeline** | `/home/timeline` | Purchase, loan, and house update entries shown in a vertical timeline layout with document attachments |
 | **House Tasks** | `/home/tasks` | Planning tasks for purchase, loan, setup, and updates with grouped filters, owner/status tracking, and attachments |
 | **House Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
@@ -99,7 +99,7 @@ The House area is split into:
 - a visual layout page that reuses room items and stores rough on-canvas placement
 - future projects with status and priority tracking
 
-The House subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages.
+The House subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages. Its local home tab is labeled `HQ`.
 
 ## Data Model
 
@@ -184,7 +184,7 @@ src/
 │   │   ├── tasks/           # Move tasks CRUD
 │   │   ├── timeline/        # Home timeline CRUD
 │   │   └── tracks/          # Track metadata
-│   ├── belongings/          # The Big Sort page
+│   ├── belongings/          # Stuff page
 │   ├── drive-plan/          # Cars page
 │   ├── home/
 │   │   ├── documents/       # House documents page
@@ -200,7 +200,7 @@ src/
 │   ├── timeline/            # Move timeline page
 │   ├── globals.css          # Design system
 │   ├── layout.tsx           # App shell
-│   └── page.tsx             # Main overview dashboard
+│   └── page.tsx             # Main HQ dashboard
 ├── components/
 │   ├── DocumentAttachmentSection.tsx
 │   ├── HomeSubnav.tsx

@@ -106,7 +106,7 @@ export default function BelongingsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Big Sort</h1>
-          <p className="page-subtitle">{unresolvedCount} still in the air · {resolvedCount} sorted across what we&apos;re bringing, selling, donating, or trashing</p>
+          <p className="page-subtitle">{unresolvedCount} to sort. {resolvedCount} already decided.</p>
         </div>
         <button
           className="btn btn-primary btn-lg"
@@ -158,7 +158,7 @@ export default function BelongingsPage() {
         {visible.length === 0 ? (
           <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             <Box size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>Nothing here.</p>
+            <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No items here.</p>
           </div>
         ) : sortedRooms.map((room) => {
           const roomItems = visible.filter(i => i.room === room);

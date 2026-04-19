@@ -193,7 +193,7 @@ export default function OverviewPage() {
     else { const e = await res.json(); setDateError(e.error || 'Unknown error'); }
   };
 
-  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading Andrew and Tory&apos;s move plan…</div>;
+  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the move plan…</div>;
 
   const milestones = getMilestones(settings);
   const completeTasks = tasks.filter(t => t.status === 'Complete');
@@ -236,7 +236,7 @@ export default function OverviewPage() {
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>Fat Necks on the Move</h1>
-          <p className="page-subtitle">Where we stand between Clearwater and Cold Spring.</p>
+          <p className="page-subtitle">Move dates, drive plan, and house progress.</p>
         </div>
         {driveDate && driveCountdownLabel && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>

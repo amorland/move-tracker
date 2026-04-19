@@ -202,7 +202,7 @@ export default function MoveMap() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Route</h1>
-          <p className="page-subtitle">Our drive north, stop by stop.</p>
+          <p className="page-subtitle">Stops, overnights, and drive time.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => { setIsAdding(true); setEditingLoc(null); }}>
           <Plus size={18} /> Add Location

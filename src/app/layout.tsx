@@ -9,7 +9,7 @@ import {
 import { useState, useEffect } from 'react';
 
 const NAV = [
-  { href: '/',          label: 'Overview',   Icon: LayoutDashboard },
+  { href: '/',          label: 'HQ',         Icon: LayoutDashboard },
   { href: '/home',       label: 'House',      Icon: House           },
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
   { href: '/belongings',label: 'Stuff',      Icon: Package         },

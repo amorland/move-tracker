@@ -48,7 +48,7 @@ export default function HomePage() {
     setLoading(false);
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Chestnut house plan…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading house planning…</div>;
 
   const openTasks = tasks.filter(task => task.status !== 'Complete');
   const purchaseMilestones = buildPurchaseMilestones(settings, events, timelineEntries);
@@ -58,7 +58,7 @@ export default function HomePage() {
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ marginBottom: 28 }}>
         <h1>House Planning</h1>
-        <p className="page-subtitle">Where we stand on 25 Chestnut.</p>
+        <p className="page-subtitle">Purchase, rooms, docs, and projects.</p>
       </div>
 
       <HomeSubnav />
@@ -78,7 +78,7 @@ export default function HomePage() {
       <div className="overview-grid" style={{ marginBottom: 28 }}>
         <SummaryCard
           title="Purchase Timeline"
-          subtitle={`${timelineEntries.length} recent items`}
+          subtitle={`${timelineEntries.length} entries`}
           href="/home/timeline"
           icon={<CalendarCheck size={18} />}
         />
@@ -90,13 +90,13 @@ export default function HomePage() {
         />
         <SummaryCard
           title="Documents"
-          subtitle={`${documents.length} Chestnut and loan links saved`}
+          subtitle={`${documents.length} saved links`}
           href="/home/documents"
           icon={<FileText size={18} />}
         />
         <SummaryCard
           title="Layout"
-          subtitle={`${roomItems.filter(item => item.roomId !== null).length} placed across ${rooms.length} rooms`}
+          subtitle={`${roomItems.filter(item => item.roomId !== null).length} placed in ${rooms.length} rooms`}
           href="/home/layout"
           icon={<Grid3X3 size={18} />}
         />
@@ -114,7 +114,7 @@ export default function HomePage() {
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {pendingMilestones.length === 0 ? (
-              <EmptyState text="No pending milestones. The purchase process is fully dated and confirmed." />
+              <EmptyState text="No pending milestones." />
             ) : (
               pendingMilestones.map(milestone => (
                 <div key={milestone.key} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
@@ -142,7 +142,7 @@ export default function HomePage() {
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {openTasks.length === 0 ? (
-              <EmptyState text="No open home tasks." />
+              <EmptyState text="No open tasks." />
             ) : (
               openTasks.slice(0, 5).map(task => (
                 <div key={task.id} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>

@@ -54,14 +54,14 @@ export default function HomeProjectsPage() {
     return true;
   });
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading future Chestnut projects…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading projects…</div>;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>House Projects</h1>
-          <p className="page-subtitle">The maybe-later list, starting with floors and fixes.</p>
+          <p className="page-subtitle">Repairs, upgrades, and later ideas.</p>
         </div>
         <button
           className="btn btn-primary btn-lg"

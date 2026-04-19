@@ -40,14 +40,14 @@ export default function HomeTimelinePage() {
     fetchAll();
   };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Chestnut purchase timeline…</div>;
+  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading house timeline…</div>;
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>House Timeline</h1>
-          <p className="page-subtitle">Offer, contract, BCU, closing. The whole little saga.</p>
+          <p className="page-subtitle">Offer, contract, loan, closing.</p>
         </div>
         <button className="btn btn-primary btn-lg" onClick={() => setAdding(true)}>
           <Plus size={18} /> Add Entry
@@ -59,16 +59,18 @@ export default function HomeTimelinePage() {
       {entries.length === 0 ? (
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
           <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
-          <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>Nothing logged for 25 Chestnut yet.</p>
+          <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No entries yet.</p>
         </div>
       ) : (
         <div style={{ position: 'relative', paddingLeft: 56 }}>
           <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 2, background: 'var(--color-border)' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {entries.map(entry => (
+            {entries.map(entry => {
+              const iconStyle = getHomeTimelineIconStyle(entry.status, entry.trackKey);
+              return (
               <div key={entry.id} style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', left: -56, top: 16, width: 40, height: 40, borderRadius: 12, background: entry.trackKey === 'loan' ? '#eef7f3' : entry.trackKey === 'home_updates' ? '#f3f1ed' : 'var(--color-accent-soft)', border: `1px solid ${entry.trackKey === 'loan' ? '#b7d8c7' : entry.trackKey === 'home_updates' ? 'var(--color-border)' : 'var(--color-accent)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                  <CalendarCheck size={14} color={entry.trackKey === 'loan' ? '#1f6b5b' : entry.trackKey === 'home_updates' ? '#6b655d' : 'var(--color-accent-dark)'} />
+                <div style={{ position: 'absolute', left: -56, top: 16, width: 40, height: 40, borderRadius: 12, background: iconStyle.background, border: `1px solid ${iconStyle.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                  <CalendarCheck size={14} color={iconStyle.color} />
                 </div>
                 <div
                   onClick={() => setSelected(entry)}
@@ -94,7 +96,7 @@ export default function HomeTimelinePage() {
                   <ChevronRight size={16} color="var(--color-border)" />
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -163,6 +165,54 @@ function HomeTimelineStatus({ status }: { status: string }) {
     return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: '999px', background: '#fff0f0', color: '#b91c1c', fontSize: 11, fontWeight: 700 }}>Blocked</span>;
   }
   return <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 8px', borderRadius: '999px', background: 'var(--color-background)', color: 'var(--color-secondary)', fontSize: 11, fontWeight: 700 }}>Estimated</span>;
+}
+
+function getHomeTimelineIconStyle(status: string, trackKey?: string | null) {
+  if (status === 'complete') {
+    return {
+      background: '#eef7f3',
+      border: '#b7d8c7',
+      color: '#1f6b5b',
+    };
+  }
+
+  if (status === 'confirmed') {
+    return {
+      background: 'var(--color-accent-soft)',
+      border: 'var(--color-accent)',
+      color: 'var(--color-accent-dark)',
+    };
+  }
+
+  if (status === 'blocked') {
+    return {
+      background: '#fff0f0',
+      border: '#fca5a5',
+      color: '#b91c1c',
+    };
+  }
+
+  if (trackKey === 'loan') {
+    return {
+      background: '#eef7f3',
+      border: '#b7d8c7',
+      color: '#1f6b5b',
+    };
+  }
+
+  if (trackKey === 'home_updates') {
+    return {
+      background: '#f3f1ed',
+      border: 'var(--color-border)',
+      color: '#6b655d',
+    };
+  }
+
+  return {
+    background: 'var(--color-accent-soft)',
+    border: 'var(--color-accent)',
+    color: 'var(--color-accent-dark)',
+  };
 }
 
 function TimelineEntryModal({
