@@ -10,7 +10,7 @@ const { mockFrom, mockSingle, mockInsert, mockUpdate, mockDelete } = vi.hoisted(
 });
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: { from: mockFrom },
+  getSupabaseServer: vi.fn().mockResolvedValue({ from: mockFrom }),
 }));
 
 import { DELETE, GET, PATCH, POST } from '@/app/api/timeline/route';

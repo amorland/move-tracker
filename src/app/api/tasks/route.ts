@@ -1,7 +1,8 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
+  const supabase = await getSupabaseServer();
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
@@ -9,12 +10,12 @@ export async function GET() {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Normalise DB column names to frontend camelCase
   const tasks = (data ?? []).map(normalise);
   return NextResponse.json(tasks);
 }
 
 export async function POST(request: Request) {
+  const supabase = await getSupabaseServer();
   const body = await request.json();
 
   const { data: last } = await supabase
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const supabase = await getSupabaseServer();
   const body = await request.json();
   const { id, ...rest } = body;
 
@@ -70,6 +72,7 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const supabase = await getSupabaseServer();
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 

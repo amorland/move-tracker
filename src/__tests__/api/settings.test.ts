@@ -8,7 +8,7 @@ const { mockFrom, mockSingle, mockUpdate } = vi.hoisted(() => {
 });
 
 vi.mock('@/lib/supabase', () => ({
-  supabase: { from: mockFrom },
+  getSupabaseServer: vi.fn().mockResolvedValue({ from: mockFrom }),
 }));
 
 import { GET, PATCH } from '@/app/api/settings/route';

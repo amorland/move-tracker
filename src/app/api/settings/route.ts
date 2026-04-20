@@ -1,14 +1,15 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 import { validateDates } from '@/lib/dateUtils';
 
 export async function GET() {
+  const supabase = await getSupabaseServer();
   const { data, error } = await supabase
     .from('settings')
     .select('*')
     .eq('id', 1)
     .single();
-    
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // FORCE SANITIZE: Fix existing bad data in DB
@@ -31,10 +32,10 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const supabase = await getSupabaseServer();
   const body = await request.json();
   const { id, ...updateData } = body;
-  
-  // Get current settings to validate combined state
+
   const { data: currentSettings } = await supabase
     .from('settings')
     .select('*')
@@ -53,7 +54,7 @@ export async function PATCH(request: Request) {
     .eq('id', 1)
     .select()
     .single();
-    
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }

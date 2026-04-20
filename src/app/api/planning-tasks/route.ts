@@ -1,7 +1,8 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-async function getTrackMap() {
+async function getTrackMap(supabase: SupabaseClient) {
   const { data: tracks, error } = await supabase.from('tracks').select('*');
   if (error) throw new Error(error.message);
   return new Map((tracks ?? []).map((track: any) => [Number(track.id), {
@@ -12,12 +13,13 @@ async function getTrackMap() {
 }
 
 export async function GET(request: Request) {
+  const supabase = await getSupabaseServer();
   const { searchParams } = new URL(request.url);
   const track = searchParams.get('track');
   const section = searchParams.get('section');
   const status = searchParams.get('status');
 
-  const trackMap = await getTrackMap();
+  const trackMap = await getTrackMap(supabase);
   const selectedTrackIds = track
     ? [...trackMap.values()].filter((item: any) => item.key === track).map((item: any) => Number(item.id))
     : [];
@@ -39,6 +41,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const supabase = await getSupabaseServer();
   const body = await request.json();
 
   const { data: last } = await supabase
@@ -67,11 +70,12 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const trackMap = await getTrackMap();
+  const trackMap = await getTrackMap(supabase);
   return NextResponse.json(normalise(data, trackMap.get(Number(data.track_id))));
 }
 
 export async function PATCH(request: Request) {
+  const supabase = await getSupabaseServer();
   const body = await request.json();
   const { id, ...rest } = body;
 
@@ -95,11 +99,12 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const trackMap = await getTrackMap();
+  const trackMap = await getTrackMap(supabase);
   return NextResponse.json(normalise(data, trackMap.get(Number(data.track_id))));
 }
 
 export async function DELETE(request: Request) {
+  const supabase = await getSupabaseServer();
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 

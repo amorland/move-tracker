@@ -1,7 +1,8 @@
-import { supabase } from '@/lib/supabase';
+import { getSupabaseServer } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
+  const supabase = await getSupabaseServer();
   const { searchParams } = new URL(request.url);
   const entityType = searchParams.get('entityType');
   const entityId = searchParams.get('entityId');
@@ -35,6 +36,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const supabase = await getSupabaseServer();
   const body = await request.json();
   const { data, error } = await supabase
     .from('document_links')
@@ -53,6 +55,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const supabase = await getSupabaseServer();
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
