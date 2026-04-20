@@ -1,6 +1,6 @@
 # Starland™ Moving
 
-A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel house-planning work: purchase/loan timeline tracking, document links, room planning, a crude visual layout planner, and future house projects. It also includes a dedicated car-planning workspace for assigning people, pets, and cargo across multiple vehicles. Access is gated by a shared app password, while private documents are intended to be stored as secure external links such as Google Drive URLs.
+A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel house-planning work: purchase/loan timeline tracking, document links, room planning, a crude visual layout planner, and future house projects. It also includes a dedicated car-planning workspace for assigning people, pets, and cargo across multiple vehicles. Access is gated by Google OAuth with a per-deployment email allowlist (`ALLOWED_EMAILS`), while private documents are intended to be stored as secure external links such as Google Drive URLs.
 
 ## Stack
 
@@ -144,6 +144,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-schema.sql](/home/amorland/move-tracker/supabase-schema.sql:1)
 - [supabase-migration.sql](/home/amorland/move-tracker/supabase-migration.sql:1)
 - [supabase-home-planning.sql](/home/amorland/move-tracker/supabase-home-planning.sql:1)
+- [supabase-rls.sql](/home/amorland/move-tracker/supabase-rls.sql:1) — enables RLS + authenticated-only policies on all 16 tables
 
 ## Running Locally
 
@@ -152,7 +153,7 @@ Requires a `.env.local`:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-APP_PASSWORD=...
+ALLOWED_EMAILS=you@example.com,other@example.com
 ```
 
 ```bash
@@ -184,7 +185,7 @@ Tests use mocked Supabase clients rather than a live database.
 src/
 ├── app/
 │   ├── api/
-│   │   ├── auth/            # Login / logout (cookie-based)
+│   │   ├── auth/            # OAuth callback + logout (Supabase Auth)
 │   │   ├── belongings/      # Belongings CRUD
 │   │   ├── categories/      # Move task categories + tasks (combined GET)
 │   │   ├── document-links/  # Generic attachment links
@@ -211,7 +212,9 @@ src/
 │   │   ├── tasks/           # House tasks page
 │   │   ├── timeline/        # House timeline page
 │   │   └── page.tsx         # House dashboard
-│   ├── login/               # Login page
+│   ├── auth/
+│   │   └── callback/        # OAuth callback handler (exchanges code for session)
+│   ├── login/               # Google sign-in page
 │   ├── map/                 # Route page
 │   ├── tasks/               # Move tasks page
 │   ├── timeline/            # Move timeline page
@@ -226,14 +229,20 @@ src/
 │   └── api/                 # Route handler tests
 └── lib/
     ├── dateUtils.ts
-    ├── supabase.ts
+    ├── supabase.ts          # Server-side Supabase client (session-aware, @supabase/ssr)
+    ├── supabase-browser.ts  # Browser-side Supabase client (OAuth flows)
     ├── types.ts
     └── useScrollLock.ts
 ```
 
+## Supabase Setup (required for auth)
+
+1. In the Supabase dashboard, enable the **Google** OAuth provider under Authentication → Providers. Add your Google OAuth client ID and secret.
+2. Add `https://<your-domain>/auth/callback` (and `http://localhost:3000/auth/callback` for local dev) to the **Redirect URLs** allowlist under Authentication → URL Configuration.
+3. Run `supabase-rls.sql` in the Supabase SQL editor to enable Row Level Security on all tables. Until this is done, RLS is off and the anon key has unrestricted access.
+
 ## Current Limitations
 
-- App authentication is still a shared password cookie, not per-user auth
 - Documents are intended as external links, not uploaded private files
 - Room planning and visual layout are still crude MVPs, not blueprint-accurate floorplan tools
 - Drive planning does not currently enforce true seat/cargo constraints; it is a flexible planning board rather than a hard validator
