@@ -30,11 +30,11 @@ const FLOOR_TEMPLATES: Record<string, RoomTemplate[]> = {
     { match: ['Half Bath'], x: 84, y: 46, w: 12, h: 14, label: 'Half Bath' },
   ],
   'Second Floor': [
-    { match: ['Office'], x: 4, y: 10, w: 28, h: 34, label: 'Office' },
-    { match: ['Master Bedroom'], x: 34, y: 10, w: 34, h: 42, label: 'Master Bedroom' },
-    { match: ['Master Bathroom'], x: 70, y: 10, w: 16, h: 20, label: 'Master Bath' },
-    { match: ['Second Bathroom'], x: 70, y: 32, w: 16, h: 20, label: 'Second Bath' },
-    { match: ['Second Bedroom'], x: 4, y: 48, w: 38, h: 32, label: 'Second Bedroom' },
+    { match: ['Office'], x: 4, y: 10, w: 24, h: 30, label: 'Office' },
+    { match: ['Master Bedroom'], x: 30, y: 10, w: 36, h: 40, label: 'Master Bedroom' },
+    { match: ['Master Bathroom'], x: 68, y: 10, w: 18, h: 18, label: 'Master Bath' },
+    { match: ['Second Bathroom'], x: 68, y: 30, w: 18, h: 18, label: 'Second Bath' },
+    { match: ['Second Bedroom'], x: 4, y: 46, w: 48, h: 34, label: 'Second Bedroom' },
   ],
   'Third Floor': [
     { match: ['Third Bedroom'], x: 4, y: 12, w: 34, h: 34, label: 'Third Bedroom' },
@@ -208,9 +208,9 @@ function FloorPlan({
       )}
       {floor === 'Second Floor' && (
         <>
-          <div style={{ position: 'absolute', left: '32%', top: '10%', width: '2%', height: '70%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', left: '68%', top: '10%', width: '2%', height: '42%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', left: '70%', top: '30%', width: '16%', height: '2%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '28%', top: '10%', width: '2%', height: '70%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '66%', top: '10%', width: '2%', height: '40%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: '68%', top: '28%', width: '18%', height: '2%', borderRadius: 10, background: 'rgba(92,86,72,0.06)', pointerEvents: 'none' }} />
         </>
       )}
       {floor === 'Third Floor' && (
