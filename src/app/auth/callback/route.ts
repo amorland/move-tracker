@@ -1,5 +1,4 @@
 import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -11,16 +10,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=no_code', request.url));
   }
 
-  const cookieStore = await cookies();
+  const redirectResponse = NextResponse.redirect(new URL(next, request.url));
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return cookieStore.getAll(); },
+        getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
+            redirectResponse.cookies.set(name, value, options)
           );
         },
       },
@@ -33,7 +33,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=auth_failed', request.url));
   }
 
-  // Restrict to allowed Google accounts only
   const allowedEmails = (process.env.ALLOWED_EMAILS ?? '')
     .split(',')
     .map(e => e.trim().toLowerCase())
@@ -44,5 +43,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=unauthorized', request.url));
   }
 
-  return NextResponse.redirect(new URL(next, request.url));
+  return redirectResponse;
 }
