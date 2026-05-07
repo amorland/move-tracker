@@ -11,9 +11,9 @@ A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold 
 - **Vitest** for API and utility tests
 - **Deployed on Vercel**
 
-## Design System — "Washi"
+## Design System — "Washi 2.0"
 
-Warm paper tones throughout. Three key values: `#faf8f5` (content background), `#ede8df` (nav/header), `#ffffff` (card surfaces). Borders are quiet warm gray (`#ece8e1`). Terracotta (`#c06b3e`) is the single accent for CTAs, active nav states, and progress bars. Gold (`#f0b432`) is reserved for key date markers. Lora serif for headings, DM Sans for body. The "SL" monogram appears in the nav header and overview page.
+The UI uses a minimal, cozy planning aesthetic: warm paper background (`#f7f3ed`), soft cream surfaces (`#fffdf9`), quiet beige navigation (`#eee7dc`), and border-first cards with restrained shadows. Terracotta (`#b85f36`) remains the primary action and active-state accent, while sage, muted blue, and gold tokens provide calmer status/type distinction where needed. Cards use tighter 8px radii, controls are more compact, rows lean on borders instead of heavy elevation, and modals keep the only strong floating shadow. Lora is reserved for page-level headings, DM Sans carries the working UI, and the "SL" monogram remains in the app header and overview page.
 
 ## Main Areas
 
