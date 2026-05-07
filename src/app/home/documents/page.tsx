@@ -1,6 +1,7 @@
 'use client';
 
 import HomeSubnav from '@/components/HomeSubnav';
+import AreaIcon from '@/components/AreaIcon';
 import { DocumentLink, DocumentRecord } from '@/lib/types';
 import { ExternalLink, FileText, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
@@ -16,11 +17,7 @@ export default function HomeDocumentsPage() {
   const [editing, setEditing] = useState<DocumentRecord | null>(null);
   const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
+  async function fetchAll() {
     const [docsRes, linksRes] = await Promise.all([
       fetch('/api/documents'),
       fetch('/api/document-links'),
@@ -28,7 +25,11 @@ export default function HomeDocumentsPage() {
     setDocuments(await docsRes.json());
     setLinks(await linksRes.json());
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchAll());
+  }, []);
 
   const linkCountByDocumentId = useMemo(() => {
     const counts = new Map<number, number>();
@@ -47,7 +48,7 @@ export default function HomeDocumentsPage() {
   const deleteDocument = async (id: number) => {
     if (!confirm('Delete this document?')) return;
     await fetch(`/api/documents?id=${id}`, { method: 'DELETE' });
-    fetchAll();
+    void fetchAll();
   };
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading documents…</div>;
@@ -76,6 +77,7 @@ export default function HomeDocumentsPage() {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             {CATEGORIES.map(category => (
               <button key={category} onClick={() => setCategoryFilter(category)} className={`filter-chip ${categoryFilter === category ? 'filter-chip-active' : ''}`}>
+                <DocumentCategoryIcon category={category} />
                 {category === 'all' ? 'All categories' : category}
               </button>
             ))}
@@ -93,7 +95,10 @@ export default function HomeDocumentsPage() {
           visible.map(document => (
             <div key={document.id} className="task-row" style={{ display: 'flex', alignItems: 'stretch', background: 'var(--color-surface)', borderRadius: 8, boxShadow: 'var(--shadow-sm)', border: '1px solid var(--color-border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0 }}>
-                <span className="badge badge-neutral" style={{ textTransform: 'uppercase' }}>{document.category}</span>
+                <span className="badge badge-neutral" style={{ textTransform: 'uppercase', gap: 4 }}>
+                  <DocumentCategoryIcon category={document.category} />
+                  {document.category}
+                </span>
               </div>
               <div style={{ flex: 1, padding: '13px 8px', minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -124,11 +129,16 @@ export default function HomeDocumentsPage() {
         <DocumentModal
           existing={editing ?? undefined}
           onClose={() => { setAdding(false); setEditing(null); }}
-          onSaved={() => { setAdding(false); setEditing(null); fetchAll(); }}
+          onSaved={() => { setAdding(false); setEditing(null); void fetchAll(); }}
         />
       )}
     </div>
   );
+}
+
+function DocumentCategoryIcon({ category }: { category: (typeof CATEGORIES)[number] | DocumentRecord['category'] }) {
+  if (category === 'loan') return <AreaIcon area="loan" size={12} />;
+  return null;
 }
 
 function DocumentModal({

@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  House,
   Pencil,
   Plus,
   Search,
@@ -17,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import AreaIcon, { type AreaIconKey } from '@/components/AreaIcon';
 import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
 import {
   buildTaskAssets,
@@ -43,12 +43,12 @@ type TaskModalDraft = {
 
 const OWNER_CYCLE: (TaskOwner | null)[] = [null, 'Andrew', 'Tory'];
 
-const SCOPE_CHIPS: { value: TaskAssetScope; label: string; Icon: React.ReactNode }[] = [
-  { value: 'move', label: 'Move', Icon: <CheckCircle2 size={12} /> },
-  { value: 'home_purchase', label: 'Home Purchase', Icon: <House size={12} /> },
-  { value: 'loan', label: 'Loan', Icon: <CheckCircle2 size={12} /> },
-  { value: 'home_setup', label: 'Home Setup', Icon: <House size={12} /> },
-  { value: 'home_updates', label: 'Home Updates', Icon: <House size={12} /> },
+const SCOPE_CHIPS: { value: TaskAssetScope; label: string; iconKey: AreaIconKey }[] = [
+  { value: 'move', label: 'Move', iconKey: 'move' },
+  { value: 'home_purchase', label: 'Home Purchase', iconKey: 'home_purchase' },
+  { value: 'loan', label: 'Loan', iconKey: 'loan' },
+  { value: 'home_setup', label: 'Home Setup', iconKey: 'home_setup' },
+  { value: 'home_updates', label: 'Home Updates', iconKey: 'home_updates' },
 ];
 
 function isScope(value: string): value is TaskAssetScope {
@@ -234,13 +234,13 @@ export default function TasksPage() {
             >
               All areas
             </button>
-            {SCOPE_CHIPS.map(({ value, label, Icon }) => (
+            {SCOPE_CHIPS.map(({ value, label, iconKey }) => (
               <button
                 key={value}
                 onClick={() => toggleScope(value)}
                 className={`filter-chip ${activeScopes.has(value) ? 'filter-chip-active' : ''}`}
               >
-                {Icon}
+                <AreaIcon area={iconKey} size={12} />
                 {label}
               </button>
             ))}
@@ -435,6 +435,10 @@ function getScopeLabel(scope: TaskAssetScope) {
   return SCOPE_CHIPS.find(item => item.value === scope)?.label ?? scope;
 }
 
+function getScopeIconKey(scope: TaskAssetScope) {
+  return SCOPE_CHIPS.find(item => item.value === scope)?.iconKey ?? 'tasks';
+}
+
 function TaskRow({
   task,
   onToggle,
@@ -489,7 +493,10 @@ function TaskRow({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
           {task.scope !== 'move' && (
-            <span className="badge badge-neutral">{getScopeLabel(task.scope)}</span>
+            <span className="badge badge-neutral" style={{ gap: 4 }}>
+              <AreaIcon area={getScopeIconKey(task.scope)} size={11} />
+              {getScopeLabel(task.scope)}
+            </span>
           )}
           {task.dueDate && !done && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)', opacity: 0.8 }}>

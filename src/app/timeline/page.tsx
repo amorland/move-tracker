@@ -15,11 +15,7 @@ import {
 import { format } from 'date-fns';
 import {
   Calendar,
-  CalendarCheck,
-  CarFront,
-  CheckCircle2,
   ChevronRight,
-  House,
   Pencil,
   Plus,
   Search,
@@ -27,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { useScrollLock } from '@/lib/useScrollLock';
+import AreaIcon, { type AreaIconKey, getAreaIconVisual } from '@/components/AreaIcon';
 import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
 import {
   buildTimelineAssets,
@@ -38,14 +35,14 @@ import {
   TimelineFormMode,
 } from '@/features/timelines/timelineConversion';
 
-const FILTER_CHIPS: { value: TimelineAssetFilter; label: string; Icon: React.ReactNode }[] = [
-  { value: 'key_dates', label: 'Key Dates', Icon: null },
-  { value: 'events', label: 'Events', Icon: <CalendarCheck size={12} /> },
-  { value: 'tasks', label: 'Tasks', Icon: <CheckCircle2 size={12} /> },
-  { value: 'drive', label: 'Drive', Icon: <CarFront size={12} /> },
-  { value: 'home_purchase', label: 'Home Purchase', Icon: <House size={12} /> },
-  { value: 'loan', label: 'Loan', Icon: <CalendarCheck size={12} /> },
-  { value: 'home_updates', label: 'Home Updates', Icon: <House size={12} /> },
+const FILTER_CHIPS: { value: TimelineAssetFilter; label: string; iconKey: AreaIconKey }[] = [
+  { value: 'key_dates', label: 'Key Dates', iconKey: 'key_dates' },
+  { value: 'events', label: 'Events', iconKey: 'events' },
+  { value: 'tasks', label: 'Tasks', iconKey: 'tasks' },
+  { value: 'drive', label: 'Drive', iconKey: 'drive' },
+  { value: 'home_purchase', label: 'Home Purchase', iconKey: 'home_purchase' },
+  { value: 'loan', label: 'Loan', iconKey: 'loan' },
+  { value: 'home_updates', label: 'Home Updates', iconKey: 'home_updates' },
 ];
 
 const HOME_TRACK_KEYS: TrackKey[] = ['home_purchase', 'loan', 'home_updates'];
@@ -200,13 +197,13 @@ export default function TimelinePage() {
         >
           All
         </button>
-        {FILTER_CHIPS.map(({ value, label, Icon }) => (
+        {FILTER_CHIPS.map(({ value, label, iconKey }) => (
           <button
             key={value}
             onClick={() => toggleFilter(value)}
             className={`filter-chip ${activeFilters.has(value) ? 'filter-chip-active' : ''}`}
           >
-            {Icon}
+            <AreaIcon area={iconKey} size={12} />
             {label}
           </button>
         ))}
@@ -581,43 +578,24 @@ function StatusChip({ status }: { status: string }) {
 }
 
 function TimelineAssetIcon({ item }: { item: TimelineAsset }) {
-  if (item.trackKey === 'home_purchase') {
-    return (
-      <IconFrame background="var(--color-accent-soft)" border="var(--color-accent)">
-        <House size={14} color="var(--color-accent-dark)" />
-      </IconFrame>
-    );
-  }
-
-  if (item.kind === 'key_date') {
-    return (
-      <IconFrame background="rgba(240,180,50,0.15)" border="#f0b432">
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0b432' }} />
-      </IconFrame>
-    );
-  }
-
-  if (item.kind === 'drive_stop') {
-    return (
-      <IconFrame background="#eef2ff" border="#6366f1">
-        <CarFront size={14} color="#6366f1" />
-      </IconFrame>
-    );
-  }
-
-  if (item.kind === 'move_task' || item.kind === 'planning_task') {
-    return (
-      <IconFrame background="var(--color-background)" border="var(--color-border)">
-        <CheckCircle2 size={14} color="var(--color-secondary)" />
-      </IconFrame>
-    );
-  }
+  const iconKey = getTimelineIconKey(item);
+  const { Icon, background, border, color } = getAreaIconVisual(iconKey);
 
   return (
-    <IconFrame background="var(--color-background)" border="var(--color-border)">
-      <CalendarCheck size={14} color={item.status === 'confirmed' ? 'var(--color-accent-dark)' : 'var(--color-secondary)'} />
+    <IconFrame background={background} border={border}>
+      <Icon size={14} color={color} />
     </IconFrame>
   );
+}
+
+function getTimelineIconKey(item: TimelineAsset): AreaIconKey {
+  if (item.kind === 'key_date') return 'key_dates';
+  if (item.kind === 'drive_stop') return 'drive';
+  if (item.trackKey === 'loan') return 'loan';
+  if (item.trackKey === 'home_updates') return 'home_updates';
+  if (item.trackKey === 'home_purchase') return 'home_purchase';
+  if (item.kind === 'move_task' || item.kind === 'planning_task') return 'tasks';
+  return 'events';
 }
 
 function IconFrame({
