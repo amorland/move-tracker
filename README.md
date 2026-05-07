@@ -150,10 +150,11 @@ The current app uses these major tables:
 
 The repo includes the legacy base schema and migration files plus the newer home-planning expansion:
 
-- [supabase-schema.sql](/home/amorland/move-tracker/supabase-schema.sql:1)
-- [supabase-migration.sql](/home/amorland/move-tracker/supabase-migration.sql:1)
-- [supabase-home-planning.sql](/home/amorland/move-tracker/supabase-home-planning.sql:1)
-- [supabase-rls.sql](/home/amorland/move-tracker/supabase-rls.sql:1) — enables RLS + authenticated-only policies on all 16 tables
+- [supabase-schema.sql](supabase-schema.sql)
+- [supabase-migration.sql](supabase-migration.sql)
+- [supabase-home-planning.sql](supabase-home-planning.sql)
+- [supabase-loan-documentation-log.sql](supabase-loan-documentation-log.sql) — idempotent data patch for the BCU loan-documentation timeline log and related loan tasks
+- [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on all 16 tables
 
 ## Running Locally
 
@@ -249,6 +250,7 @@ src/
 1. In the Supabase dashboard, enable the **Google** OAuth provider under Authentication → Providers. Add your Google OAuth client ID and secret.
 2. Add `https://<your-domain>/auth/callback` (and `http://localhost:3000/auth/callback` for local dev) to the **Redirect URLs** allowlist under Authentication → URL Configuration.
 3. Run `supabase-rls.sql` in the Supabase SQL editor to enable Row Level Security on all tables. Until this is done, RLS is off and the anon key has unrestricted access.
+4. To seed the current BCU loan-documentation history, run `supabase-loan-documentation-log.sql` after `supabase-home-planning.sql`. The script checks existing Loan timeline/task titles before inserting, so it can be rerun without creating duplicates.
 
 ## Current Limitations
 
