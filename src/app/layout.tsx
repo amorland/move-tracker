@@ -13,7 +13,7 @@ const NAV = [
   { href: '/home',       label: 'House',      Icon: House           },
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
   { href: '/belongings',label: 'Stuff',      Icon: Package         },
-  { href: '/timeline',  label: 'Timeline',   Icon: Calendar        },
+  { href: '/timeline',  label: 'Timelines',  Icon: Calendar        },
   { href: '/map',       label: 'Route',      Icon: Map             },
   { href: '/drive-plan', label: 'Cars',      Icon: CarFront        },
 ];

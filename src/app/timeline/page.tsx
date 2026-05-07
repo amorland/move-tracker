@@ -1,196 +1,196 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { MoveSettings, Task, MoveEvent, MoveLocation } from '@/lib/types';
-import { format, parseISO, addDays } from 'date-fns';
-import { CheckCircle2, Calendar, CalendarCheck, Plus, X, ChevronRight, Trash2, Pencil, Search, CarFront } from 'lucide-react';
-import { getMilestones } from '@/lib/dateUtils';
+import {
+  MoveEvent,
+  MoveLocation,
+  MoveSettings,
+  PlanningTask,
+  Task,
+  TimelineEntry,
+  Track,
+  TrackKey,
+} from '@/lib/types';
+import { format } from 'date-fns';
+import {
+  Calendar,
+  CalendarCheck,
+  CarFront,
+  CheckCircle2,
+  ChevronRight,
+  House,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { useScrollLock } from '@/lib/useScrollLock';
 import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
+import {
+  buildTimelineAssets,
+  TimelineAsset,
+  TimelineAssetFilter,
+} from '@/features/timelines/timelineAssets';
 
-type ItemType = 'anchor' | 'event' | 'task' | 'drive';
-
-type TimelineItem = {
-  id: string;
-  title: string;
-  date: Date;
-  type: ItemType;
-  status: string;
-  time?: string | null;
-  notes?: string | null;
-  rawEvent?: MoveEvent;
-  isLast?: boolean;
-};
-
-const TYPE_CHIPS: { value: ItemType; label: string; Icon: React.ReactNode }[] = [
-  { value: 'anchor', label: 'Key Dates', Icon: null },
-  { value: 'event',  label: 'Events',    Icon: <CalendarCheck size={12} /> },
-  { value: 'task',   label: 'Tasks',     Icon: <CheckCircle2 size={12} /> },
-  { value: 'drive',  label: 'Drive',     Icon: <CarFront size={12} /> },
+const FILTER_CHIPS: { value: TimelineAssetFilter; label: string; Icon: React.ReactNode }[] = [
+  { value: 'key_dates', label: 'Key Dates', Icon: null },
+  { value: 'events', label: 'Events', Icon: <CalendarCheck size={12} /> },
+  { value: 'tasks', label: 'Tasks', Icon: <CheckCircle2 size={12} /> },
+  { value: 'drive', label: 'Drive', Icon: <CarFront size={12} /> },
+  { value: 'home_purchase', label: 'Home Purchase', Icon: <House size={12} /> },
+  { value: 'loan', label: 'Loan', Icon: <CalendarCheck size={12} /> },
+  { value: 'home_updates', label: 'Home Updates', Icon: <House size={12} /> },
 ];
+
+const HOME_TRACK_KEYS: TrackKey[] = ['home_purchase', 'loan', 'home_updates'];
+
+function isFilter(value: string): value is TimelineAssetFilter {
+  return FILTER_CHIPS.some(chip => chip.value === value);
+}
+
+function getInitialFilters() {
+  if (typeof window === 'undefined') return new Set<TimelineAssetFilter>();
+  const params = new URLSearchParams(window.location.search);
+  const filterValues = params.getAll('filter').flatMap(value => value.split(','));
+  return new Set(filterValues.filter(isFilter));
+}
 
 export default function TimelinePage() {
   const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<MoveEvent[]>([]);
   const [locations, setLocations] = useState<MoveLocation[]>([]);
+  const [timelineEntries, setTimelineEntries] = useState<TimelineEntry[]>([]);
+  const [planningTasks, setPlanningTasks] = useState<PlanningTask[]>([]);
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<TimelineItem | null>(null);
-  const [addModal, setAddModal] = useState(false);
-  const [editEvent, setEditEvent] = useState<MoveEvent | null>(null);
-  const [activeTypes, setActiveTypes] = useState<Set<ItemType>>(new Set());
+  const [selected, setSelected] = useState<TimelineAsset | null>(null);
+  const [editing, setEditing] = useState<TimelineAsset | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<Set<TimelineAssetFilter>>(() => getInitialFilters());
   const [search, setSearch] = useState('');
 
-  const anyModal = selected !== null || addModal || editEvent !== null;
-  useScrollLock(anyModal);
+  useScrollLock(selected !== null || editing !== null || adding);
 
-  useEffect(() => { fetchAll(); }, []);
-
-  const fetchAll = async () => {
-    const [sRes, cRes, eRes, lRes] = await Promise.all([
+  async function fetchAll() {
+    const [settingsRes, categoriesRes, eventsRes, locationsRes, timelineRes, planningTasksRes, tracksRes] = await Promise.all([
       fetch('/api/settings'),
       fetch('/api/categories'),
       fetch('/api/events'),
       fetch('/api/locations'),
+      fetch('/api/timeline'),
+      fetch('/api/planning-tasks'),
+      fetch('/api/tracks'),
     ]);
-    setSettings(await sRes.json());
-    const { tasks: ts } = await cRes.json();
-    setTasks(ts);
-    setEvents(await eRes.json());
-    setLocations(await lRes.json());
+
+    setSettings(await settingsRes.json());
+    const { tasks: moveTasks } = await categoriesRes.json();
+    setTasks(moveTasks);
+    setEvents(await eventsRes.json());
+    setLocations(await locationsRes.json());
+    setTimelineEntries(await timelineRes.json());
+    setPlanningTasks(await planningTasksRes.json());
+    setTracks(await tracksRes.json());
     setLoading(false);
-  };
+  }
 
-  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading our timeline…</div>;
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchAll());
+  }, []);
 
-  const milestones = getMilestones(settings);
-
-  const driveStops = settings.driveStartDate ? (() => {
-    const base = parseISO(settings.driveStartDate);
-    const driveStatus = settings.isDriveStartConfirmed ? 'confirmed' : 'estimated';
-    const visibleStops = locations
-      .filter(l => l.category === 'Origin' || l.category === 'Destination' ||
-        (l.category === 'Stop' && !!l.notes?.startsWith('[overnight]')))
-      .sort((a, b) => {
-        if (a.category === 'Origin') return -1;
-        if (b.category === 'Origin') return 1;
-        if (a.category === 'Destination') return 1;
-        if (b.category === 'Destination') return -1;
-        return (a.id ?? 0) - (b.id ?? 0);
-      });
-    return visibleStops.map((loc, idx): TimelineItem => {
-      const isOrigin = loc.category === 'Origin';
-      const isDest = loc.category === 'Destination';
-      return {
-        id: `drive-${loc.id}`,
-        title: isOrigin ? `Depart ${loc.name}` : isDest ? `Arrive ${loc.name}` : `Overnight: ${loc.name}`,
-        date: addDays(base, idx),
-        type: 'drive' as const,
-        status: driveStatus,
-        notes: loc.notes?.replace(/^\[overnight\]\s*/, '') || null,
-      };
+  const allItems = useMemo(() => {
+    if (!settings) return [];
+    return buildTimelineAssets({
+      settings,
+      tasks,
+      events,
+      locations,
+      timelineEntries,
+      planningTasks,
     });
-  })() : [];
+  }, [settings, tasks, events, locations, timelineEntries, planningTasks]);
 
-  const allItems: TimelineItem[] = [
-    ...milestones
-      .filter(m => m.date)
-      .map(m => ({
-        id: `anchor-${m.key as string}`,
-        title: m.label,
-        date: parseISO(m.date!),
-        type: 'anchor' as const,
-        status: m.status,
-      })),
-    ...tasks
-      .filter(t => t.dueDate)
-      .map(t => ({
-        id: `task-${t.id}`,
-        title: t.title,
-        date: parseISO(t.dueDate!),
-        type: 'task' as const,
-        status: t.status,
-      })),
-    ...events.map(e => ({
-      id: `event-${e.id}`,
-      title: e.title,
-      date: parseISO(e.date),
-      type: 'event' as const,
-      status: e.is_confirmed ? 'confirmed' : 'estimated',
-      time: e.time,
-      notes: e.notes,
-      rawEvent: e,
-    })),
-    ...driveStops,
-  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const filteredItems = allItems
+    .filter(item => activeFilters.size === 0 || item.filters.some(filter => activeFilters.has(filter)))
+    .filter(item => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return item.title.toLowerCase().includes(q)
+        || item.label.toLowerCase().includes(q)
+        || (item.trackName ?? '').toLowerCase().includes(q);
+    });
 
-  const toggleType = (type: ItemType) => {
-    setActiveTypes(prev => {
+  const grouped = filteredItems.reduce<Record<string, TimelineAsset[]>>((acc, item) => {
+    const key = format(item.date, 'MMMM yyyy');
+    (acc[key] = acc[key] || []).push(item);
+    return acc;
+  }, {});
+
+  const timelineTracks = tracks.filter(track => HOME_TRACK_KEYS.includes(track.key));
+  const isFiltering = activeFilters.size > 0 || !!search;
+  const defaultTrackKey = HOME_TRACK_KEYS.find(key => activeFilters.has(key as TimelineAssetFilter));
+
+  const toggleFilter = (filter: TimelineAssetFilter) => {
+    setActiveFilters(prev => {
       const next = new Set(prev);
-      if (next.has(type)) next.delete(type); else next.add(type);
+      if (next.has(filter)) next.delete(filter);
+      else next.add(filter);
       return next;
     });
   };
 
-  const items = allItems
-    .filter(i => activeTypes.size === 0 || activeTypes.has(i.type))
-    .filter(i => !search || i.title.toLowerCase().includes(search.toLowerCase()));
-
-  // Group by month
-  const grouped: Record<string, TimelineItem[]> = {};
-  for (const item of items) {
-    const key = format(item.date, 'MMMM yyyy');
-    (grouped[key] = grouped[key] || []).push(item);
-  }
-
-  const deleteEvent = async (id: number) => {
-    await fetch(`/api/events?id=${id}`, { method: 'DELETE' });
+  const deleteSelected = async (item: TimelineAsset) => {
+    if (item.rawEvent) {
+      await fetch(`/api/events?id=${item.rawEvent.id}`, { method: 'DELETE' });
+    } else if (item.rawTimelineEntry) {
+      await fetch(`/api/timeline?id=${item.rawTimelineEntry.id}`, { method: 'DELETE' });
+    }
     setSelected(null);
     fetchAll();
   };
 
-  const isFiltering = activeTypes.size > 0 || !!search;
+  if (loading || !settings) {
+    return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading timelines...</div>;
+  }
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', paddingBottom: 64 }}>
-      {/* Header */}
+    <div style={{ maxWidth: 900, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>The Journey</h1>
-          <p className="page-subtitle">Move, drive, and house dates in one place.</p>
+          <h1>Timelines</h1>
+          <p className="page-subtitle">Move, drive, tasks, and house purchase dates in one place.</p>
         </div>
-        <button className="btn btn-primary btn-lg" onClick={() => setAddModal(true)}>
-          <Plus size={18} /> Add Event
+        <button className="btn btn-primary btn-lg" onClick={() => setAdding(true)}>
+          <Plus size={18} /> Add Entry
         </button>
       </div>
 
-      {/* Search */}
       <div className="search-bar" style={{ marginBottom: 14 }}>
         <Search size={16} className="search-bar-icon" />
-        <input placeholder="Search timeline…" value={search} onChange={e => setSearch(e.target.value)} />
+        <input placeholder="Search timelines..." value={search} onChange={event => setSearch(event.target.value)} />
       </div>
 
-      {/* Type filter chips */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 32, flexWrap: 'wrap', alignItems: 'center' }}>
         <button
-          onClick={() => setActiveTypes(new Set())}
-          className={`filter-chip ${activeTypes.size === 0 ? 'filter-chip-active' : ''}`}
+          onClick={() => setActiveFilters(new Set())}
+          className={`filter-chip ${activeFilters.size === 0 ? 'filter-chip-active' : ''}`}
         >
           All
         </button>
-        {TYPE_CHIPS.map(({ value, label, Icon }) => (
+        {FILTER_CHIPS.map(({ value, label, Icon }) => (
           <button
             key={value}
-            onClick={() => toggleType(value)}
-            className={`filter-chip ${activeTypes.has(value) ? 'filter-chip-active' : ''}`}
+            onClick={() => toggleFilter(value)}
+            className={`filter-chip ${activeFilters.has(value) ? 'filter-chip-active' : ''}`}
           >
             {Icon}
             {label}
           </button>
         ))}
         {isFiltering && (
-          <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setActiveTypes(new Set()); }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setActiveFilters(new Set()); }}>
             <X size={13} /> Clear
           </button>
         )}
@@ -200,131 +200,56 @@ export default function TimelinePage() {
         <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 16, border: '1px solid var(--color-border)' }}>
           <Calendar size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
           <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>
-            {isFiltering ? 'Nothing matches the search.' : 'Nothing on the timeline yet. Add a date or event.'}
+            {isFiltering ? 'Nothing matches the filters.' : 'Nothing on the timelines yet. Add a date, task, or event.'}
           </p>
         </div>
       ) : (
         <div style={{ position: 'relative', paddingLeft: 56 }}>
           <div style={{ position: 'absolute', left: 20, top: 0, bottom: 0, width: 2, background: 'var(--color-border)' }} />
 
-          {Object.keys(grouped).map(monthYear => {
-            const monthItems = grouped[monthYear];
-            return (
-              <div key={monthYear} style={{ marginBottom: 48 }}>
-                {/* Month header */}
-                <div style={{ position: 'relative', marginBottom: 16 }}>
-                  <div style={{ position: 'absolute', left: -56, top: 0, width: 40, height: 40, borderRadius: 10, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
-                    <Calendar size={18} color="var(--color-accent)" />
-                  </div>
-                  <h2 style={{ margin: 0, paddingTop: 10 }}>{monthYear}</h2>
+          {Object.keys(grouped).map(monthYear => (
+            <div key={monthYear} style={{ marginBottom: 48 }}>
+              <div style={{ position: 'relative', marginBottom: 16 }}>
+                <div style={{ position: 'absolute', left: -56, top: 0, width: 40, height: 40, borderRadius: 10, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                  <Calendar size={18} color="var(--color-accent)" />
                 </div>
-
-                {/* Flat row container — no individual card borders */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {monthItems.map((item) => (
-                    <TimelineRow
-                      key={item.id}
-                      item={item}
-                      onClick={() => setSelected(item)}
-                    />
-                  ))}
-                </div>
+                <h2 style={{ margin: 0, paddingTop: 10 }}>{monthYear}</h2>
               </div>
-            );
-          })}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {grouped[monthYear].map(item => (
+                  <TimelineRow key={item.id} item={item} onClick={() => setSelected(item)} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Detail modal */}
       {selected && (
-        <div className="modal-backdrop" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <TypeIcon type={selected.type} confirmed={selected.status === 'confirmed'} />
-                <h2 style={{ margin: 0 }}>{selected.type === 'anchor' ? 'Key Date' : selected.type === 'event' ? 'Event' : selected.type === 'drive' ? 'Drive Stop' : 'Task'}</h2>
-              </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => setSelected(null)} style={{ padding: '0 8px' }}><X size={18} /></button>
-            </div>
-            <div className="modal-body">
-              <div>
-                <p className="section-label" style={{ marginBottom: 4 }}>Title</p>
-                <p style={{ fontSize: 18, fontWeight: 600 }}>{selected.title}</p>
-              </div>
-              <div>
-                <p className="section-label" style={{ marginBottom: 4 }}>Date</p>
-                <p style={{ fontSize: 15 }}>
-                  {format(selected.date, 'MMMM d, yyyy')}
-                  {selected.time && <span style={{ marginLeft: 8, color: 'var(--color-secondary)' }}>at {selected.time}</span>}
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <StatusChip status={selected.status} />
-              </div>
-              {selected.notes && (
-                <div>
-                  <p className="section-label" style={{ marginBottom: 4 }}>Notes</p>
-                  <p style={{ fontSize: 14, color: 'var(--color-secondary)', lineHeight: 1.6 }}>{selected.notes}</p>
-                </div>
-              )}
-              {selected.type === 'event' && selected.rawEvent && (
-                <DocumentAttachmentSection entityType="event" entityId={selected.rawEvent.id} />
-              )}
-              {selected.type === 'anchor' && (
-                <Link href="/" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>
-                  Edit on HQ →
-                </Link>
-              )}
-            </div>
-            <div className="modal-footer">
-              {selected.type === 'event' && selected.rawEvent && (
-                <>
-                  <button className="btn btn-secondary" style={{ marginRight: 'auto', color: '#b91c1c' }} onClick={() => deleteEvent(selected.rawEvent!.id)}>
-                    <Trash2 size={14} /> Delete
-                  </button>
-                  <button className="btn btn-secondary" onClick={() => { setEditEvent(selected.rawEvent!); setSelected(null); }}>
-                    <Pencil size={14} /> Edit
-                  </button>
-                </>
-              )}
-              <button className="btn btn-primary" onClick={() => setSelected(null)}>Close</button>
-            </div>
-          </div>
-        </div>
+        <TimelineDetailModal
+          item={selected}
+          onClose={() => setSelected(null)}
+          onEdit={() => { setEditing(selected); setSelected(null); }}
+          onDelete={() => deleteSelected(selected)}
+        />
       )}
 
-      {addModal && (
-        <EventFormModal onClose={() => setAddModal(false)} onSaved={() => { setAddModal(false); fetchAll(); }} />
-      )}
-      {editEvent && (
-        <EventFormModal existing={editEvent} onClose={() => setEditEvent(null)} onSaved={() => { setEditEvent(null); fetchAll(); }} />
+      {(adding || editing) && (
+        <TimelineFormModal
+          tracks={timelineTracks}
+          existing={editing ?? undefined}
+          defaultTrackKey={defaultTrackKey}
+          onClose={() => { setAdding(false); setEditing(null); }}
+          onSaved={() => { setAdding(false); setEditing(null); fetchAll(); }}
+        />
       )}
     </div>
   );
 }
 
-function StatusChip({ status }: { status: string }) {
-  if (status === 'confirmed') {
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 700, background: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)', border: '1.5px solid var(--color-accent)' }}>
-        ✓ Confirmed
-      </span>
-    );
-  }
-  if (status === 'estimated') {
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 700, background: 'var(--color-background)', color: 'var(--color-secondary)', border: '1.5px dashed var(--color-border)' }}>
-        ~ Estimated
-      </span>
-    );
-  }
-  return <span className="badge badge-neutral">{status}</span>;
-}
-
-function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => void }) {
-  const isAnchor = item.type === 'anchor';
-  const isConfirmed = item.status === 'confirmed';
-  const isDone = item.status === 'Complete';
+function TimelineRow({ item, onClick }: { item: TimelineAsset; onClick: () => void }) {
+  const done = item.status === 'Complete' || item.status === 'complete';
 
   return (
     <div
@@ -335,25 +260,27 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
         borderRadius: 10,
         boxShadow: 'var(--shadow-sm)',
         border: '1px solid var(--color-border)',
-        display: 'flex', alignItems: 'center', gap: 16,
-        cursor: 'pointer', transition: 'background 0.15s',
-        opacity: isDone ? 0.6 : 1,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+        opacity: done ? 0.64 : 1,
       }}
       className="item-row"
     >
-      <TypeIcon type={item.type} confirmed={isConfirmed} />
+      <TimelineAssetIcon item={item} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: isAnchor ? 15 : 14, fontWeight: isAnchor ? 700 : 500, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontSize: item.kind === 'key_date' ? 15 : 14, fontWeight: item.kind === 'key_date' ? 700 : 500, color: 'var(--color-foreground)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {item.title}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+          <span className="section-label" style={{ margin: 0 }}>{item.label}</span>
           <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             {format(item.date, 'MMM d, yyyy')}
           </span>
           {item.time && <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>· {item.time}</span>}
-          {(isAnchor || item.type === 'event') && (
-            <StatusChip status={item.status} />
-          )}
+          <StatusChip status={item.status} />
         </div>
       </div>
       <ChevronRight size={16} color="var(--color-border)" />
@@ -361,105 +288,334 @@ function TimelineRow({ item, onClick }: { item: TimelineItem; onClick: () => voi
   );
 }
 
-function TypeIcon({ type, confirmed }: { type: string; confirmed?: boolean }) {
-  if (type === 'anchor') {
-    return (
-      <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(240,180,50,0.15)', border: '1.5px solid #f0b432', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0b432' }} />
-      </div>
-    );
-  }
-  if (type === 'drive') {
-    return (
-      <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#eef2ff', border: '1.5px solid #6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <CarFront size={14} color="#6366f1" />
-      </div>
-    );
-  }
-  const color = confirmed ? 'var(--color-accent-dark)' : 'var(--color-secondary)';
+function TimelineDetailModal({
+  item,
+  onClose,
+  onEdit,
+  onDelete,
+}: {
+  item: TimelineAsset;
+  onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const editable = !!item.rawEvent || !!item.rawTimelineEntry;
+  const deletable = editable;
+
   return (
-    <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--color-background)', border: '1.5px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      {type === 'event' ? <CalendarCheck size={14} color={color} /> : <CheckCircle2 size={14} color={color} />}
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={event => event.stopPropagation()}>
+        <div className="modal-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <TimelineAssetIcon item={item} />
+            <h2 style={{ margin: 0 }}>{item.label}</h2>
+          </div>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '0 8px' }}><X size={18} /></button>
+        </div>
+        <div className="modal-body">
+          <div>
+            <p className="section-label" style={{ marginBottom: 4 }}>Title</p>
+            <p style={{ fontSize: 18, fontWeight: 600 }}>{item.title}</p>
+          </div>
+          <div>
+            <p className="section-label" style={{ marginBottom: 4 }}>Date</p>
+            <p style={{ fontSize: 15 }}>
+              {format(item.date, 'MMMM d, yyyy')}
+              {item.time && <span style={{ marginLeft: 8, color: 'var(--color-secondary)' }}>at {item.time}</span>}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <StatusChip status={item.status} />
+            {item.trackName && <span className="badge badge-neutral">{item.trackName}</span>}
+          </div>
+          {item.notes && (
+            <div>
+              <p className="section-label" style={{ marginBottom: 4 }}>Notes</p>
+              <p style={{ fontSize: 14, color: 'var(--color-secondary)', lineHeight: 1.6 }}>{item.notes}</p>
+            </div>
+          )}
+
+          {item.rawEvent && <DocumentAttachmentSection entityType="event" entityId={item.rawEvent.id} />}
+          {item.rawTimelineEntry && <DocumentAttachmentSection entityType="timeline_entry" entityId={item.rawTimelineEntry.id} />}
+          {item.rawTask && <DocumentAttachmentSection entityType="move_task" entityId={item.rawTask.id} />}
+          {item.rawPlanningTask && <DocumentAttachmentSection entityType="planning_task" entityId={item.rawPlanningTask.id} />}
+
+          {item.kind === 'key_date' && (
+            <Link href="/" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>
+              Edit on HQ →
+            </Link>
+          )}
+          {(item.rawTask || item.rawPlanningTask) && (
+            <Link href="/tasks" style={{ fontSize: 13, color: 'var(--color-accent-dark)', textDecoration: 'none', fontWeight: 600 }}>
+              Edit in Tasks →
+            </Link>
+          )}
+        </div>
+        <div className="modal-footer">
+          {deletable && (
+            <button className="btn btn-secondary" style={{ marginRight: 'auto', color: '#b91c1c' }} onClick={onDelete}>
+              <Trash2 size={14} /> Delete
+            </button>
+          )}
+          {editable && (
+            <button className="btn btn-secondary" onClick={onEdit}>
+              <Pencil size={14} /> Edit
+            </button>
+          )}
+          <button className="btn btn-primary" onClick={onClose}>Close</button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function EventFormModal({ existing, onClose, onSaved }: {
-  existing?: MoveEvent;
+function TimelineFormModal({
+  tracks,
+  existing,
+  defaultTrackKey,
+  onClose,
+  onSaved,
+}: {
+  tracks: Track[];
+  existing?: TimelineAsset;
+  defaultTrackKey?: TrackKey;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [title, setTitle] = useState(existing?.title ?? '');
-  const [date, setDate] = useState(existing?.date ?? '');
-  const [time, setTime] = useState(existing?.time ?? '');
-  const [confirmed, setConfirmed] = useState(existing?.is_confirmed ?? false);
-  const [notes, setNotes] = useState(existing?.notes ?? '');
+  const existingEvent = existing?.rawEvent;
+  const existingEntry = existing?.rawTimelineEntry;
+  const forcedMode = existingEntry ? 'track_entry' : existingEvent ? 'move_event' : null;
+  const defaultTrack = tracks.find(track => track.key === defaultTrackKey)
+    ?? tracks.find(track => track.key === 'home_purchase')
+    ?? tracks[0];
+
+  const [mode, setMode] = useState<'move_event' | 'track_entry'>(forcedMode ?? (defaultTrackKey ? 'track_entry' : 'move_event'));
+  const [title, setTitle] = useState(existingEvent?.title ?? existingEntry?.title ?? '');
+  const [trackId, setTrackId] = useState(existingEntry?.trackId ?? defaultTrack?.id ?? 0);
+  const [date, setDate] = useState(existingEvent?.date ?? existingEntry?.date ?? '');
+  const [time, setTime] = useState(existingEvent?.time ?? existingEntry?.time ?? '');
+  const [status, setStatus] = useState(existingEntry?.status ?? (existingEvent?.is_confirmed ? 'confirmed' : 'estimated'));
+  const [notes, setNotes] = useState(existingEvent?.notes ?? existingEntry?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const save = async () => {
-    if (!title.trim()) { setError('Title is required.'); return; }
-    if (!date) { setError('Date is required.'); return; }
+    if (!title.trim()) {
+      setError('Title is required.');
+      return;
+    }
+    if (!date) {
+      setError('Date is required.');
+      return;
+    }
+    if (mode === 'track_entry' && !trackId) {
+      setError('Track is required.');
+      return;
+    }
+
     setSaving(true);
-    const body = { title: title.trim(), date, time: time || null, is_confirmed: confirmed, notes: notes || null };
-    const res = await fetch('/api/events', {
-      method: existing ? 'PATCH' : 'POST',
+    setError('');
+
+    const endpoint = mode === 'move_event' ? '/api/events' : '/api/timeline';
+    const method = existing ? 'PATCH' : 'POST';
+    const shared = {
+      title: title.trim(),
+      date,
+      time: time || null,
+      notes: notes || null,
+    };
+    const body = mode === 'move_event'
+      ? {
+          ...shared,
+          is_confirmed: status === 'confirmed',
+          ...(existingEvent ? { id: existingEvent.id } : {}),
+        }
+      : {
+          ...shared,
+          trackId,
+          status,
+          entryType: existingEntry?.entryType || 'event',
+          ...(existingEntry ? { id: existingEntry.id } : {}),
+        };
+
+    const res = await fetch(endpoint, {
+      method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(existing ? { ...body, id: existing.id } : body),
+      body: JSON.stringify(body),
     });
+
     if (res.ok) onSaved();
-    else { const e = await res.json(); setError(e.error || 'Error saving event'); setSaving(false); }
+    else {
+      const responseBody = await res.json();
+      setError(responseBody.error || 'Error saving entry.');
+      setSaving(false);
+    }
   };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" onClick={event => event.stopPropagation()}>
         <div className="modal-header">
-          <h2 style={{ margin: 0 }}>{existing ? 'Edit Event' : 'Add Event'}</h2>
+          <h2 style={{ margin: 0 }}>{existing ? 'Edit Timeline Entry' : 'Add Timeline Entry'}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '0 8px' }}><X size={18} /></button>
         </div>
         <div className="modal-body">
           {error && (
             <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fff0f0', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13 }}>{error}</div>
           )}
+
+          {!forcedMode && (
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Timeline</label>
+              <select value={mode} onChange={event => setMode(event.target.value as 'move_event' | 'track_entry')}>
+                <option value="move_event">Move Event</option>
+                <option value="track_entry">House / Planning Entry</option>
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Title</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Home inspection" autoFocus={!existing} />
+            <input value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g. Home inspection" autoFocus={!existing} />
           </div>
+
+          {mode === 'track_entry' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Track</label>
+                <select value={trackId} onChange={event => setTrackId(Number(event.target.value))}>
+                  {tracks.map(track => <option key={track.id} value={track.id}>{track.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
+                <select value={status} onChange={event => setStatus(event.target.value as TimelineEntry['status'])}>
+                  <option value="estimated">Estimated</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="complete">Complete</option>
+                  <option value="blocked">Blocked</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {mode === 'move_event' && (
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
+              <select value={status === 'confirmed' ? 'confirmed' : 'estimated'} onChange={event => setStatus(event.target.value as TimelineEntry['status'])}>
+                <option value="estimated">Estimated</option>
+                <option value="confirmed">Confirmed</option>
+              </select>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Date</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} />
+              <input type="date" value={date} onChange={event => setDate(event.target.value)} />
             </div>
             <div>
               <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Time (optional)</label>
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} />
+              <input type="time" value={time || ''} onChange={event => setTime(event.target.value)} />
             </div>
           </div>
-          <div
-            className={`confirmed-toggle ${confirmed ? 'on' : ''}`}
-            onClick={() => setConfirmed(v => !v)}
-          >
-            <div className={`check-circle ${confirmed ? 'checked' : ''}`}>
-              {confirmed && <CheckCircle2 size={14} color="white" />}
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Confirmed</div>
-              <div style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 2 }}>Lock this date in the timeline</div>
-            </div>
-          </div>
+
           <div>
-            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes (optional)</label>
-            <textarea value={notes} onChange={e => setNotes(e.target.value)} style={{ height: 72, resize: 'none' }} />
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes</label>
+            <textarea value={notes || ''} onChange={event => setNotes(event.target.value)} style={{ height: 80, resize: 'none' }} />
           </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Saving…' : existing ? 'Save Changes' : 'Add Event'}
+            {saving ? 'Saving...' : existing ? 'Save Changes' : 'Add Entry'}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatusChip({ status }: { status: string }) {
+  if (status === 'confirmed') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 700, background: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)', border: '1.5px solid var(--color-accent)' }}>
+        Confirmed
+      </span>
+    );
+  }
+  if (status === 'estimated') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 700, background: 'var(--color-background)', color: 'var(--color-secondary)', border: '1.5px dashed var(--color-border)' }}>
+        Estimated
+      </span>
+    );
+  }
+  if (status === 'complete' || status === 'Complete') {
+    return <span className="badge badge-neutral">Complete</span>;
+  }
+  if (status === 'blocked') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 12px', borderRadius: 'var(--radius-pill)', fontSize: 12, fontWeight: 700, background: '#fff0f0', color: '#b91c1c', border: '1px solid #fca5a5' }}>
+        Blocked
+      </span>
+    );
+  }
+  return <span className="badge badge-neutral">{status}</span>;
+}
+
+function TimelineAssetIcon({ item }: { item: TimelineAsset }) {
+  if (item.trackKey === 'home_purchase') {
+    return (
+      <IconFrame background="var(--color-accent-soft)" border="var(--color-accent)">
+        <House size={14} color="var(--color-accent-dark)" />
+      </IconFrame>
+    );
+  }
+
+  if (item.kind === 'key_date') {
+    return (
+      <IconFrame background="rgba(240,180,50,0.15)" border="#f0b432">
+        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f0b432' }} />
+      </IconFrame>
+    );
+  }
+
+  if (item.kind === 'drive_stop') {
+    return (
+      <IconFrame background="#eef2ff" border="#6366f1">
+        <CarFront size={14} color="#6366f1" />
+      </IconFrame>
+    );
+  }
+
+  if (item.kind === 'move_task' || item.kind === 'planning_task') {
+    return (
+      <IconFrame background="var(--color-background)" border="var(--color-border)">
+        <CheckCircle2 size={14} color="var(--color-secondary)" />
+      </IconFrame>
+    );
+  }
+
+  return (
+    <IconFrame background="var(--color-background)" border="var(--color-border)">
+      <CalendarCheck size={14} color={item.status === 'confirmed' ? 'var(--color-accent-dark)' : 'var(--color-secondary)'} />
+    </IconFrame>
+  );
+}
+
+function IconFrame({
+  background,
+  border,
+  children,
+}: {
+  background: string;
+  border: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div style={{ width: 34, height: 34, borderRadius: '50%', background, border: `1.5px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      {children}
     </div>
   );
 }

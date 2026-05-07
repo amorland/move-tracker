@@ -405,7 +405,7 @@ export default function OverviewPage() {
         {/* Tasks */}
         <div className="card" style={{ overflow: 'hidden' }}>
           <div className="card-header">
-            <h2 style={{ margin: 0 }}>The List</h2>
+            <h2 style={{ margin: 0 }}>Tasks</h2>
             <Link href="/tasks" style={{ textDecoration: 'none' }}>
               <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 Open <ChevronRight size={12} />

@@ -17,7 +17,7 @@ export async function GET() {
     return NextResponse.json({ error: catError?.message || taskError?.message }, { status: 500 });
   }
 
-  return NextResponse.json({ categories, tasks });
+  return NextResponse.json({ categories, tasks: (tasks ?? []).map(normaliseTask) });
 }
 
 export async function POST(request: Request) {
@@ -33,4 +33,19 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
+}
+
+function normaliseTask(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    categoryId: row.categoryId ?? row.category_id,
+    title: row.title,
+    description: row.description ?? null,
+    status: row.status,
+    owner: (row.owner as string | null) || null,
+    dueDate: row.dueDate ?? row.due_date ?? null,
+    completedAt: row.completed_at ?? row.completedAt ?? null,
+    notes: row.notes ?? null,
+    orderIndex: row.orderIndex ?? row.order_index ?? 0,
+  };
 }

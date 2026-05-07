@@ -1,139 +1,273 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Category, Task, TaskOwner } from '@/lib/types';
+import { useEffect, useMemo, useState } from 'react';
+import { Category, PlanningTask, Task, TaskOwner, TaskStatus, Track } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
-import { Check, CheckCircle2, Plus, Trash2, X, ChevronDown, ChevronRight, Calendar, Pencil, Search } from 'lucide-react';
+import {
+  Calendar,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  House,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import DocumentAttachmentSection from '@/components/DocumentAttachmentSection';
+import {
+  buildTaskAssets,
+  TaskAsset,
+  TaskAssetScope,
+  TaskAssetSource,
+} from '@/features/tasks/taskAssets';
 
 type OwnerFilter = TaskOwner | 'All';
 
+type TaskModalDraft = {
+  source: TaskAssetSource;
+  id?: number;
+  title: string;
+  status: TaskStatus;
+  owner: TaskOwner | null;
+  dueDate: string | null;
+  completedAt?: string | null;
+  notes: string | null;
+  categoryId?: number;
+  trackId?: number;
+  section?: PlanningTask['section'];
+};
+
 const OWNER_CYCLE: (TaskOwner | null)[] = [null, 'Andrew', 'Tory'];
+
+const SCOPE_CHIPS: { value: TaskAssetScope; label: string; Icon: React.ReactNode }[] = [
+  { value: 'move', label: 'Move', Icon: <CheckCircle2 size={12} /> },
+  { value: 'home_purchase', label: 'Home Purchase', Icon: <House size={12} /> },
+  { value: 'loan', label: 'Loan', Icon: <CheckCircle2 size={12} /> },
+  { value: 'home_setup', label: 'Home Setup', Icon: <House size={12} /> },
+  { value: 'home_updates', label: 'Home Updates', Icon: <House size={12} /> },
+];
+
+function isScope(value: string): value is TaskAssetScope {
+  return SCOPE_CHIPS.some(scope => scope.value === value);
+}
+
+function getInitialScopes() {
+  if (typeof window === 'undefined') return new Set<TaskAssetScope>();
+  const params = new URLSearchParams(window.location.search);
+  const filterValues = params.getAll('filter').flatMap(value => value.split(','));
+  return new Set(filterValues.filter(isScope));
+}
 
 export default function TasksPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [moveTasks, setMoveTasks] = useState<Task[]>([]);
+  const [planningTasks, setPlanningTasks] = useState<PlanningTask[]>([]);
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>('All');
+  const [activeScopes, setActiveScopes] = useState<Set<TaskAssetScope>>(() => getInitialScopes());
   const [search, setSearch] = useState('');
   const [showCompleted, setShowCompleted] = useState(false);
-  const [modalTask, setModalTask] = useState<Partial<Task> | null>(null);
-  const [defaultCategoryId, setDefaultCategoryId] = useState<number | null>(null);
+  const [modalTask, setModalTask] = useState<TaskModalDraft | null>(null);
 
   useScrollLock(modalTask !== null);
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
-    const res = await fetch('/api/categories');
-    const { categories: cats, tasks: ts } = await res.json();
+  async function fetchData() {
+    const [categoryRes, planningRes, trackRes] = await Promise.all([
+      fetch('/api/categories'),
+      fetch('/api/planning-tasks'),
+      fetch('/api/tracks'),
+    ]);
+    const { categories: cats, tasks } = await categoryRes.json();
     setCategories(cats);
-    setTasks(ts);
-    if (cats.length) setDefaultCategoryId(cats[0].id);
+    setMoveTasks(tasks);
+    setPlanningTasks(await planningRes.json());
+    setTracks(await trackRes.json());
     setLoading(false);
-  };
+  }
 
-  const toggleComplete = async (task: Task) => {
-    const isComplete = task.status === 'Complete';
-    const newStatus = isComplete ? 'Not Started' : 'Complete';
-    const completedAt = isComplete ? null : new Date().toISOString().split('T')[0];
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: newStatus as any, completedAt } : t));
-    await fetch('/api/tasks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: task.id, status: newStatus, completedAt }),
-    });
-  };
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchData());
+  }, []);
 
-  const cycleOwner = async (task: Task) => {
-    const idx = OWNER_CYCLE.indexOf(task.owner);
-    const next = OWNER_CYCLE[(idx + 1) % OWNER_CYCLE.length];
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, owner: next } : t));
-    await fetch('/api/tasks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: task.id, owner: next }),
-    });
-  };
+  const taskAssets = useMemo(() => buildTaskAssets({
+    categories,
+    tasks: moveTasks,
+    planningTasks,
+  }), [categories, moveTasks, planningTasks]);
 
-  const deleteTask = async (id: number) => {
-    if (!confirm('Delete this task?')) return;
-    await fetch(`/api/tasks?id=${id}`, { method: 'DELETE' });
-    fetchData();
-  };
-
-  const saveTask = async (task: Partial<Task>) => {
-    const method = task.id ? 'PATCH' : 'POST';
-    const res = await fetch('/api/tasks', {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(task),
-    });
-    if (res.ok) { setModalTask(null); fetchData(); }
-  };
-
-  const filtered = tasks.filter(t => {
-    if (ownerFilter !== 'All' && t.owner !== ownerFilter) return false;
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+  const filtered = taskAssets.filter(task => {
+    if (activeScopes.size > 0 && !activeScopes.has(task.scope)) return false;
+    if (ownerFilter !== 'All' && task.owner !== ownerFilter) return false;
+    if (search && !task.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const incomplete = filtered.filter(t => t.status !== 'Complete');
-  const complete = filtered.filter(t => t.status === 'Complete');
+  const incomplete = filtered
+    .filter(task => task.status !== 'Complete')
+    .sort(sortTasks);
+  const complete = filtered
+    .filter(task => task.status === 'Complete')
+    .sort(sortTasks);
+  const grouped = groupTasks(incomplete);
+  const totalDone = taskAssets.filter(task => task.status === 'Complete').length;
+  const isFiltering = activeScopes.size > 0 || ownerFilter !== 'All' || !!search;
 
-  // Group incomplete tasks by category, preserving category order
-  const grouped = categories
-    .map(cat => ({ cat, tasks: incomplete.filter(t => t.categoryId === cat.id) }))
-    .filter(g => g.tasks.length > 0);
+  const toggleScope = (scope: TaskAssetScope) => {
+    setActiveScopes(prev => {
+      const next = new Set(prev);
+      if (next.has(scope)) next.delete(scope);
+      else next.add(scope);
+      return next;
+    });
+  };
 
-  const totalDone = tasks.filter(t => t.status === 'Complete').length;
-  const isFiltering = ownerFilter !== 'All' || !!search;
+  const toggleComplete = async (task: TaskAsset) => {
+    const isComplete = task.status === 'Complete';
+    const status = isComplete ? 'Not Started' : 'Complete';
+    const completedAt = isComplete ? null : new Date().toISOString().split('T')[0];
+    await patchTask(task, { status, completedAt });
+    fetchData();
+  };
 
-  if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading move tasks…</div>;
+  const cycleOwner = async (task: TaskAsset) => {
+    const index = OWNER_CYCLE.indexOf(task.owner);
+    const owner = OWNER_CYCLE[(index + 1) % OWNER_CYCLE.length];
+    await patchTask(task, { owner });
+    fetchData();
+  };
+
+  const deleteTask = async (task: TaskAsset) => {
+    if (!confirm('Delete this task?')) return;
+    const endpoint = task.source === 'move' ? '/api/tasks' : '/api/planning-tasks';
+    await fetch(`${endpoint}?id=${task.id}`, { method: 'DELETE' });
+    fetchData();
+  };
+
+  const saveTask = async (task: TaskModalDraft) => {
+    const endpoint = task.source === 'move' ? '/api/tasks' : '/api/planning-tasks';
+    const body = task.source === 'move'
+      ? {
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          owner: task.owner,
+          dueDate: task.dueDate,
+          completedAt: task.completedAt,
+          notes: task.notes,
+          categoryId: task.categoryId,
+        }
+      : {
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          owner: task.owner,
+          dueDate: task.dueDate,
+          completedAt: task.completedAt,
+          notes: task.notes,
+          trackId: task.trackId,
+          section: task.section,
+        };
+
+    const res = await fetch(endpoint, {
+      method: task.id ? 'PATCH' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      setModalTask(null);
+      fetchData();
+    }
+  };
+
+  const openNewTask = () => {
+    const scope = activeScopes.size === 1
+      ? [...activeScopes][0]
+      : activeScopes.size > 0 && !activeScopes.has('move')
+        ? [...activeScopes][0]
+        : 'move';
+    const source: TaskAssetSource = scope === 'move' ? 'move' : 'planning';
+    setModalTask(createDefaultTaskDraft({
+      source,
+      scope,
+      categories,
+      tracks,
+    }));
+  };
+
+  if (loading) {
+    return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading tasks...</div>;
+  }
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
-      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>The List</h1>
-          <p className="page-subtitle">{totalDone} of {tasks.length} done.</p>
+          <h1>Tasks</h1>
+          <p className="page-subtitle">{totalDone} of {taskAssets.length} done across move and house planning.</p>
         </div>
-        <button className="btn btn-primary btn-lg" onClick={() => setModalTask({ categoryId: defaultCategoryId ?? 0, title: '', status: 'Not Started', owner: null, dueDate: null, notes: '' })}>
+        <button className="btn btn-primary btn-lg" onClick={openNewTask}>
           <Plus size={18} /> Add Task
         </button>
       </div>
 
-      {/* Search + Owner filter */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
         <div className="search-bar">
           <Search size={16} className="search-bar-icon" />
           <input
-            placeholder="Search tasks…"
+            placeholder="Search tasks..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={event => setSearch(event.target.value)}
           />
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-          {(['All', 'Andrew', 'Tory'] as const).map(o => (
+
+        <div>
+          <div className="section-label" style={{ marginBottom: 8 }}>Area</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             <button
-              key={o}
-              onClick={() => setOwnerFilter(o)}
-              className={`filter-chip ${ownerFilter === o ? 'filter-chip-active' : ''}`}
+              onClick={() => setActiveScopes(new Set())}
+              className={`filter-chip ${activeScopes.size === 0 ? 'filter-chip-active' : ''}`}
             >
-              {o === 'All' ? 'All owners' : o}
+              All areas
             </button>
-          ))}
-          {isFiltering && (
-            <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setOwnerFilter('All'); }}>
-              <X size={13} /> Clear
-            </button>
-          )}
+            {SCOPE_CHIPS.map(({ value, label, Icon }) => (
+              <button
+                key={value}
+                onClick={() => toggleScope(value)}
+                className={`filter-chip ${activeScopes.has(value) ? 'filter-chip-active' : ''}`}
+              >
+                {Icon}
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="section-label" style={{ marginBottom: 8 }}>Owner</div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            {(['All', 'Andrew', 'Tory'] as const).map(owner => (
+              <button
+                key={owner}
+                onClick={() => setOwnerFilter(owner)}
+                className={`filter-chip ${ownerFilter === owner ? 'filter-chip-active' : ''}`}
+              >
+                {owner === 'All' ? 'All owners' : owner}
+              </button>
+            ))}
+            {isFiltering && (
+              <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setOwnerFilter('All'); setActiveScopes(new Set()); }}>
+                <X size={13} /> Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Task list */}
       <div style={{ marginBottom: 32 }}>
         {grouped.length === 0 && complete.length === 0 && (
           <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--color-secondary)', fontSize: 14, background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
@@ -141,37 +275,43 @@ export default function TasksPage() {
           </div>
         )}
 
-        {grouped.map(({ cat, tasks: catTasks }) => (
-          <div key={cat.id} style={{ marginBottom: 24 }}>
+        {grouped.map(({ groupLabel, tasks }) => (
+          <div key={groupLabel} style={{ marginBottom: 24 }}>
             <div style={{ padding: '0 4px', marginBottom: 10 }}>
-              <span className="section-label">{cat.name}</span>
+              <span className="section-label">{groupLabel}</span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {catTasks.map((task) => (
+              {tasks.map(task => (
                 <TaskRow
-                  key={task.id}
+                  key={task.uid}
                   task={task}
                   onToggle={() => toggleComplete(task)}
                   onCycleOwner={() => cycleOwner(task)}
-                  onEdit={() => setModalTask(task)}
-                  onDelete={() => deleteTask(task.id)}
+                  onEdit={() => setModalTask(toDraft(task))}
+                  onDelete={() => deleteTask(task)}
                 />
               ))}
             </div>
           </div>
         ))}
 
-        {/* Completed section */}
         {complete.length > 0 && (
           <div style={{ marginTop: grouped.length > 0 ? 8 : 0 }}>
             <button
-              onClick={() => setShowCompleted(v => !v)}
+              onClick={() => setShowCompleted(value => !value)}
               style={{
                 padding: '8px 4px',
-                background: 'none', border: 'none',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)',
-                textTransform: 'uppercase', letterSpacing: '0.08em',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 11,
+                fontWeight: 700,
+                color: 'var(--color-secondary)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
                 marginBottom: showCompleted ? 10 : 0,
               }}
             >
@@ -180,14 +320,14 @@ export default function TasksPage() {
             </button>
             {showCompleted && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {complete.map((task) => (
+                {complete.map(task => (
                   <TaskRow
-                    key={task.id}
+                    key={task.uid}
                     task={task}
                     onToggle={() => toggleComplete(task)}
                     onCycleOwner={() => cycleOwner(task)}
-                    onEdit={() => setModalTask(task)}
-                    onDelete={() => deleteTask(task.id)}
+                    onEdit={() => setModalTask(toDraft(task))}
+                    onDelete={() => deleteTask(task)}
                   />
                 ))}
               </div>
@@ -197,22 +337,124 @@ export default function TasksPage() {
       </div>
 
       {modalTask && (
-        <TaskModal task={modalTask} categories={categories} onClose={() => setModalTask(null)} onSave={saveTask} />
+        <TaskModal
+          task={modalTask}
+          categories={categories}
+          tracks={tracks}
+          onClose={() => setModalTask(null)}
+          onSave={saveTask}
+        />
       )}
     </div>
   );
 }
 
-function TaskRow({ task, onToggle, onCycleOwner, onEdit, onDelete }: {
-  task: Task;
-  onToggle: () => void; onCycleOwner: () => void; onEdit: () => void; onDelete: () => void;
+async function patchTask(task: TaskAsset, update: Partial<TaskModalDraft>) {
+  const endpoint = task.source === 'move' ? '/api/tasks' : '/api/planning-tasks';
+  await fetch(endpoint, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: task.id, ...update }),
+  });
+}
+
+function sortTasks(a: TaskAsset, b: TaskAsset) {
+  const scopeOrder: TaskAssetScope[] = ['move', 'home_purchase', 'loan', 'home_setup', 'home_updates'];
+  const scopeDelta = scopeOrder.indexOf(a.scope) - scopeOrder.indexOf(b.scope);
+  if (scopeDelta !== 0) return scopeDelta;
+  const groupDelta = a.groupLabel.localeCompare(b.groupLabel);
+  if (groupDelta !== 0) return groupDelta;
+  return a.sortIndex - b.sortIndex;
+}
+
+function groupTasks(tasks: TaskAsset[]) {
+  const groups = new Map<string, TaskAsset[]>();
+  for (const task of tasks) {
+    groups.set(task.groupLabel, [...(groups.get(task.groupLabel) ?? []), task]);
+  }
+  return [...groups.entries()].map(([groupLabel, rows]) => ({ groupLabel, tasks: rows }));
+}
+
+function toDraft(task: TaskAsset): TaskModalDraft {
+  return {
+    source: task.source,
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    owner: task.owner,
+    dueDate: task.dueDate,
+    completedAt: task.completedAt,
+    notes: task.notes,
+    categoryId: task.categoryId,
+    trackId: task.trackId,
+    section: task.section,
+  };
+}
+
+function createDefaultTaskDraft({
+  source,
+  scope,
+  categories,
+  tracks,
+}: {
+  source: TaskAssetSource;
+  scope: TaskAssetScope;
+  categories: Category[];
+  tracks: Track[];
+}): TaskModalDraft {
+  const track = getTrackForScope(scope, tracks);
+  return {
+    source,
+    title: '',
+    status: 'Not Started',
+    owner: null,
+    dueDate: null,
+    notes: '',
+    categoryId: categories[0]?.id ?? 0,
+    trackId: track?.id ?? tracks.find(item => item.key === 'home_purchase')?.id ?? tracks[0]?.id,
+    section: getSectionForScope(scope),
+  };
+}
+
+function getTrackForScope(scope: TaskAssetScope, tracks: Track[]) {
+  if (scope === 'loan') return tracks.find(track => track.key === 'loan');
+  if (scope === 'home_updates') return tracks.find(track => track.key === 'home_updates');
+  if (scope === 'home_setup') return tracks.find(track => track.key === 'home_purchase');
+  if (scope === 'home_purchase') return tracks.find(track => track.key === 'home_purchase');
+  return null;
+}
+
+function getSectionForScope(scope: TaskAssetScope): PlanningTask['section'] {
+  if (scope === 'loan') return 'loan';
+  if (scope === 'home_setup') return 'home_setup';
+  if (scope === 'home_updates') return 'updates';
+  return 'purchase';
+}
+
+function getScopeLabel(scope: TaskAssetScope) {
+  return SCOPE_CHIPS.find(item => item.value === scope)?.label ?? scope;
+}
+
+function TaskRow({
+  task,
+  onToggle,
+  onCycleOwner,
+  onEdit,
+  onDelete,
+}: {
+  task: TaskAsset;
+  onToggle: () => void;
+  onCycleOwner: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const done = task.status === 'Complete';
   return (
     <div
       className="task-row"
       style={{
-        display: 'flex', alignItems: 'stretch',
+        display: 'flex',
+        alignItems: 'stretch',
         background: done ? 'var(--color-background)' : 'var(--color-surface)',
         borderRadius: 8,
         boxShadow: 'var(--shadow-sm)',
@@ -220,10 +462,9 @@ function TaskRow({ task, onToggle, onCycleOwner, onEdit, onDelete }: {
         transition: 'background 0.2s',
       }}
     >
-      {/* Left: owner tag */}
       <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0, minWidth: 72 }}>
         <button
-          onClick={e => { e.stopPropagation(); onCycleOwner(); }}
+          onClick={event => { event.stopPropagation(); onCycleOwner(); }}
           className={`owner-tag ${task.owner ? 'owner-tag-set' : ''}`}
           title="Cycle owner"
           style={{ opacity: done ? 0.4 : 1 }}
@@ -232,46 +473,48 @@ function TaskRow({ task, onToggle, onCycleOwner, onEdit, onDelete }: {
         </button>
       </div>
 
-      {/* Task info — click to edit */}
       <div style={{ flex: 1, padding: '13px 8px', cursor: 'pointer', minWidth: 0 }} onClick={onEdit}>
         <div style={{
-          fontSize: 14, fontWeight: 500,
+          fontSize: 14,
+          fontWeight: 500,
           color: 'var(--color-secondary)',
           textDecoration: done ? 'line-through' : 'none',
           opacity: done ? 0.7 : 1,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
           transition: 'all 0.2s',
         }}>
           {task.title}
         </div>
-        {(task.dueDate || (done && task.completedAt)) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
-            {task.dueDate && !done && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)', opacity: 0.8 }}>
-                <Calendar size={10} /> {format(parseISO(task.dueDate), 'MMM d')}
-              </span>
-            )}
-            {done && task.completedAt && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-accent-dark)', opacity: 0.7 }}>
-                <CheckCircle2 size={10} /> {format(parseISO(task.completedAt), 'MMM d')}
-              </span>
-            )}
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3, flexWrap: 'wrap' }}>
+          {task.scope !== 'move' && (
+            <span className="badge badge-neutral">{getScopeLabel(task.scope)}</span>
+          )}
+          {task.dueDate && !done && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)', opacity: 0.8 }}>
+              <Calendar size={10} /> {format(parseISO(task.dueDate), 'MMM d')}
+            </span>
+          )}
+          {done && task.completedAt && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-accent-dark)', opacity: 0.7 }}>
+              <CheckCircle2 size={10} /> {format(parseISO(task.completedAt), 'MMM d')}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Right: icon chips */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 4, flexShrink: 0 }}>
         <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
+          <button onClick={event => { event.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit task">
             <Pencil size={14} />
           </button>
-          <button onClick={e => { e.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete task">
+          <button onClick={event => { event.stopPropagation(); onDelete(); }} className="row-action-btn row-action-delete" title="Delete task">
             <Trash2 size={14} />
           </button>
         </div>
         <button
-          onClick={e => { e.stopPropagation(); onToggle(); }}
+          onClick={event => { event.stopPropagation(); onToggle(); }}
           className={`done-chip ${done ? 'done-chip-active' : ''}`}
           title={done ? 'Mark incomplete' : 'Mark complete'}
         >
@@ -282,29 +525,127 @@ function TaskRow({ task, onToggle, onCycleOwner, onEdit, onDelete }: {
   );
 }
 
-function TaskModal({ task, categories, onClose, onSave }: {
-  task: Partial<Task>; categories: Category[];
-  onClose: () => void; onSave: (t: Partial<Task>) => void;
+function TaskModal({
+  task,
+  categories,
+  tracks,
+  onClose,
+  onSave,
+}: {
+  task: TaskModalDraft;
+  categories: Category[];
+  tracks: Track[];
+  onClose: () => void;
+  onSave: (task: TaskModalDraft) => void;
 }) {
   const [editing, setEditing] = useState(task);
+  const [error, setError] = useState('');
+  const isExisting = !!task.id;
+
+  const save = () => {
+    if (!editing.title.trim()) {
+      setError('Title is required.');
+      return;
+    }
+    if (editing.source === 'move' && !editing.categoryId) {
+      setError('Category is required.');
+      return;
+    }
+    if (editing.source === 'planning' && (!editing.trackId || !editing.section)) {
+      setError('Track and section are required.');
+      return;
+    }
+    onSave({ ...editing, title: editing.title.trim(), notes: editing.notes?.trim() || null });
+  };
+
+  const setSource = (source: TaskAssetSource) => {
+    if (isExisting) return;
+    setEditing(current => ({
+      ...current,
+      source,
+      categoryId: source === 'move' ? categories[0]?.id ?? 0 : current.categoryId,
+      trackId: source === 'planning'
+        ? tracks.find(track => track.key === 'home_purchase')?.id ?? tracks[0]?.id
+        : current.trackId,
+      section: source === 'planning' ? 'purchase' : current.section,
+    }));
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal" onClick={event => event.stopPropagation()}>
         <div className="modal-header">
-          <h2 style={{ margin: 0 }}>{task.id ? 'Edit Task' : 'New Task'}</h2>
+          <h2 style={{ margin: 0 }}>{isExisting ? 'Edit Task' : 'New Task'}</h2>
           <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ padding: '0 8px' }}><X size={18} /></button>
         </div>
         <div className="modal-body">
+          {error && (
+            <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fff0f0', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13 }}>{error}</div>
+          )}
+
+          {!isExisting && (
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Task Area</label>
+              <select value={editing.source} onChange={event => setSource(event.target.value as TaskAssetSource)}>
+                <option value="move">Move Task</option>
+                <option value="planning">House Planning Task</option>
+              </select>
+            </div>
+          )}
+
           <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Title</label>
-            <input value={editing.title || ''} onChange={e => setEditing({ ...editing, title: e.target.value })} placeholder="e.g. Schedule move-out cleaners" autoFocus={!task.id} />
+            <input value={editing.title || ''} onChange={event => setEditing({ ...editing, title: event.target.value })} placeholder="e.g. Schedule move-out cleaners" autoFocus={!isExisting} />
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {editing.source === 'move' ? (
+              <div>
+                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Category</label>
+                <select value={editing.categoryId} onChange={event => setEditing({ ...editing, categoryId: Number(event.target.value) })}>
+                  {categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Track</label>
+                <select value={editing.trackId} onChange={event => setEditing({ ...editing, trackId: Number(event.target.value) })}>
+                  {tracks.filter(track => ['home_purchase', 'loan', 'home_updates'].includes(track.key)).map(track => (
+                    <option key={track.id} value={track.id}>{track.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
+              <select value={editing.status} onChange={event => setEditing({ ...editing, status: event.target.value as TaskStatus })}>
+                <option value="Not Started">Not Started</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Complete">Complete</option>
+              </select>
+            </div>
+          </div>
+
+          {editing.source === 'planning' && (
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Section</label>
+              <select value={editing.section} onChange={event => setEditing({ ...editing, section: event.target.value as PlanningTask['section'] })}>
+                <option value="purchase">Purchase</option>
+                <option value="loan">Loan</option>
+                <option value="home_setup">Home Setup</option>
+                <option value="updates">Updates</option>
+              </select>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
-              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Category</label>
-              <select value={editing.categoryId} onChange={e => setEditing({ ...editing, categoryId: Number(e.target.value) })}>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Owner</label>
+              <select value={editing.owner ?? ''} onChange={event => setEditing({ ...editing, owner: (event.target.value || null) as TaskOwner | null })}>
+                <option value="">Unassigned</option>
+                <option value="Andrew">Andrew</option>
+                <option value="Tory">Tory</option>
               </select>
             </div>
             <div>
@@ -313,7 +654,7 @@ function TaskModal({ task, categories, onClose, onSave }: {
                 <input
                   type="date"
                   value={editing.dueDate || ''}
-                  onChange={e => setEditing({ ...editing, dueDate: e.target.value || null })}
+                  onChange={event => setEditing({ ...editing, dueDate: event.target.value || null })}
                   style={{ flex: 1, minWidth: 0 }}
                 />
                 {editing.dueDate && (
@@ -324,12 +665,17 @@ function TaskModal({ task, categories, onClose, onSave }: {
               </div>
             </div>
           </div>
+
           <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes</label>
-            <textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} style={{ height: 80, resize: 'none' }} />
+            <textarea value={editing.notes || ''} onChange={event => setEditing({ ...editing, notes: event.target.value })} style={{ height: 80, resize: 'none' }} />
           </div>
-          {task.id ? (
-            <DocumentAttachmentSection entityType="move_task" entityId={task.id} />
+
+          {isExisting ? (
+            <DocumentAttachmentSection
+              entityType={editing.source === 'move' ? 'move_task' : 'planning_task'}
+              entityId={editing.id!}
+            />
           ) : (
             <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
               Save the task first to attach documents.
@@ -338,7 +684,7 @@ function TaskModal({ task, categories, onClose, onSave }: {
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => onSave(editing)}>Save Task</button>
+          <button className="btn btn-primary" onClick={save}>Save Task</button>
         </div>
       </div>
     </div>

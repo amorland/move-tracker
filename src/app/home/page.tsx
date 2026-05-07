@@ -66,7 +66,7 @@ export default function HomePage() {
       <div className="mini-timeline" style={{ marginBottom: 28 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <h2 style={{ margin: 0 }}>Home Purchase Process</h2>
-          <Link href="/home/timeline" style={{ textDecoration: 'none' }}>
+          <Link href="/timeline?filter=home_purchase" style={{ textDecoration: 'none' }}>
             <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
               Full timeline <ChevronRight size={12} />
             </span>
@@ -79,13 +79,13 @@ export default function HomePage() {
         <SummaryCard
           title="Purchase Timeline"
           subtitle={`${timelineEntries.length} entries`}
-          href="/home/timeline"
+          href="/timeline?filter=home_purchase"
           icon={<CalendarCheck size={18} />}
         />
         <SummaryCard
           title="Tasks"
           subtitle={`${openTasks.length} open of ${tasks.length}`}
-          href="/home/tasks"
+          href="/tasks?filter=home_purchase,loan,home_setup,home_updates"
           icon={<CheckSquare size={18} />}
         />
         <SummaryCard
@@ -106,7 +106,7 @@ export default function HomePage() {
         <div className="card">
           <div className="card-header">
             <h2 style={{ margin: 0 }}>Pending Milestones</h2>
-            <Link href="/home/timeline" style={{ textDecoration: 'none' }}>
+            <Link href="/timeline?filter=home_purchase" style={{ textDecoration: 'none' }}>
               <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 Open <ChevronRight size={12} />
               </span>
@@ -134,7 +134,7 @@ export default function HomePage() {
         <div className="card">
           <div className="card-header">
             <h2 style={{ margin: 0 }}>Open Tasks</h2>
-            <Link href="/home/tasks" style={{ textDecoration: 'none' }}>
+            <Link href="/tasks?filter=home_purchase,loan,home_setup,home_updates" style={{ textDecoration: 'none' }}>
               <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
                 Open <ChevronRight size={12} />
               </span>
