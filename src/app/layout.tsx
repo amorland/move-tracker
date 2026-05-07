@@ -10,12 +10,12 @@ import { useState, useEffect } from 'react';
 
 const NAV = [
   { href: '/',          label: 'HQ',         Icon: LayoutDashboard },
-  { href: '/home',       label: 'House',      Icon: House           },
   { href: '/tasks',     label: 'Tasks',      Icon: CheckSquare     },
   { href: '/belongings',label: 'Stuff',      Icon: Package         },
   { href: '/timeline',  label: 'Timelines',  Icon: Calendar        },
   { href: '/map',       label: 'Route',      Icon: Map             },
   { href: '/drive-plan', label: 'Cars',      Icon: CarFront        },
+  { href: '/home',       label: 'House',      Icon: House           },
 ];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -24,8 +24,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isLogin = pathname === '/login';
   const isMap = pathname === '/map';
+  const isNavActive = (href: string) => href === '/'
+    ? pathname === '/'
+    : pathname === href || pathname.startsWith(`${href}/`);
 
-  useEffect(() => { setSidebarOpen(false); }, [pathname]);
+  useEffect(() => {
+    void Promise.resolve().then(() => setSidebarOpen(false));
+  }, [pathname]);
 
   const handleLogout = async () => {
     await fetch('/api/auth?action=logout', { method: 'POST', body: JSON.stringify({}) });
@@ -106,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link
                 key={href}
                 href={href}
-                className={`nav-link ${pathname === href ? 'active' : ''}`}
+                className={`nav-link ${isNavActive(href) ? 'active' : ''}`}
               >
                 <Icon size={18} />
                 <span>{label}</span>
@@ -127,7 +132,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link
                 key={href}
                 href={href}
-                className={`nav-link ${pathname === href ? 'active' : ''}`}
+                className={`nav-link ${isNavActive(href) ? 'active' : ''}`}
               >
                 <Icon size={18} />
                 <span>{label}</span>
@@ -160,7 +165,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link
               key={href}
               href={href}
-              className={`bottom-nav-item ${pathname === href ? 'active' : ''}`}
+              className={`bottom-nav-item ${isNavActive(href) ? 'active' : ''}`}
             >
               <Icon size={20} />
               <span>{label}</span>

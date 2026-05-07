@@ -21,11 +21,11 @@ Warm paper tones throughout. Three key values: `#faf8f5` (content background), `
 |------|-------|-------------|
 | **HQ** | `/` | Command-center dashboard with quick links, move dates, the route summary, and execution status |
 | **Tasks** | `/tasks` | Move and house-planning tasks with area filters, owner toggles, due dates, completion tracking, notes, and attached document links |
-| **Stuff** | `/belongings` | Stuff grouped by room with Bring / Sell / Donate / Trash actions and progress filtering |
+| **Stuff** | `/belongings` | Stuff with room toggles, room/outcome grouping, Bring / Sell / Donate / Trash actions, and progress filtering |
 | **Timelines** | `/timeline` | Combined move, drive, task, event, and house-purchase timelines with type and area filters |
 | **The Route** | `/map` | Leaflet map with OSRM routing, route stats, overnight stops, and trip ETA logic |
 | **Cars** | `/drive-plan` | Car planner for assigning drivers, passengers, pets, bikes, plants, and cargo across the Mazda and Subaru |
-| **House Planning** | `/home` | House HQ with purchase progress, summaries, and navigation into the dedicated House subsection |
+| **House Planning** | `/home` | New-home planning dashboard focused on rooms, layout, projects, and house documents |
 | **House Timeline** | `/home/timeline` | Redirects to the consolidated Timelines view filtered to Home Purchase |
 | **House Tasks** | `/home/tasks` | Redirects to the consolidated Tasks view filtered to house-planning areas |
 | **House Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
@@ -106,6 +106,7 @@ Tasks and timelines now use top-level umbrella pages:
 
 - `/timeline` shows move key dates, move events, move task due dates, drive stops, house-purchase timeline entries, and house-planning task due dates in one view.
 - Home Purchase entries are loaded from the existing `timeline_entries` table and can be filtered with the `Home Purchase` chip.
+- Move Events and house timeline entries share the same add/edit modal, so existing Event records can be converted into Home Purchase, Loan, or Home Updates entries and vice versa.
 - `/tasks` shows both move tasks and `planning_tasks`, with filters for Move, Home Purchase, Loan, Home Setup, and Home Updates.
 - `/home/timeline` and `/home/tasks` remain as compatibility routes that redirect into those filtered umbrella views.
 
@@ -118,7 +119,7 @@ The House area is focused on planning-specific work:
 - future projects with status and priority tracking
 - document links related to the house
 
-The House subsection has its own local navigation and is meant to feel like a nested planning workspace inside the broader move app rather than a set of isolated standalone pages. Its local home tab is labeled `HQ`.
+The House subsection has its own local navigation for Rooms, Layout, Projects, and Documents. Timeline and task execution now live under the top-level Timelines and Tasks umbrellas instead of duplicating inside House.
 
 When adding room items from existing belongings, the Rooms page now favors the common case:
 
@@ -217,8 +218,8 @@ src/
 │   │   ├── layout/          # Visual room layout planner
 │   │   ├── projects/        # House projects page
 │   │   ├── rooms/           # Room planning page
-│   │   ├── tasks/           # House tasks page
-│   │   ├── timeline/        # House timeline page
+│   │   ├── tasks/           # Redirects to top-level Tasks with house filters
+│   │   ├── timeline/        # Redirects to top-level Timelines with house filters
 │   │   └── page.tsx         # House dashboard
 │   ├── auth/
 │   │   └── callback/        # OAuth callback handler (exchanges code for session)

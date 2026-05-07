@@ -33,6 +33,10 @@ import {
   TimelineAsset,
   TimelineAssetFilter,
 } from '@/features/timelines/timelineAssets';
+import {
+  saveTimelineAsset,
+  TimelineFormMode,
+} from '@/features/timelines/timelineConversion';
 
 const FILTER_CHIPS: { value: TimelineAssetFilter; label: string; Icon: React.ReactNode }[] = [
   { value: 'key_dates', label: 'Key Dates', Icon: null },
@@ -45,6 +49,14 @@ const FILTER_CHIPS: { value: TimelineAssetFilter; label: string; Icon: React.Rea
 ];
 
 const HOME_TRACK_KEYS: TrackKey[] = ['home_purchase', 'loan', 'home_updates'];
+
+const TRACK_TYPE_LABELS: Record<TrackKey, string> = {
+  move: 'Move',
+  drive: 'Drive',
+  home_purchase: 'Home Purchase',
+  loan: 'Loan',
+  home_updates: 'Home Updates',
+};
 
 function isFilter(value: string): value is TimelineAssetFilter {
   return FILTER_CHIPS.some(chip => chip.value === value);
@@ -127,6 +139,15 @@ export default function TimelinePage() {
     (acc[key] = acc[key] || []).push(item);
     return acc;
   }, {});
+
+  const duplicateKeys = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of allItems) {
+      const key = getDuplicateKey(item);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return new Set([...counts.entries()].filter(([, count]) => count > 1).map(([key]) => key));
+  }, [allItems]);
 
   const timelineTracks = tracks.filter(track => HOME_TRACK_KEYS.includes(track.key));
   const isFiltering = activeFilters.size > 0 || !!search;
@@ -218,7 +239,7 @@ export default function TimelinePage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {grouped[monthYear].map(item => (
-                  <TimelineRow key={item.id} item={item} onClick={() => setSelected(item)} />
+                  <TimelineRow key={item.id} item={item} possibleDuplicate={duplicateKeys.has(getDuplicateKey(item))} onClick={() => setSelected(item)} />
                 ))}
               </div>
             </div>
@@ -229,6 +250,7 @@ export default function TimelinePage() {
       {selected && (
         <TimelineDetailModal
           item={selected}
+          possibleDuplicate={duplicateKeys.has(getDuplicateKey(selected))}
           onClose={() => setSelected(null)}
           onEdit={() => { setEditing(selected); setSelected(null); }}
           onDelete={() => deleteSelected(selected)}
@@ -248,7 +270,15 @@ export default function TimelinePage() {
   );
 }
 
-function TimelineRow({ item, onClick }: { item: TimelineAsset; onClick: () => void }) {
+function TimelineRow({
+  item,
+  possibleDuplicate,
+  onClick,
+}: {
+  item: TimelineAsset;
+  possibleDuplicate: boolean;
+  onClick: () => void;
+}) {
   const done = item.status === 'Complete' || item.status === 'complete';
 
   return (
@@ -281,6 +311,7 @@ function TimelineRow({ item, onClick }: { item: TimelineAsset; onClick: () => vo
           </span>
           {item.time && <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>· {item.time}</span>}
           <StatusChip status={item.status} />
+          {possibleDuplicate && <span className="badge badge-neutral">Possible duplicate</span>}
         </div>
       </div>
       <ChevronRight size={16} color="var(--color-border)" />
@@ -290,11 +321,13 @@ function TimelineRow({ item, onClick }: { item: TimelineAsset; onClick: () => vo
 
 function TimelineDetailModal({
   item,
+  possibleDuplicate,
   onClose,
   onEdit,
   onDelete,
 }: {
   item: TimelineAsset;
+  possibleDuplicate: boolean;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -327,6 +360,7 @@ function TimelineDetailModal({
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <StatusChip status={item.status} />
             {item.trackName && <span className="badge badge-neutral">{item.trackName}</span>}
+            {possibleDuplicate && <span className="badge badge-neutral">Possible duplicate</span>}
           </div>
           {item.notes && (
             <div>
@@ -384,14 +418,14 @@ function TimelineFormModal({
 }) {
   const existingEvent = existing?.rawEvent;
   const existingEntry = existing?.rawTimelineEntry;
-  const forcedMode = existingEntry ? 'track_entry' : existingEvent ? 'move_event' : null;
   const defaultTrack = tracks.find(track => track.key === defaultTrackKey)
     ?? tracks.find(track => track.key === 'home_purchase')
     ?? tracks[0];
 
-  const [mode, setMode] = useState<'move_event' | 'track_entry'>(forcedMode ?? (defaultTrackKey ? 'track_entry' : 'move_event'));
+  const [typeChoice, setTypeChoice] = useState<'move_event' | TrackKey>(
+    existingEntry?.trackKey ?? (existingEvent ? 'move_event' : defaultTrack?.key ?? 'move_event')
+  );
   const [title, setTitle] = useState(existingEvent?.title ?? existingEntry?.title ?? '');
-  const [trackId, setTrackId] = useState(existingEntry?.trackId ?? defaultTrack?.id ?? 0);
   const [date, setDate] = useState(existingEvent?.date ?? existingEntry?.date ?? '');
   const [time, setTime] = useState(existingEvent?.time ?? existingEntry?.time ?? '');
   const [status, setStatus] = useState(existingEntry?.status ?? (existingEvent?.is_confirmed ? 'confirmed' : 'estimated'));
@@ -408,46 +442,33 @@ function TimelineFormModal({
       setError('Date is required.');
       return;
     }
-    if (mode === 'track_entry' && !trackId) {
-      setError('Track is required.');
+
+    const mode: TimelineFormMode = typeChoice === 'move_event' ? 'move_event' : 'track_entry';
+    const selectedTrack = typeChoice === 'move_event'
+      ? null
+      : tracks.find(track => track.key === typeChoice);
+
+    if (mode === 'track_entry' && !selectedTrack) {
+      setError('Timeline type is required.');
       return;
     }
 
     setSaving(true);
     setError('');
-
-    const endpoint = mode === 'move_event' ? '/api/events' : '/api/timeline';
-    const method = existing ? 'PATCH' : 'POST';
-    const shared = {
-      title: title.trim(),
-      date,
-      time: time || null,
-      notes: notes || null,
-    };
-    const body = mode === 'move_event'
-      ? {
-          ...shared,
-          is_confirmed: status === 'confirmed',
-          ...(existingEvent ? { id: existingEvent.id } : {}),
-        }
-      : {
-          ...shared,
-          trackId,
-          status,
-          entryType: existingEntry?.entryType || 'event',
-          ...(existingEntry ? { id: existingEntry.id } : {}),
-        };
-
-    const res = await fetch(endpoint, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (res.ok) onSaved();
-    else {
-      const responseBody = await res.json();
-      setError(responseBody.error || 'Error saving entry.');
+    try {
+      await saveTimelineAsset(existing, {
+        mode,
+        title: title.trim(),
+        date,
+        time: time || null,
+        notes: notes || null,
+        status,
+        trackId: selectedTrack?.id ?? existingEntry?.trackId ?? defaultTrack?.id ?? 0,
+        entryType: existingEntry?.entryType || 'event',
+      });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error saving entry.');
       setSaving(false);
     }
   };
@@ -464,42 +485,37 @@ function TimelineFormModal({
             <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fff0f0', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: 13 }}>{error}</div>
           )}
 
-          {!forcedMode && (
-            <div>
-              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Timeline</label>
-              <select value={mode} onChange={event => setMode(event.target.value as 'move_event' | 'track_entry')}>
-                <option value="move_event">Move Event</option>
-                <option value="track_entry">House / Planning Entry</option>
-              </select>
-            </div>
-          )}
+          <div>
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Timeline Type</label>
+            <select value={typeChoice} onChange={event => {
+              const next = event.target.value as 'move_event' | TrackKey;
+              setTypeChoice(next);
+              if (next === 'move_event' && status !== 'confirmed') setStatus('estimated');
+              if (next !== 'move_event' && status !== 'confirmed' && status !== 'complete' && status !== 'blocked') setStatus('estimated');
+            }}>
+              <option value="move_event">Move Event</option>
+              {tracks.map(track => <option key={track.id} value={track.key}>{TRACK_TYPE_LABELS[track.key] ?? track.name}</option>)}
+            </select>
+          </div>
 
           <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Title</label>
             <input value={title} onChange={event => setTitle(event.target.value)} placeholder="e.g. Home inspection" autoFocus={!existing} />
           </div>
 
-          {mode === 'track_entry' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div>
-                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Track</label>
-                <select value={trackId} onChange={event => setTrackId(Number(event.target.value))}>
-                  {tracks.map(track => <option key={track.id} value={track.id}>{track.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
-                <select value={status} onChange={event => setStatus(event.target.value as TimelineEntry['status'])}>
-                  <option value="estimated">Estimated</option>
-                  <option value="confirmed">Confirmed</option>
-                  <option value="complete">Complete</option>
-                  <option value="blocked">Blocked</option>
-                </select>
-              </div>
+          {typeChoice !== 'move_event' && (
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
+              <select value={status} onChange={event => setStatus(event.target.value as TimelineEntry['status'])}>
+                <option value="estimated">Estimated</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="complete">Complete</option>
+                <option value="blocked">Blocked</option>
+              </select>
             </div>
           )}
 
-          {mode === 'move_event' && (
+          {typeChoice === 'move_event' && (
             <div>
               <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
               <select value={status === 'confirmed' ? 'confirmed' : 'estimated'} onChange={event => setStatus(event.target.value as TimelineEntry['status'])}>
@@ -618,4 +634,17 @@ function IconFrame({
       {children}
     </div>
   );
+}
+
+function getDuplicateKey(item: TimelineAsset) {
+  return `${format(item.date, 'yyyy-MM-dd')}::${normaliseTitle(item.title)}`;
+}
+
+function normaliseTitle(title: string) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(the|a|an|and|of|for|to|with)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Belonging, BelongingAction } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { Check, Plus, Trash2, X, Search, Box, DollarSign, Heart, Trash, Pencil } from 'lucide-react';
@@ -41,24 +41,29 @@ const ACTION_COLORS: Record<BelongingAction, { bg: string; color: string }> = {
 };
 
 type ResolvedFilter = 'all' | 'active' | 'done';
+type GroupMode = 'room' | 'outcome';
 
 export default function BelongingsPage() {
   const [items, setItems] = useState<Belonging[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState<BelongingAction | 'All'>('All');
   const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>('all');
+  const [roomFilter, setRoomFilter] = useState<string>('All');
+  const [groupMode, setGroupMode] = useState<GroupMode>('room');
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<Partial<Belonging> | null>(null);
 
   useScrollLock(modal !== null);
-
-  useEffect(() => { fetchItems(); }, []);
 
   const fetchItems = async () => {
     const res = await fetch('/api/belongings');
     setItems(await res.json());
     setLoading(false);
   };
+
+  useEffect(() => {
+    void Promise.resolve().then(() => fetchItems());
+  }, []);
 
   const saveItem = async (item: Partial<Belonging>) => {
     const method = item.id ? 'PATCH' : 'POST';
@@ -67,7 +72,7 @@ export default function BelongingsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(item),
     });
-    if (res.ok) { setModal(null); fetchItems(); }
+    if (res.ok) { setModal(null); void fetchItems(); }
     else { const e = await res.json(); alert(e.error || 'Error saving'); }
   };
 
@@ -78,10 +83,10 @@ export default function BelongingsPage() {
   const deleteItem = async (id: number) => {
     if (!confirm('Remove this item?')) return;
     await fetch(`/api/belongings?id=${id}`, { method: 'DELETE' });
-    fetchItems();
+    void fetchItems();
   };
 
-  const visible = items.filter(i => {
+  const visibleBeforeRoom = items.filter(i => {
     if (actionFilter !== 'All' && i.action !== actionFilter) return false;
     if (resolvedFilter === 'active' && i.status !== 'unresolved') return false;
     if (resolvedFilter === 'done' && i.status !== 'resolved') return false;
@@ -89,14 +94,21 @@ export default function BelongingsPage() {
     return true;
   });
 
+  const visible = visibleBeforeRoom.filter(i => roomFilter === 'All' || i.room === roomFilter);
+
   const resolvedCount = items.filter(i => i.status === 'resolved').length;
   const unresolvedCount = items.filter(i => i.status === 'unresolved').length;
 
   const actionCount = (a: BelongingAction | 'All') =>
     items.filter(i => (a === 'All' || i.action === a)).length;
 
-  // Group visible items by room
-  const sortedRooms = [...new Set(visible.map(i => i.room))].sort();
+  const roomOptions = useMemo(
+    () => [...new Set(items.map(item => item.room).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [items]
+  );
+  const roomCount = (room: string) => visibleBeforeRoom.filter(item => item.room === room).length;
+
+  const groups = groupItems(visible, groupMode);
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Starland inventory…</div>;
 
@@ -127,7 +139,7 @@ export default function BelongingsPage() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
         {(['All', ...ACTIONS] as const).map(a => (
           <button
             key={a}
@@ -140,41 +152,78 @@ export default function BelongingsPage() {
           </button>
         ))}
         <div style={{ flex: 1 }} />
-        <div className="seg-control">
-          {([['all', 'All'], ['active', 'Active'], ['done', 'Done']] as const).map(([val, label]) => (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="seg-control" aria-label="Group items">
+            {([['room', 'Room'], ['outcome', 'Outcome']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setGroupMode(val)}
+                className={`seg-btn ${groupMode === val ? 'seg-active' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="seg-control" aria-label="Resolved filter">
+            {([['all', 'All'], ['active', 'Active'], ['done', 'Done']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setResolvedFilter(val)}
+                className={`seg-btn ${resolvedFilter === val ? 'seg-active' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 24 }}>
+        <div className="section-label" style={{ marginBottom: 8 }}>Room</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          <button
+            onClick={() => setRoomFilter('All')}
+            className={`filter-chip ${roomFilter === 'All' ? 'filter-chip-active' : ''}`}
+          >
+            All rooms
+            <span style={{ fontSize: 10, opacity: 0.6 }}>({visibleBeforeRoom.length})</span>
+          </button>
+          {roomOptions.map(room => (
             <button
-              key={val}
-              onClick={() => setResolvedFilter(val)}
-              className={`seg-btn ${resolvedFilter === val ? 'seg-active' : ''}`}
+              key={room}
+              onClick={() => setRoomFilter(room)}
+              className={`filter-chip ${roomFilter === room ? 'filter-chip-active' : ''}`}
             >
-              {label}
+              {room}
+              <span style={{ fontSize: 10, opacity: 0.6 }}>({roomCount(room)})</span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Items list grouped by room */}
+      {/* Items list */}
       <div>
         {visible.length === 0 ? (
           <div style={{ padding: '64px 24px', textAlign: 'center', background: 'var(--color-surface)', borderRadius: 12, border: '1px solid var(--color-border)' }}>
             <Box size={40} color="var(--color-border)" style={{ margin: '0 auto 16px' }} />
             <p style={{ color: 'var(--color-secondary)', fontSize: 14 }}>No items here.</p>
           </div>
-        ) : sortedRooms.map((room) => {
-          const roomItems = visible.filter(i => i.room === room);
-          const roomResolved = roomItems.filter(i => i.status === 'resolved').length;
+        ) : groups.map((group) => {
           return (
-            <div key={room} style={{ marginBottom: 24 }}>
+            <div key={group.key} style={{ marginBottom: 24 }}>
               <div style={{ padding: '0 4px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span className="section-label">{room}</span>
-                {roomResolved > 0 && (
+                <span className="section-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  {group.icon}
+                  {group.label}
+                </span>
+                {group.resolvedCount > 0 && (
                   <span style={{ fontSize: 10, color: 'var(--color-accent-dark)', background: 'var(--color-accent-soft)', padding: '2px 7px', borderRadius: 'var(--radius-pill)', fontWeight: 700 }}>
-                    {roomResolved}/{roomItems.length} sorted
+                    {group.resolvedCount}/{group.items.length} sorted
                   </span>
                 )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {roomItems.map((item) => (
+                {group.items.map((item) => (
                   <BelongingRow
                     key={item.id}
                     item={item}
@@ -194,6 +243,36 @@ export default function BelongingsPage() {
       )}
     </div>
   );
+}
+
+function groupItems(items: Belonging[], groupMode: GroupMode) {
+  if (groupMode === 'outcome') {
+    return ACTIONS
+      .map(action => {
+        const actionItems = items.filter(item => item.action === action);
+        return {
+          key: action,
+          label: action,
+          icon: ACTION_ICONS[action],
+          items: actionItems,
+          resolvedCount: actionItems.filter(item => item.status === 'resolved').length,
+        };
+      })
+      .filter(group => group.items.length > 0);
+  }
+
+  return [...new Set(items.map(item => item.room))]
+    .sort((a, b) => a.localeCompare(b))
+    .map(room => {
+      const roomItems = items.filter(item => item.room === room);
+      return {
+        key: room,
+        label: room,
+        icon: null,
+        items: roomItems,
+        resolvedCount: roomItems.filter(item => item.status === 'resolved').length,
+      };
+    });
 }
 
 function BelongingRow({ item, onToggle, onEdit, onDelete }: {
