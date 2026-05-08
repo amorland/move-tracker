@@ -210,7 +210,7 @@ function BlueprintOverlayControls({
     overlayDepthFt: (floorPlan.overlayDepthFt ?? floorPlan.depthFt).toString(),
   });
   const previewSrc = toBlueprintImageSrc(draft.blueprintImagePath);
-  const isLocalBlueprint = previewSrc?.startsWith('/api/home-blueprint-assets/');
+  const isBundledBlueprint = previewSrc?.startsWith('/blueprints/');
 
   const save = async () => {
     setSaveState('saving');
@@ -251,7 +251,7 @@ function BlueprintOverlayControls({
             <div>
               <div className="section-label" style={{ marginBottom: 4 }}>Blueprint overlay</div>
               <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
-                Using the local extracted schematic when no custom URL is set.
+                Using the bundled blueprint overlay when no custom URL is set.
               </div>
             </div>
           </div>
@@ -272,7 +272,7 @@ function BlueprintOverlayControls({
             <input
               value={draft.blueprintImagePath}
               onChange={event => setDraft({ ...draft, blueprintImagePath: event.target.value })}
-              placeholder="/api/home-blueprint-assets/second-floor or https://..."
+              placeholder="/blueprints/second-floor.png or https://..."
             />
           </label>
           <label style={{ display: 'block' }}>
@@ -333,8 +333,8 @@ function BlueprintOverlayControls({
           {draft.blueprintImagePath && !previewSrc && (
             <span style={{ fontSize: 12, color: '#b45309' }}>This does not look like a browser-loadable image URL.</span>
           )}
-          {isLocalBlueprint && (
-            <span style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Local schematic asset. It stays outside GitHub.</span>
+          {isBundledBlueprint && (
+            <span style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Bundled blueprint asset. It deploys with the app.</span>
           )}
           {floorPlan.id < 0 && (
             <span style={{ fontSize: 12, color: '#b45309' }}>This floor is using defaults; saving will create its floor-plan row.</span>

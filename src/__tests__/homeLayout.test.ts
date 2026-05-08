@@ -20,10 +20,10 @@ describe('home layout defaults', () => {
 
   it('defaults known blueprint floors to local-only overlay assets', () => {
     expect(LOCAL_BLUEPRINT_ASSET_PATHS).toMatchObject({
-      'Main Floor': '/api/home-blueprint-assets/first-floor',
-      'Second Floor': '/api/home-blueprint-assets/second-floor',
-      'Third Floor': '/api/home-blueprint-assets/third-floor',
-      Exterior: '/api/home-blueprint-assets/site-plan',
+      'Main Floor': '/blueprints/first-floor.png',
+      'Second Floor': '/blueprints/second-floor.png',
+      'Third Floor': '/blueprints/third-floor.png',
+      Exterior: '/blueprints/site-plan.png',
     });
   });
 });

@@ -216,10 +216,10 @@ INSERT INTO home_floor_plans (
 )
 VALUES
   ('Basement', 'Basement', 0, 50, 50, NULL, NULL, 0, 0, 50, 50, 'Needs manual measurement; no basement floor-plan sheet was found in the provided blueprint set.', 0),
-  ('Main Floor', 'First Floor', 1, 50, 50, 1, '/api/home-blueprint-assets/first-floor', 0, 0, 50, 50, 'Initial calibration from blueprint sheet A1, scale 1/8 inch = 1 foot.', 10),
-  ('Second Floor', 'Second Floor', 2, 50, 50, 1, '/api/home-blueprint-assets/second-floor', 0, 0, 50, 50, 'Initial calibration from blueprint sheet A1, scale 1/8 inch = 1 foot.', 20),
-  ('Third Floor', 'Third Floor', 3, 50, 50, 2, '/api/home-blueprint-assets/third-floor', 0, 0, 50, 50, 'Initial calibration from blueprint sheet A2, scale 1/8 inch = 1 foot.', 30),
-  ('Exterior', 'Exterior', -1, 80, 80, 6, '/api/home-blueprint-assets/site-plan', 0, 0, 80, 80, 'Exterior planning area for garage, porch, and yard items.', 40)
+  ('Main Floor', 'First Floor', 1, 50, 50, 1, '/blueprints/first-floor.png', 0, 0, 50, 50, 'Initial calibration from blueprint sheet A1, scale 1/8 inch = 1 foot.', 10),
+  ('Second Floor', 'Second Floor', 2, 50, 50, 1, '/blueprints/second-floor.png', 0, 0, 50, 50, 'Initial calibration from blueprint sheet A1, scale 1/8 inch = 1 foot.', 20),
+  ('Third Floor', 'Third Floor', 3, 50, 50, 2, '/blueprints/third-floor.png', 0, 0, 50, 50, 'Initial calibration from blueprint sheet A2, scale 1/8 inch = 1 foot.', 30),
+  ('Exterior', 'Exterior', -1, 80, 80, 6, '/blueprints/site-plan.png', 0, 0, 80, 80, 'Exterior planning area for garage, porch, and yard items.', 40)
 ON CONFLICT (name) DO UPDATE SET
   label = EXCLUDED.label,
   level = EXCLUDED.level,

@@ -8,8 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "upload:blueprint-overlays": "node scripts/upload_blueprint_overlays.mjs"
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
