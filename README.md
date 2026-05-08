@@ -201,6 +201,25 @@ npm run dev
 
 The dev server binds to `0.0.0.0:3000`.
 
+## Blueprint Overlay Hosting
+
+The Visual Layout page can use local extracted blueprint images during development, but hosted environments need browser-accessible image URLs. Use Supabase Storage for that handoff:
+
+1. Confirm the local overlay files exist under `data/home-blueprints/derived/floor-overlays/`.
+2. Add a service-role key to your local shell or uncommitted `.env.local`:
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+3. Run the upload script:
+
+```bash
+npm run upload:blueprint-overlays
+```
+
+The script creates or reuses a public `home-blueprints` bucket, uploads the first-floor, second-floor, third-floor, and site-plan PNGs, then updates `home_floor_plans.blueprint_image_path` with the public Supabase Storage URLs. Do not expose `SUPABASE_SERVICE_ROLE_KEY` in client code or commit it to Git.
+
 ## Tests
 
 ```bash
@@ -284,12 +303,13 @@ src/
 5. To enable database-level document reuse safeguards and clean up existing duplicate document URLs, run `supabase-document-dedupe.sql` after `supabase-home-planning.sql`.
 6. To allow blocked task tracking, run `supabase-task-blocked-status.sql` after `supabase-home-planning.sql`.
 7. To enable the measured home layout planner and blueprint overlays on an existing database, run `supabase-measured-layout.sql`, then `supabase-blueprint-overlays.sql`.
+8. To make blueprint overlays work on the hosted web app, run `npm run upload:blueprint-overlays` locally with `SUPABASE_SERVICE_ROLE_KEY` set.
 
 ## Current Limitations
 
 - Documents are intended as external links, not uploaded private files
 - Room planning and visual layout now support measured floor canvases, local blueprint overlays, and draggable item placement, but they are still a simplified planner rather than a full CAD/floorplanner replacement
-- Local blueprint overlay images live under ignored `/data`; they are not committed and must exist on the machine or environment serving `/api/home-blueprint-assets/*`
+- Local blueprint overlay images live under ignored `/data`; hosted deployments should use Supabase Storage URLs written by `npm run upload:blueprint-overlays`
 - Drive planning does not currently enforce true seat/cargo constraints; it is a flexible planning board rather than a hard validator
 - The app can seed planning structure from organized document sets, but document-derived updates still rely on review logic rather than full OCR / workflow automation
 - Production build verification may require a non-sandboxed environment because Turbopack can fail under sandbox restrictions
