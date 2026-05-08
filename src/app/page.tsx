@@ -1,11 +1,69 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { MoveSettings, Task, Belonging, Category, MoveLocation } from '@/lib/types';
-import { format, parseISO, differenceInCalendarDays, addSeconds, startOfDay } from 'date-fns';
-import { CheckCircle2, ChevronRight, Box, DollarSign, Heart, Trash2, Clock, X, Save, House, CarFront, CheckSquare, Package, Map } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { getMilestones, validateDates, Milestone } from '@/lib/dateUtils';
+import { format, parseISO, differenceInCalendarDays, startOfDay } from 'date-fns';
+import {
+  AlertCircle,
+  Box,
+  CalendarDays,
+  CarFront,
+  CheckCircle2,
+  CheckSquare,
+  ChevronRight,
+  Clock,
+  DollarSign,
+  FileText,
+  Grid3X3,
+  Hammer,
+  Heart,
+  House,
+  Landmark,
+  Map,
+  Package,
+  Save,
+  Trash2,
+  X,
+} from 'lucide-react';
+import AreaIcon, { type AreaIconKey } from '@/components/AreaIcon';
+import { Milestone, validateDates } from '@/lib/dateUtils';
+import type {
+  Belonging,
+  Category,
+  DocumentRecord,
+  DriveLoadoutItem,
+  DriveVehicle,
+  HomeProject,
+  MoveEvent,
+  MoveLocation,
+  MoveSettings,
+  PlanningTask,
+  Room,
+  RoomItem,
+  Task,
+  TimelineEntry,
+} from '@/lib/types';
+import { buildHqModel, type HqModel, type HqModelInput } from '@/features/hq/hqModel';
+import type { TaskAsset, TaskAssetScope } from '@/features/tasks/taskAssets';
+import type { TimelineAsset } from '@/features/timelines/timelineAssets';
+
+type OverviewData = Omit<HqModelInput, 'today'>;
+type MilestoneDateKey =
+  | 'closingDate'
+  | 'upackDropoffDate'
+  | 'upackPickupDate'
+  | 'driveStartDate'
+  | 'arrivalDate'
+  | 'upackDeliveryDate'
+  | 'upackFinalPickupDate';
+type MilestoneConfirmKey =
+  | 'isClosingDateConfirmed'
+  | 'isUpackDropoffConfirmed'
+  | 'isUpackPickupConfirmed'
+  | 'isDriveStartConfirmed'
+  | 'isArrivalConfirmed'
+  | 'isUpackDeliveryConfirmed'
+  | 'isUpackFinalPickupConfirmed';
 
 const MILESTONE_SHORT: Record<string, string> = {
   'U-Pack Dropoff (FL)': 'Dropoff',
@@ -17,181 +75,180 @@ const MILESTONE_SHORT: Record<string, string> = {
   'U-Pack Final Pickup (NY)': 'Final',
 };
 
-const BELONGING_ICONS: Record<string, React.ReactNode> = {
-  Bring: <Box size={12} />, Sell: <DollarSign size={12} />, Donate: <Heart size={12} />, Trash: <Trash2 size={12} />,
+const CONFIRM_KEY_MAP: Record<MilestoneDateKey, MilestoneConfirmKey> = {
+  closingDate: 'isClosingDateConfirmed',
+  upackDropoffDate: 'isUpackDropoffConfirmed',
+  upackPickupDate: 'isUpackPickupConfirmed',
+  driveStartDate: 'isDriveStartConfirmed',
+  arrivalDate: 'isArrivalConfirmed',
+  upackDeliveryDate: 'isUpackDeliveryConfirmed',
+  upackFinalPickupDate: 'isUpackFinalPickupConfirmed',
 };
 
-export default function OverviewPage() {
-  const [settings, setSettings] = useState<MoveSettings | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [belongings, setBelongings] = useState<Belonging[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [routeSummary, setRouteSummary] = useState<{
-    distanceMiles: number;
-    adjustedDuration: number;
-    daysOfDriving: number;
-    estArrival: Date | null;
-    finalDayDuration: number | null;
-    dayDurations: number[];
-  } | null>(null);
-  const [routeLocations, setRouteLocations] = useState<MoveLocation[]>([]);
-  const [showRouteDetails, setShowRouteDetails] = useState(false);
+const TASK_SCOPE_ICONS: Record<TaskAssetScope, AreaIconKey> = {
+  move: 'move',
+  home_purchase: 'home_purchase',
+  loan: 'loan',
+  home_setup: 'home_setup',
+  home_updates: 'home_updates',
+};
 
-  const [dateModal, setDateModal] = useState<{ key: string; label: string } | null>(null);
+const BELONGING_ICONS: Record<Belonging['action'], ReactNode> = {
+  Bring: <Box size={12} />,
+  Sell: <DollarSign size={12} />,
+  Donate: <Heart size={12} />,
+  Trash: <Trash2 size={12} />,
+};
+
+const MILESTONE_DATE_KEYS = new Set<keyof MoveSettings>(Object.keys(CONFIRM_KEY_MAP) as MilestoneDateKey[]);
+
+export default function OverviewPage() {
+  const [data, setData] = useState<OverviewData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [dateModal, setDateModal] = useState<{ key: MilestoneDateKey; label: string } | null>(null);
   const [tempDate, setTempDate] = useState('');
   const [tempConfirmed, setTempConfirmed] = useState(false);
   const [dateError, setDateError] = useState<string | null>(null);
 
-  useEffect(() => { fetchData(); }, []);
-
-  const fetchData = async () => {
-    const [sRes, cRes, bRes, lRes] = await Promise.all([
+  async function fetchData() {
+    setLoadError(null);
+    const [
+      settingsRes,
+      categoriesRes,
+      planningTasksRes,
+      eventsRes,
+      timelineRes,
+      locationsRes,
+      belongingsRes,
+      documentsRes,
+      roomsRes,
+      roomItemsRes,
+      projectsRes,
+      vehiclesRes,
+      loadoutRes,
+    ] = await Promise.all([
       fetch('/api/settings'),
       fetch('/api/categories'),
-      fetch('/api/belongings'),
+      fetch('/api/planning-tasks'),
+      fetch('/api/events'),
+      fetch('/api/timeline'),
       fetch('/api/locations'),
+      fetch('/api/belongings'),
+      fetch('/api/documents'),
+      fetch('/api/rooms'),
+      fetch('/api/room-items'),
+      fetch('/api/home-projects'),
+      fetch('/api/drive-vehicles'),
+      fetch('/api/drive-loadout-items'),
     ]);
-    const s = await sRes.json();
-    sanitise(s);
-    setSettings(s);
-    const { categories: cats, tasks: ts } = await cRes.json();
-    setCategories(cats);
-    setTasks(ts);
-    setBelongings(await bRes.json());
-    const locs: MoveLocation[] = await lRes.json();
-    setLoading(false);
 
-    const visibleStops = locs
-      .filter(l => l.category === 'Origin' || l.category === 'Destination' ||
-        (l.category === 'Stop' && !!l.notes?.startsWith('[overnight]')))
-      .sort((a, b) => {
-        if (a.category === 'Origin') return -1;
-        if (b.category === 'Origin') return 1;
-        if (a.category === 'Destination') return 1;
-        if (b.category === 'Destination') return -1;
-        return (a.id ?? 0) - (b.id ?? 0);
+    const settings = await readJson<MoveSettings>(settingsRes);
+    sanitise(settings);
+    const categoriesPayload = await readJson<{ categories: Category[]; tasks: Task[] }>(categoriesRes);
+
+    setData({
+      settings,
+      categories: categoriesPayload.categories,
+      tasks: categoriesPayload.tasks,
+      planningTasks: await readJson<PlanningTask[]>(planningTasksRes),
+      events: await readJson<MoveEvent[]>(eventsRes),
+      timelineEntries: await readJson<TimelineEntry[]>(timelineRes),
+      locations: await readJson<MoveLocation[]>(locationsRes),
+      belongings: await readJson<Belonging[]>(belongingsRes),
+      documents: await readJson<DocumentRecord[]>(documentsRes),
+      rooms: await readJson<Room[]>(roomsRes),
+      roomItems: await readJson<RoomItem[]>(roomItemsRes),
+      projects: await readJson<HomeProject[]>(projectsRes),
+      driveVehicles: await readJson<DriveVehicle[]>(vehiclesRes),
+      driveLoadoutItems: await readJson<DriveLoadoutItem[]>(loadoutRes),
+    });
+  }
+
+  useEffect(() => {
+    let isMounted = true;
+    void Promise.resolve()
+      .then(() => fetchData())
+      .catch(error => {
+        if (isMounted) setLoadError(error instanceof Error ? error.message : 'Unable to load HQ data.');
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
       });
-    setRouteLocations(visibleStops);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-    const routePoints = locs
-      .filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category) && l.lat && l.lng)
-      .sort((a, b) => {
-        if (a.category === 'Origin') return -1;
-        if (b.category === 'Origin') return 1;
-        if (a.category === 'Destination') return 1;
-        if (b.category === 'Destination') return -1;
-        return (a.id ?? 0) - (b.id ?? 0);
-      });
-    if (routePoints.length >= 2) {
-      try {
-        const coords = routePoints.map(p => `${p.lng},${p.lat}`).join(';');
-        const rRes = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=false`);
-        const rData = await rRes.json();
-        if (rData.routes?.[0]) {
-          const overnightCount = locs.filter(l => l.category === 'Stop' && l.notes?.startsWith('[overnight]')).length;
-          const daysOfDriving = overnightCount + 1;
-          const adjustedDuration = Math.round(rData.routes[0].duration * 0.8);
-          const legs = Array.isArray(rData.routes[0].legs) ? rData.routes[0].legs : [];
-          const adjustedLegDurations = legs.map((leg: { duration?: number }) => Math.round((leg.duration || 0) * 0.8));
-          const dayDurations: number[] = [];
-          let currentDayDuration = 0;
+  const hq = useMemo(() => data ? buildHqModel(data) : null, [data]);
 
-          adjustedLegDurations.forEach((legDuration: number, index: number) => {
-            currentDayDuration += legDuration;
-            const nextPoint = routePoints[index + 1];
-            const endsDrivingDay = nextPoint?.category === 'Destination'
-              || (nextPoint?.category === 'Stop' && !!nextPoint.notes?.startsWith('[overnight]'));
-
-            if (endsDrivingDay) {
-              dayDurations.push(currentDayDuration);
-              currentDayDuration = 0;
-            }
-          });
-
-          if (currentDayDuration > 0) {
-            dayDurations.push(currentDayDuration);
-          }
-
-          const finalDayDuration = dayDurations.length > 0
-            ? dayDurations[dayDurations.length - 1]
-            : daysOfDriving > 0
-              ? Math.round(adjustedDuration / daysOfDriving)
-              : null;
-          let estArrival: Date | null = null;
-          if (s.driveStartDate && finalDayDuration !== null) {
-            const driveStart = parseISO(s.driveStartDate);
-            const lastDayStart = new Date(driveStart);
-            lastDayStart.setDate(lastDayStart.getDate() + (daysOfDriving - 1));
-            lastDayStart.setHours(9, 0, 0, 0);
-            estArrival = addSeconds(lastDayStart, finalDayDuration);
-          }
-          setRouteSummary({
-            distanceMiles: rData.routes[0].distance * 0.000621371,
-            adjustedDuration,
-            daysOfDriving,
-            estArrival,
-            finalDayDuration,
-            dayDurations,
-          });
-        }
-      } catch {}
-    }
-  };
-
-  const sanitise = (s: MoveSettings) => {
-    if (s.isClosingDateConfirmed && !s.closingDate) s.isClosingDateConfirmed = false;
-    if (s.isUpackDropoffConfirmed && !s.upackDropoffDate) s.isUpackDropoffConfirmed = false;
-    if (s.isUpackPickupConfirmed && !s.upackPickupDate) s.isUpackPickupConfirmed = false;
-    if (s.isDriveStartConfirmed && !s.driveStartDate) s.isDriveStartConfirmed = false;
-    if (s.isArrivalConfirmed && !s.arrivalDate) s.isArrivalConfirmed = false;
-    if (s.isUpackDeliveryConfirmed && !s.upackDeliveryDate) s.isUpackDeliveryConfirmed = false;
-    if (s.isUpackFinalPickupConfirmed && !s.upackFinalPickupDate) s.isUpackFinalPickupConfirmed = false;
-  };
-
-  const CONFIRM_KEY_MAP: Record<string, string> = {
-    closingDate: 'isClosingDateConfirmed',
-    upackDropoffDate: 'isUpackDropoffConfirmed',
-    upackPickupDate: 'isUpackPickupConfirmed',
-    driveStartDate: 'isDriveStartConfirmed',
-    arrivalDate: 'isArrivalConfirmed',
-    upackDeliveryDate: 'isUpackDeliveryConfirmed',
-    upackFinalPickupDate: 'isUpackFinalPickupConfirmed',
-  };
-
-  const openDateModal = (m: Milestone) => {
-    if (!settings) return;
-    setDateModal({ key: m.key as string, label: m.label });
-    setTempDate((settings as any)[m.key] || '');
-    setTempConfirmed(!!(settings as any)[CONFIRM_KEY_MAP[m.key as string]]);
+  const openDateModal = (milestone: Milestone) => {
+    if (!data || !isMilestoneDateKey(milestone.key)) return;
+    const confirmKey = CONFIRM_KEY_MAP[milestone.key];
+    setDateModal({ key: milestone.key, label: milestone.label });
+    setTempDate(data.settings[milestone.key] || '');
+    setTempConfirmed(Boolean(data.settings[confirmKey]));
     setDateError(null);
   };
 
   const saveDateModal = async () => {
-    if (!settings || !dateModal) return;
+    if (!data || !dateModal) return;
     const date = tempDate || null;
     const confirmKey = CONFIRM_KEY_MAP[dateModal.key];
-    if (tempConfirmed && !date) { setDateError(`${dateModal.label} cannot be confirmed without a date.`); return; }
-    const projected = { ...settings, [dateModal.key]: date, [confirmKey]: tempConfirmed };
+    if (tempConfirmed && !date) {
+      setDateError(`${dateModal.label} cannot be confirmed without a date.`);
+      return;
+    }
+
+    const projected = {
+      ...data.settings,
+      [dateModal.key]: date,
+      [confirmKey]: tempConfirmed,
+    } as MoveSettings;
     sanitise(projected);
     const err = validateDates(projected);
-    if (err) { setDateError(err); return; }
+    if (err) {
+      setDateError(err);
+      return;
+    }
+
     const res = await fetch('/api/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [dateModal.key]: date, [confirmKey]: tempConfirmed }),
     });
-    if (res.ok) { setSettings(projected); setDateModal(null); }
-    else { const e = await res.json(); setDateError(e.error || 'Unknown error'); }
+
+    if (res.ok) {
+      setData(current => current ? { ...current, settings: projected } : current);
+      setDateModal(null);
+    } else {
+      const e = await res.json();
+      setDateError(e.error || 'Unknown error');
+    }
   };
 
-  if (loading || !settings) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the move plan…</div>;
+  if (loading) {
+    return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading HQ...</div>;
+  }
 
-  const milestones = getMilestones(settings);
-  const completeTasks = tasks.filter(t => t.status === 'Complete');
-  const taskPercent = tasks.length ? Math.round((completeTasks.length / tasks.length) * 100) : 0;
+  if (loadError || !data || !hq) {
+    return (
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: 40 }}>
+        <div className="card">
+          <div className="card-body" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <AlertCircle size={20} color="#b91c1c" />
+            <div>
+              <h2 style={{ margin: 0 }}>HQ could not load</h2>
+              <p style={{ margin: '6px 0 0', color: 'var(--color-secondary)' }}>{loadError ?? 'Missing dashboard data.'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const driveDate = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
+  const driveDate = data.settings.driveStartDate ? parseISO(data.settings.driveStartDate) : null;
   const daysUntilDrive = driveDate ? differenceInCalendarDays(driveDate, startOfDay(new Date())) : null;
   const driveCountdownLabel = daysUntilDrive === 0
     ? 'Drive starts today'
@@ -201,35 +258,15 @@ export default function OverviewPage() {
         ? `Drive starts in ${daysUntilDrive} days`
         : null;
 
-  const categoryRows = categories
-    .map(cat => ({
-      label: cat.name,
-      total: tasks.filter(t => t.categoryId === cat.id).length,
-      done: tasks.filter(t => t.categoryId === cat.id && t.status === 'Complete').length,
-    }))
-    .filter(r => r.total > 0);
-
-  // Belonging breakdown by action
-  const bStats: Record<string, { t: number; d: number }> = {
-    Bring: { t: 0, d: 0 }, Sell: { t: 0, d: 0 }, Donate: { t: 0, d: 0 }, Trash: { t: 0, d: 0 },
-  };
-  for (const b of belongings) {
-    const k = b.action as keyof typeof bStats;
-    if (bStats[k]) { bStats[k].t++; if (b.status === 'resolved') bStats[k].d++; }
-  }
-  const resolvedTotal = belongings.filter(b => b.status === 'resolved').length;
-  const resolvePercent = belongings.length ? Math.round((resolvedTotal / belongings.length) * 100) : 0;
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: 64 }}>
-
-      {/* Page header */}
+    <div style={{ maxWidth: 1120, margin: '0 auto', paddingBottom: 64 }}>
       <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <h1>Fat Necks on the Move</h1>
-          <p className="page-subtitle">Move dates, drive plan, and house progress.</p>
+          <h1>HQ</h1>
+          <p className="page-subtitle">Synced command center for move, timelines, loan, stuff, cars, and house planning.</p>
         </div>
         {driveDate && driveCountdownLabel && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', background: 'var(--color-accent-soft)', border: '1px solid var(--color-accent)', borderRadius: 8 }}>
             <Clock size={15} color="var(--color-accent-dark)" />
             <div>
               <div className="section-label" style={{ color: 'var(--color-accent-dark)', opacity: 0.85, marginBottom: 4 }}>Drive Start</div>
@@ -241,24 +278,17 @@ export default function OverviewPage() {
       </div>
 
       <div className="overview-grid" style={{ marginBottom: 28 }}>
-        <QuickLinkCard href="/home" title="House" subtitle="Purchase, rooms, docs" icon={<House size={18} />} />
-        <QuickLinkCard href="/tasks" title="Tasks" subtitle={`${tasks.length} move tasks`} icon={<CheckSquare size={18} />} />
-        <QuickLinkCard href="/belongings" title="Stuff" subtitle={`${belongings.length} inventory items`} icon={<Package size={18} />} />
-        <QuickLinkCard href="/drive-plan" title="Cars" subtitle="People and gear by car" icon={<CarFront size={18} />} />
-        <QuickLinkCard href="/map" title="Route" subtitle="Stops and drive days" icon={<Map size={18} />} />
+        <QuickLinkCard href="/timeline" title="Timelines" subtitle={`${hq.timelineSummary.upcoming.length} upcoming, ${hq.timelineSummary.blocked.length} blocked`} icon={<CalendarDays size={18} />} />
+        <QuickLinkCard href="/tasks" title="Tasks" subtitle={`${hq.taskSummary.complete} / ${hq.taskSummary.total} complete`} icon={<CheckSquare size={18} />} />
+        <QuickLinkCard href="/tasks?filter=loan" title="Loan" subtitle={`${hq.loanSummary.taskOpen} open tasks, ${hq.loanSummary.timelineBlocked} blocked`} icon={<Landmark size={18} />} />
+        <QuickLinkCard href="/belongings" title="Stuff" subtitle={`${hq.belongingsSummary.resolved} / ${hq.belongingsSummary.total} sorted`} icon={<Package size={18} />} />
+        <QuickLinkCard href="/drive-plan" title="Cars" subtitle={`${hq.driveSummary.vehicles} vehicles, ${hq.driveSummary.unassignedItems} unassigned`} icon={<CarFront size={18} />} />
+        <QuickLinkCard href="/home" title="House Planning" subtitle={`${hq.houseSummary.rooms} rooms, ${hq.houseSummary.openProjects} open projects`} icon={<House size={18} />} />
       </div>
 
-      {/* Mini Timeline */}
-      <div className="mini-timeline">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>Move Timeline</h2>
-          <Link href="/timeline" style={{ textDecoration: 'none' }}>
-            <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-              Full timeline <ChevronRight size={12} />
-            </span>
-          </Link>
-        </div>
-        <MiniTimeline milestones={milestones} onEdit={openDateModal} />
+      <div className="mini-timeline" style={{ marginBottom: 28 }}>
+        <CardHeader title="Key Dates" href="/timeline?filter=key_dates" action="Full timeline" />
+        <MiniTimeline milestones={hq.milestones} onEdit={openDateModal} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
           <TimelineLegendDot type="confirmed" label="Confirmed" />
           <TimelineLegendDot type="estimated" label="Estimated" />
@@ -268,245 +298,24 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Route summary */}
-      {routeSummary && (
-        <div className="mini-timeline" style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <h2 style={{ margin: 0 }}>The Route</h2>
-            <Link href="/map" style={{ textDecoration: 'none' }}>
-              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                Open <ChevronRight size={12} />
-              </span>
-            </Link>
-          </div>
-
-          {/* Drive stops — same visual structure as MiniTimeline */}
-          {routeLocations.length >= 2 && (() => {
-            const driveBase = settings.driveStartDate ? parseISO(settings.driveStartDate) : null;
-            return (
-              <div style={{ position: 'relative', marginBottom: 16 }}>
-                <div style={{ position: 'absolute', left: `calc(100% / ${routeLocations.length * 2})`, right: `calc(100% / ${routeLocations.length * 2})`, top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${routeLocations.length * 2 - 1}, minmax(0, 1fr))`,
-                    position: 'relative',
-                    zIndex: 1,
-                    rowGap: 8,
-                    alignItems: 'start',
-                  }}
-                >
-                  {routeLocations.map((loc, idx) => {
-                    const isOrigin = loc.category === 'Origin';
-                    const isDest = loc.category === 'Destination';
-                    const overnight = loc.category === 'Stop' && !!loc.notes?.startsWith('[overnight]');
-                    let stopDate: string | null = null;
-                    if (driveBase) {
-                      if (isDest && routeSummary.estArrival) {
-                        stopDate = format(routeSummary.estArrival, 'MMM d');
-                      } else if (isOrigin) {
-                        stopDate = format(driveBase, 'MMM d');
-                      } else {
-                        const priorOvernights = routeLocations
-                          .slice(0, idx)
-                          .filter(item => item.category === 'Stop' && !!item.notes?.startsWith('[overnight]')).length;
-                        stopDate = format(
-                          new Date(driveBase.getFullYear(), driveBase.getMonth(), driveBase.getDate() + priorOvernights),
-                          'MMM d',
-                        );
-                      }
-                    }
-                    return (
-                      <div key={loc.id} style={{ display: 'contents' }}>
-                        <div
-                          style={{
-                            gridColumn: idx * 2 + 1,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '0 2px',
-                          }}
-                        >
-                          <div style={{
-                            width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                            background: overnight ? '#eef2ff' : isOrigin ? 'var(--color-accent)' : 'var(--color-surface)',
-                            border: `2px solid ${overnight ? '#6366f1' : 'var(--color-accent)'}`,
-                            boxShadow: overnight ? '0 0 0 3px #eef2ff' : '0 0 0 3px var(--color-accent-soft)',
-                          }} />
-                          <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: overnight ? '#6366f1' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
-                            {isOrigin ? 'Start' : isDest ? 'End' : 'Night'}
-                          </div>
-                          <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--color-foreground)', textAlign: 'center' as const, lineHeight: 1.2, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>
-                            {loc.name}
-                          </div>
-                          {stopDate && (
-                            <div style={{ fontSize: 10, color: 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
-                              {stopDate}
-                            </div>
-                          )}
-                        </div>
-                        {idx < routeLocations.length - 1 && routeSummary.dayDurations[idx] && (
-                          <div
-                            style={{
-                              gridColumn: idx * 2 + 2,
-                              alignSelf: 'start',
-                              justifySelf: 'center',
-                              marginTop: 28,
-                              fontSize: 10,
-                              fontWeight: 700,
-                              color: 'var(--color-secondary)',
-                              background: 'var(--color-background)',
-                              border: '1px solid var(--color-border)',
-                              borderRadius: 999,
-                              padding: '4px 8px',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {fmtDuration(routeSummary.dayDurations[idx])}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
-
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: showRouteDetails ? 12 : 0 }}>
-            <button
-              onClick={() => setShowRouteDetails(v => !v)}
-              className="btn btn-ghost btn-sm"
-              style={{ fontSize: 11, color: 'var(--color-secondary)', gap: 4 }}
-            >
-              {showRouteDetails ? 'Hide details' : 'Show details'}
-            </button>
-          </div>
-
-          {showRouteDetails && (
-            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 16, display: 'flex', flexWrap: 'wrap', alignItems: 'center', rowGap: 12 }}>
-              <RouteStat label="Distance" value={`${Math.round(routeSummary.distanceMiles).toLocaleString()} mi`} />
-              <RouteDiv />
-              <RouteStat label="Drive Time" value={fmtDuration(routeSummary.adjustedDuration)} />
-              {routeSummary.daysOfDriving > 1 && <><RouteDiv /><RouteStat label="Days" value={`${routeSummary.daysOfDriving}`} /></>}
-              <RouteDiv />
-              <RouteStat label="Departs" value="9:00 AM" />
-              {settings.driveStartDate && <><RouteDiv /><RouteStat label="Drive Start" value={format(parseISO(settings.driveStartDate), 'MMM d')} accent /></>}
-              {routeSummary.estArrival && <><RouteDiv /><RouteStat label="Drive End" value={format(routeSummary.estArrival, "MMM d 'at' h:mma")} accent /></>}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Overview grid — Tasks + Belongings */}
-      <div className="overview-grid">
-
-        {/* Tasks */}
-        <div className="card" style={{ overflow: 'hidden' }}>
-          <div className="card-header">
-            <h2 style={{ margin: 0 }}>Tasks</h2>
-            <Link href="/tasks" style={{ textDecoration: 'none' }}>
-              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                Open <ChevronRight size={12} />
-              </span>
-            </Link>
-          </div>
-          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-            {/* Headline stat */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 10 }}>
-                <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: 'var(--color-foreground)' }}>{completeTasks.length}</span>
-                <span style={{ fontSize: 16, color: 'var(--color-secondary)', fontWeight: 400 }}>/ {tasks.length}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-secondary)', marginLeft: 4 }}>tasks complete</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1, height: 8, background: 'var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${taskPercent}%`, background: 'var(--color-accent)', borderRadius: 4, transition: 'width 0.8s ease' }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)', flexShrink: 0, width: 34, textAlign: 'right' }}>{taskPercent}%</span>
-              </div>
-            </div>
-
-            {categoryRows.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
-                {categoryRows.map(({ label, total, done }) => {
-                  const pct = total ? Math.round((done / total) * 100) : 0;
-                  return (
-                    <div key={label}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <span className="section-label">{label}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)' }}>{done} / {total}</span>
-                      </div>
-                      <div style={{ height: 5, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-accent)', borderRadius: 3, opacity: 0.75 }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Belongings */}
-        <div className="card" style={{ overflow: 'hidden' }}>
-          <div className="card-header">
-            <h2 style={{ margin: 0 }}>The Big Sort</h2>
-            <Link href="/belongings" style={{ textDecoration: 'none' }}>
-              <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-                Open <ChevronRight size={12} />
-              </span>
-            </Link>
-          </div>
-          <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-            {/* Headline stat */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 10 }}>
-                <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: 'var(--color-foreground)' }}>{resolvedTotal}</span>
-                <span style={{ fontSize: 16, color: 'var(--color-secondary)', fontWeight: 400 }}>/ {belongings.length}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-secondary)', marginLeft: 4 }}>items sorted</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1, height: 8, background: 'var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${resolvePercent}%`, background: 'var(--color-accent)', borderRadius: 4, transition: 'width 0.8s ease' }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)', flexShrink: 0, width: 34, textAlign: 'right' }}>{resolvePercent}%</span>
-              </div>
-            </div>
-
-            {/* Per-action breakdown */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
-              {Object.entries(bStats).filter(([, { t }]) => t > 0).map(([action, { t, d }]) => {
-                const pct = t ? Math.round((d / t) * 100) : 0;
-                return (
-                  <div key={action}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-                      <span className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                        {BELONGING_ICONS[action]} {action}
-                      </span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)' }}>{d} / {t}</span>
-                    </div>
-                    <div style={{ height: 5, background: 'var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: 'var(--color-accent)', borderRadius: 3, opacity: 0.75 }} />
-                    </div>
-                  </div>
-                );
-              })}
-              {belongings.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--color-secondary)', margin: 0 }}>We haven&apos;t dumped any stuff in here yet.</p>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="overview-grid" style={{ alignItems: 'start', marginBottom: 28 }}>
+        <TimelinesCard hq={hq} />
+        <TasksCard hq={hq} />
       </div>
 
-      {/* Date edit modal */}
+      <div className="overview-grid" style={{ alignItems: 'start', marginBottom: 28 }}>
+        <LoanCard hq={hq} />
+        <HousePlanningCard hq={hq} />
+      </div>
+
+      <div className="overview-grid" style={{ alignItems: 'start' }}>
+        <StuffCard hq={hq} />
+        <CarsRouteCard hq={hq} />
+      </div>
+
       {dateModal && (
         <div className="modal-backdrop" onClick={() => setDateModal(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={event => event.stopPropagation()}>
             <div className="modal-header">
               <h2 style={{ margin: 0 }}>{dateModal.label}</h2>
               <button className="btn btn-ghost btn-sm" onClick={() => setDateModal(null)} style={{ padding: '0 8px' }}><X size={18} /></button>
@@ -517,9 +326,9 @@ export default function OverviewPage() {
               )}
               <div>
                 <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Date</label>
-                <input type="date" value={tempDate} onChange={e => setTempDate(e.target.value)} />
+                <input type="date" value={tempDate} onChange={event => setTempDate(event.target.value)} />
               </div>
-              <div className={`confirmed-toggle ${tempConfirmed ? 'on' : ''}`} onClick={() => setTempConfirmed(v => !v)}>
+              <div className={`confirmed-toggle ${tempConfirmed ? 'on' : ''}`} onClick={() => setTempConfirmed(value => !value)}>
                 <div className={`check-circle ${tempConfirmed ? 'checked' : ''}`}>
                   {tempConfirmed && <CheckCircle2 size={14} color="white" />}
                 </div>
@@ -540,46 +349,272 @@ export default function OverviewPage() {
   );
 }
 
+async function readJson<T>(res: Response): Promise<T> {
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || `Request failed with ${res.status}`);
+  return data as T;
+}
+
+function sanitise(settings: MoveSettings) {
+  if (settings.isClosingDateConfirmed && !settings.closingDate) settings.isClosingDateConfirmed = false;
+  if (settings.isUpackDropoffConfirmed && !settings.upackDropoffDate) settings.isUpackDropoffConfirmed = false;
+  if (settings.isUpackPickupConfirmed && !settings.upackPickupDate) settings.isUpackPickupConfirmed = false;
+  if (settings.isDriveStartConfirmed && !settings.driveStartDate) settings.isDriveStartConfirmed = false;
+  if (settings.isArrivalConfirmed && !settings.arrivalDate) settings.isArrivalConfirmed = false;
+  if (settings.isUpackDeliveryConfirmed && !settings.upackDeliveryDate) settings.isUpackDeliveryConfirmed = false;
+  if (settings.isUpackFinalPickupConfirmed && !settings.upackFinalPickupDate) settings.isUpackFinalPickupConfirmed = false;
+}
+
+function isMilestoneDateKey(key: keyof MoveSettings): key is MilestoneDateKey {
+  return MILESTONE_DATE_KEYS.has(key);
+}
+
+function TimelinesCard({ hq }: { hq: HqModel }) {
+  const items = hq.timelineSummary.blocked.length > 0
+    ? hq.timelineSummary.blocked.slice(0, 3)
+    : hq.timelineSummary.upcoming.slice(0, 4);
+  return (
+    <div className="card">
+      <CardHeader title="Timelines" href="/timeline" action="Open" />
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span className="badge badge-neutral">{hq.timelineSummary.total} total</span>
+          <span className="badge badge-neutral">{hq.timelineSummary.upcoming.length} upcoming</span>
+          {hq.timelineSummary.blocked.length > 0 && <span className="badge" style={{ background: '#fff0f0', color: '#b91c1c' }}>{hq.timelineSummary.blocked.length} blocked</span>}
+        </div>
+        <TimelineList items={items} emptyText="No upcoming timeline items." />
+      </div>
+    </div>
+  );
+}
+
+function TasksCard({ hq }: { hq: HqModel }) {
+  return (
+    <div className="card">
+      <CardHeader title="Tasks" href="/tasks" action="Open" />
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 10 }}>
+            <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: 'var(--color-foreground)' }}>{hq.taskSummary.complete}</span>
+            <span style={{ fontSize: 16, color: 'var(--color-secondary)', fontWeight: 400 }}>/ {hq.taskSummary.total}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-secondary)', marginLeft: 4 }}>tasks complete</span>
+          </div>
+          <ProgressBar percent={hq.taskSummary.percent} />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
+          {hq.taskSummary.scopes.map(scope => (
+            <ScopeProgressRow key={scope.scope} scope={scope.scope} label={scope.label} complete={scope.complete} total={scope.total} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoanCard({ hq }: { hq: HqModel }) {
+  return (
+    <div className="card">
+      <CardHeader title="Loan" href="/tasks?filter=loan" action="Open tasks" />
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span className="badge badge-neutral">{hq.loanSummary.taskOpen} open tasks</span>
+          <span className="badge badge-neutral">{hq.loanSummary.timelineTotal} timeline entries</span>
+          {hq.loanSummary.timelineBlocked > 0 && <span className="badge" style={{ background: '#fff0f0', color: '#b91c1c' }}>{hq.loanSummary.timelineBlocked} blocked</span>}
+        </div>
+        {hq.loanSummary.latestTimeline && (
+          <div>
+            <div className="section-label" style={{ marginBottom: 8 }}>Latest loan event</div>
+            <TimelineRow item={hq.loanSummary.latestTimeline} />
+          </div>
+        )}
+        <div>
+          <div className="section-label" style={{ marginBottom: 8 }}>Open loan tasks</div>
+          <TaskList tasks={hq.loanSummary.nextTasks} emptyText="No open loan tasks." />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HousePlanningCard({ hq }: { hq: HqModel }) {
+  return (
+    <div className="card">
+      <CardHeader title="House Planning" href="/home" action="Open" />
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <MetricRow label="Rooms defined" value={hq.houseSummary.rooms} icon={<House size={14} />} />
+        <MetricRow label="Room items placed" value={`${hq.houseSummary.placedItems} / ${hq.houseSummary.roomItems}`} icon={<Grid3X3 size={14} />} />
+        <MetricRow label="Open projects" value={hq.houseSummary.openProjects} icon={<Hammer size={14} />} />
+        <MetricRow label="High priority projects" value={hq.houseSummary.highPriorityProjects} icon={<AlertCircle size={14} />} />
+        <MetricRow label="Saved document links" value={hq.houseSummary.documents} icon={<FileText size={14} />} />
+      </div>
+    </div>
+  );
+}
+
+function StuffCard({ hq }: { hq: HqModel }) {
+  return (
+    <div className="card">
+      <CardHeader title="Stuff" href="/belongings" action="Open" />
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 10 }}>
+            <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: 'var(--color-foreground)' }}>{hq.belongingsSummary.resolved}</span>
+            <span style={{ fontSize: 16, color: 'var(--color-secondary)', fontWeight: 400 }}>/ {hq.belongingsSummary.total}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-secondary)', marginLeft: 4 }}>items sorted</span>
+          </div>
+          <ProgressBar percent={hq.belongingsSummary.percent} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
+          {hq.belongingsSummary.byAction.map(action => (
+            <div key={action.action}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                <span className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {BELONGING_ICONS[action.action]} {action.action}
+                </span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)' }}>{action.resolved} / {action.total}</span>
+              </div>
+              <ProgressBar percent={action.total ? Math.round((action.resolved / action.total) * 100) : 0} small />
+            </div>
+          ))}
+          {hq.belongingsSummary.total === 0 && <EmptyState text="No stuff has been added yet." />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CarsRouteCard({ hq }: { hq: HqModel }) {
+  return (
+    <div className="card">
+      <CardHeader title="Cars And Route" href="/drive-plan" action="Open cars" />
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <MetricRow label="Vehicles" value={hq.driveSummary.vehicles} icon={<CarFront size={14} />} />
+        <MetricRow label="Loadout assigned" value={`${hq.driveSummary.assignedItems} / ${hq.driveSummary.loadoutItems}`} icon={<Package size={14} />} />
+        <MetricRow label="Required unassigned" value={hq.driveSummary.requiredUnassignedItems} icon={<AlertCircle size={14} />} />
+        <MetricRow label="Route stops" value={hq.driveSummary.routeStops} icon={<Map size={14} />} />
+        <MetricRow label="Overnights" value={hq.driveSummary.overnightStops} icon={<Clock size={14} />} />
+        <Link href="/map" className="btn btn-secondary btn-sm" style={{ justifyContent: 'center', marginTop: 4, textDecoration: 'none' }}>
+          <Map size={14} /> Open route
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function CardHeader({ title, href, action }: { title: string; href: string; action: string }) {
+  return (
+    <div className="card-header">
+      <h2 style={{ margin: 0 }}>{title}</h2>
+      <Link href={href} style={{ textDecoration: 'none' }}>
+        <span className="badge badge-neutral" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+          {action} <ChevronRight size={12} />
+        </span>
+      </Link>
+    </div>
+  );
+}
+
+function TimelineList({ items, emptyText }: { items: TimelineAsset[]; emptyText: string }) {
+  if (items.length === 0) return <EmptyState text={emptyText} />;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {items.map(item => <TimelineRow key={item.id} item={item} />)}
+    </div>
+  );
+}
+
+function TimelineRow({ item }: { item: TimelineAsset }) {
+  return (
+    <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+            {item.trackKey && <AreaIcon area={item.trackKey === 'loan' ? 'loan' : item.trackKey === 'home_updates' ? 'home_updates' : item.trackKey === 'home_purchase' ? 'home_purchase' : 'events'} size={12} />}
+            <span className="section-label" style={{ margin: 0 }}>{item.label}</span>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-foreground)' }}>{item.title}</div>
+        </div>
+        <div style={{ flexShrink: 0, textAlign: 'right' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-foreground)' }}>{format(item.date, 'MMM d')}</div>
+          <StatusPill status={item.status} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskList({ tasks, emptyText }: { tasks: TaskAsset[]; emptyText: string }) {
+  if (tasks.length === 0) return <EmptyState text={emptyText} />;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {tasks.map(task => (
+        <div key={task.uid} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <AreaIcon area={TASK_SCOPE_ICONS[task.scope]} size={12} />
+                <span className="section-label" style={{ margin: 0 }}>{task.groupLabel}</span>
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-foreground)' }}>{task.title}</div>
+            </div>
+            {task.dueDate && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)', whiteSpace: 'nowrap' }}>{format(parseISO(task.dueDate), 'MMM d')}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ScopeProgressRow({ scope, label, complete, total }: { scope: TaskAssetScope; label: string; complete: number; total: number }) {
+  const pct = total ? Math.round((complete / total) * 100) : 0;
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+        <span className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <AreaIcon area={TASK_SCOPE_ICONS[scope]} size={12} /> {label}
+        </span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-secondary)' }}>{complete} / {total}</span>
+      </div>
+      <ProgressBar percent={pct} small />
+    </div>
+  );
+}
+
+function MetricRow({ label, value, icon }: { label: string; value: number | string; icon: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-background)' }}>
+      <div style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--color-surface)', border: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-accent-dark)', flexShrink: 0 }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, fontSize: 13, color: 'var(--color-secondary)' }}>{label}</div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--color-foreground)' }}>{value}</div>
+    </div>
+  );
+}
+
+function ProgressBar({ percent, small = false }: { percent: number; small?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: small ? 0 : 10 }}>
+      <div style={{ flex: 1, height: small ? 5 : 8, background: 'var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${percent}%`, background: 'var(--color-accent)', borderRadius: 4, opacity: small ? 0.75 : 1, transition: 'width 0.8s ease' }} />
+      </div>
+      {!small && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)', flexShrink: 0, width: 34, textAlign: 'right' }}>{percent}%</span>}
+    </div>
+  );
+}
+
 function StatusPill({ status }: { status: string }) {
-  if (status === 'confirmed' || status === 'complete') {
-    return <span className="badge" style={{ background: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)' }}>{status === 'complete' ? 'Complete' : 'Confirmed'}</span>;
+  if (status === 'confirmed') {
+    return <span className="badge" style={{ marginTop: 5, background: 'var(--color-accent-soft)', color: 'var(--color-accent-dark)' }}>Confirmed</span>;
+  }
+  if (status === 'complete' || status === 'Complete') {
+    return <span className="badge" style={{ marginTop: 5, background: 'var(--color-sage-soft)', color: 'var(--color-sage)' }}>Complete</span>;
   }
   if (status === 'blocked') {
-    return <span className="badge" style={{ background: '#fff0f0', color: '#b91c1c' }}>Blocked</span>;
+    return <span className="badge" style={{ marginTop: 5, background: '#fff0f0', color: '#b91c1c' }}>Blocked</span>;
   }
-  return <span className="badge badge-neutral">Estimated</span>;
-}
-
-function fmtDuration(seconds: number) {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.round((seconds % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-}
-
-function RouteStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div style={{ padding: '0 8px' }}>
-      <div className="section-label">{label}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: accent ? 'var(--color-accent-dark)' : 'var(--color-foreground)', marginTop: 3 }}>{value}</div>
-    </div>
-  );
-}
-
-function RouteDiv() {
-  return <div style={{ width: 1, height: 28, background: 'var(--color-border)', margin: '0 4px', flexShrink: 0, alignSelf: 'center' }} />;
-}
-
-function TimelineLegendDot({ type, label }: { type: 'confirmed' | 'estimated' | 'unset'; label: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{
-        width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-        background: type === 'confirmed' ? 'var(--color-accent)' : 'transparent',
-        border: `1.5px ${type === 'unset' ? 'dashed' : 'solid'} ${type === 'unset' ? 'var(--color-border)' : 'var(--color-accent)'}`,
-      }} />
-      <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{label}</span>
-    </div>
-  );
+  return <span className="badge badge-neutral" style={{ marginTop: 5 }}>Estimated</span>;
 }
 
 function QuickLinkCard({
@@ -591,13 +626,13 @@ function QuickLinkCard({
   href: string;
   title: string;
   subtitle: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <Link href={href} style={{ textDecoration: 'none' }}>
       <div className="card" style={{ height: '100%' }}>
         <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, border: '1px solid var(--color-border)', background: 'var(--color-background)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-accent-dark)', flexShrink: 0 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-background)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-accent-dark)', flexShrink: 0 }}>
             {icon}
           </div>
           <div style={{ minWidth: 0 }}>
@@ -610,35 +645,54 @@ function QuickLinkCard({
   );
 }
 
-function MiniTimeline({ milestones, onEdit }: { milestones: Milestone[]; onEdit: (m: Milestone) => void }) {
+function TimelineLegendDot({ type, label }: { type: 'confirmed' | 'estimated' | 'unset'; label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{
+        width: 10,
+        height: 10,
+        borderRadius: '50%',
+        flexShrink: 0,
+        background: type === 'confirmed' ? 'var(--color-accent)' : 'transparent',
+        border: `1.5px ${type === 'unset' ? 'dashed' : 'solid'} ${type === 'unset' ? 'var(--color-border)' : 'var(--color-accent)'}`,
+      }} />
+      <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{label}</span>
+    </div>
+  );
+}
+
+function MiniTimeline({ milestones, onEdit }: { milestones: Milestone[]; onEdit: (milestone: Milestone) => void }) {
   const today = new Date();
   return (
     <div style={{ position: 'relative' }}>
       <div style={{ position: 'absolute', left: 'calc(100% / 14)', right: 'calc(100% / 14)', top: 9, height: 2, background: 'var(--color-border)', zIndex: 0 }} />
       <div style={{ display: 'flex', position: 'relative', zIndex: 1 }}>
-        {milestones.map((m) => {
-          const isConfirmed = m.status === 'confirmed';
-          const isUnset = m.status === 'unset';
-          const isPast = m.date ? parseISO(m.date) < today : false;
+        {milestones.map(milestone => {
+          const isConfirmed = milestone.status === 'confirmed';
+          const isUnset = milestone.status === 'unset';
+          const isPast = milestone.date ? parseISO(milestone.date) < today : false;
           const isSolid = isConfirmed || isPast;
           return (
             <button
-              key={m.key as string}
-              onClick={() => onEdit(m)}
+              key={milestone.key as string}
+              onClick={() => onEdit(milestone)}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px' }}
             >
               <div style={{
-                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                flexShrink: 0,
                 background: isSolid ? 'var(--color-accent)' : 'var(--color-surface)',
                 border: `2px ${isUnset ? 'dashed' : 'solid'} ${isUnset ? 'var(--color-border)' : 'var(--color-accent)'}`,
                 boxShadow: isConfirmed && !isPast ? '0 0 0 3px var(--color-accent-soft)' : 'none',
                 transition: 'all 0.15s',
               }} />
-              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: isUnset ? 'var(--color-border)' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.3 }}>
-                {MILESTONE_SHORT[m.label] || m.label}
+              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: isUnset ? 'var(--color-border)' : 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.3 }}>
+                {MILESTONE_SHORT[milestone.label] || milestone.label}
               </div>
-              <div style={{ fontSize: 11, fontWeight: isConfirmed ? 700 : 400, color: isUnset ? 'var(--color-border)' : isSolid ? 'var(--color-foreground)' : 'var(--color-secondary)', textAlign: 'center' as const, lineHeight: 1.2 }}>
-                {m.date ? format(parseISO(m.date), 'MMM d') : '—'}
+              <div style={{ fontSize: 11, fontWeight: isConfirmed ? 700 : 400, color: isUnset ? 'var(--color-border)' : isSolid ? 'var(--color-foreground)' : 'var(--color-secondary)', textAlign: 'center', lineHeight: 1.2 }}>
+                {milestone.date ? format(parseISO(milestone.date), 'MMM d') : '-'}
               </div>
             </button>
           );
@@ -646,4 +700,8 @@ function MiniTimeline({ milestones, onEdit }: { milestones: Milestone[]; onEdit:
       </div>
     </div>
   );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return <div style={{ fontSize: 13, color: 'var(--color-secondary)' }}>{text}</div>;
 }
