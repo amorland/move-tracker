@@ -177,6 +177,8 @@ export interface Room {
   planYFt: number | null;
   planWidthFt: number | null;
   planDepthFt: number | null;
+  labelXFt: number | null;
+  labelYFt: number | null;
   ceilingHeightFt: number | null;
   shapePoints: PlanPoint[] | null;
   sortIndex: number;

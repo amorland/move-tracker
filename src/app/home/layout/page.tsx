@@ -1,14 +1,30 @@
 'use client';
 
 import HomeSubnav from '@/components/HomeSubnav';
-import { fallbackFloorPlansForRooms, floorForRoom, itemFootprint, planRectForRoom, PlanRect } from '@/lib/homeLayout';
-import { HomeFloorPlan, Room, RoomItem } from '@/lib/types';
-import { Eye, EyeOff, Grid3X3, Image as ImageIcon, MoveDiagonal, Package, Ruler, Save, SlidersHorizontal } from 'lucide-react';
+import {
+  containsPlanPoint,
+  fallbackFloorPlansForRooms,
+  floorForRoom,
+  itemFootprint,
+  planLabelPointForRoom,
+  planPointsForRoom,
+  planRectForRoom,
+  PlanRect,
+} from '@/lib/homeLayout';
+import { HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
+import { Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type MouseEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type OverlayFit = 'contain' | 'cover' | 'stretch';
 type SaveResult = { ok: true } | { ok: false; message: string };
+type RoomGeometryDraft = {
+  roomId: number;
+  shapePoints: PlanPoint[] | null;
+  labelXFt: number | null;
+  labelYFt: number | null;
+};
+type GeometryDragTarget = { type: 'point'; index: number } | { type: 'label' };
 
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -18,6 +34,9 @@ export default function HomeLayoutPage() {
   const [overlayVisible, setOverlayVisible] = useState(true);
   const [overlayOpacity, setOverlayOpacity] = useState(0.42);
   const [overlayFit, setOverlayFit] = useState<OverlayFit>('contain');
+  const [roomEditMode, setRoomEditMode] = useState(false);
+  const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
+  const [roomDraft, setRoomDraft] = useState<RoomGeometryDraft | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -48,6 +67,10 @@ export default function HomeLayoutPage() {
   }, [floorPlans, rooms]);
 
   const activeFloor = measuredFloors.find(floor => floor.name === activeFloorName) ?? measuredFloors[0];
+  const activeFloorRooms = useMemo(() => {
+    if (!activeFloor) return [];
+    return rooms.filter(room => floorForRoom(room, measuredFloors)?.name === activeFloor.name);
+  }, [activeFloor, measuredFloors, rooms]);
   const unplacedItems = items.filter(item => item.roomId === null && item.floorPlanId === null);
 
   const moveItem = async (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => {
@@ -79,6 +102,58 @@ export default function HomeLayoutPage() {
     }
 
     fetchAll();
+    return { ok: true };
+  };
+
+  const selectRoomForEditing = (roomId: number | null) => {
+    setEditingRoomId(roomId);
+    const room = roomId ? rooms.find(entry => entry.id === roomId) : null;
+    setRoomDraft(room ? makeRoomGeometryDraft(room) : null);
+  };
+
+  const toggleRoomEditMode = () => {
+    if (roomEditMode) {
+      setRoomEditMode(false);
+      return;
+    }
+
+    const room = activeFloorRooms.find(entry => entry.id === editingRoomId) ?? activeFloorRooms[0] ?? null;
+    setEditingRoomId(room?.id ?? null);
+    setRoomDraft(room ? makeRoomGeometryDraft(room) : null);
+    setRoomEditMode(true);
+  };
+
+  const selectFloor = (floorName: string) => {
+    setActiveFloorName(floorName);
+    if (!roomEditMode) return;
+
+    const nextFloor = measuredFloors.find(floor => floor.name === floorName);
+    const nextRooms = nextFloor ? rooms.filter(room => floorForRoom(room, measuredFloors)?.name === nextFloor.name) : [];
+    const nextRoom = nextRooms[0] ?? null;
+    setEditingRoomId(nextRoom?.id ?? null);
+    setRoomDraft(nextRoom ? makeRoomGeometryDraft(nextRoom) : null);
+  };
+
+  const saveRoomGeometry = async (draft: RoomGeometryDraft): Promise<SaveResult> => {
+    const res = await fetch('/api/rooms', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: draft.roomId,
+        labelXFt: draft.labelXFt,
+        labelYFt: draft.labelYFt,
+        shapePoints: normaliseDraftPoints(draft.shapePoints),
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Save failed with HTTP ${res.status}` };
+    }
+
+    const saved: Room = await res.json();
+    setRooms(current => current.map(room => room.id === saved.id ? saved : room));
+    setRoomDraft(makeRoomGeometryDraft(saved));
     return { ok: true };
   };
 
@@ -125,7 +200,7 @@ export default function HomeLayoutPage() {
             key={floor.id}
             type="button"
             className={`filter-chip ${floor.name === activeFloor?.name ? 'filter-chip-active' : ''}`}
-            onClick={() => setActiveFloorName(floor.name)}
+            onClick={() => selectFloor(floor.name)}
           >
             {floor.label}
           </button>
@@ -145,6 +220,17 @@ export default function HomeLayoutPage() {
             onFitChange={setOverlayFit}
             onSave={saveFloorPlan}
           />
+          <RoomGeometryControls
+            floorPlan={activeFloor}
+            floorRooms={activeFloorRooms}
+            editMode={roomEditMode}
+            editingRoomId={editingRoomId}
+            roomDraft={roomDraft}
+            onToggleEditMode={toggleRoomEditMode}
+            onSelectRoom={selectRoomForEditing}
+            onDraftChange={setRoomDraft}
+            onSave={saveRoomGeometry}
+          />
           <MeasuredFloorPlan
             floorPlan={activeFloor}
             floorPlans={measuredFloors}
@@ -153,6 +239,11 @@ export default function HomeLayoutPage() {
             overlayVisible={overlayVisible}
             overlayOpacity={overlayOpacity}
             overlayFit={overlayFit}
+            roomEditMode={roomEditMode}
+            editingRoomId={editingRoomId}
+            roomDraft={roomDraft}
+            onSelectRoom={selectRoomForEditing}
+            onRoomDraftChange={setRoomDraft}
             onMoveItem={moveItem}
           />
         </>
@@ -351,6 +442,189 @@ function BlueprintOverlayControls({
   );
 }
 
+function RoomGeometryControls({
+  floorPlan,
+  floorRooms,
+  editMode,
+  editingRoomId,
+  roomDraft,
+  onToggleEditMode,
+  onSelectRoom,
+  onDraftChange,
+  onSave,
+}: {
+  floorPlan: HomeFloorPlan;
+  floorRooms: Room[];
+  editMode: boolean;
+  editingRoomId: number | null;
+  roomDraft: RoomGeometryDraft | null;
+  onToggleEditMode: () => void;
+  onSelectRoom: (roomId: number | null) => void;
+  onDraftChange: (draft: RoomGeometryDraft | null) => void;
+  onSave: (draft: RoomGeometryDraft) => Promise<SaveResult>;
+}) {
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const selectedRoom = floorRooms.find(room => room.id === editingRoomId) ?? null;
+  const editorPoints = selectedRoom && roomDraft ? roomEditorPoints(selectedRoom, roomDraft) : [];
+
+  const updateDraft = (next: Partial<RoomGeometryDraft>) => {
+    if (!roomDraft) return;
+    onDraftChange({ ...roomDraft, ...next });
+  };
+
+  const save = async () => {
+    if (!roomDraft) return;
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = await onSave(roomDraft);
+    if (result.ok) {
+      setSaveState('saved');
+      setSaveMessage('Room outline saved.');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+      return;
+    }
+    setSaveState('error');
+    setSaveMessage(result.message);
+  };
+
+  const setPoint = (index: number, point: PlanPoint) => {
+    if (!selectedRoom || !roomDraft) return;
+    const nextPoints = roomEditorPoints(selectedRoom, roomDraft).map((entry, pointIndex) => pointIndex === index ? point : entry);
+    updateDraft({ shapePoints: nextPoints });
+  };
+
+  const useRectangle = () => {
+    if (!selectedRoom) return;
+    updateDraft({ shapePoints: rectToPoints(planRectForRoom(selectedRoom)) });
+  };
+
+  const addPoint = () => {
+    if (!selectedRoom || !roomDraft) return;
+    const points = roomEditorPoints(selectedRoom, roomDraft);
+    const first = points[0] ?? { x: 0, y: 0 };
+    const last = points[points.length - 1] ?? first;
+    const nextPoint = {
+      x: roundToQuarter((first.x + last.x) / 2),
+      y: roundToQuarter((first.y + last.y) / 2),
+    };
+    updateDraft({ shapePoints: [...points, nextPoint] });
+  };
+
+  const removePoint = () => {
+    if (!selectedRoom || !roomDraft) return;
+    const points = roomEditorPoints(selectedRoom, roomDraft);
+    if (points.length <= 3) return;
+    updateDraft({ shapePoints: points.slice(0, -1) });
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Edit3 size={17} color="var(--color-accent-dark)" />
+            <div>
+              <div className="section-label" style={{ marginBottom: 4 }}>Room outlines</div>
+              <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
+                Shape and label rooms against the blueprint canvas.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleEditMode} disabled={floorRooms.length === 0}>
+              <MousePointer2 size={14} />
+              {editMode ? 'Finish Editing' : 'Edit Rooms'}
+            </button>
+            {editMode && (
+              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!roomDraft || saveState === 'saving'}>
+                <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Room'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {editMode && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.4fr) repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+              <label style={{ display: 'block' }}>
+                <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Room</span>
+                <select value={editingRoomId ?? ''} onChange={event => onSelectRoom(event.target.value ? Number(event.target.value) : null)}>
+                  {floorRooms.map(room => (
+                    <option key={room.id} value={room.id}>{room.name}</option>
+                  ))}
+                </select>
+              </label>
+              <GeometryNumberField
+                label="Label X ft"
+                value={roomDraft?.labelXFt ?? null}
+                min={0}
+                max={floorPlan.widthFt}
+                nullable
+                onChange={value => updateDraft({ labelXFt: value })}
+              />
+              <GeometryNumberField
+                label="Label Y ft"
+                value={roomDraft?.labelYFt ?? null}
+                min={0}
+                max={floorPlan.depthFt}
+                nullable
+                onChange={value => updateDraft({ labelYFt: value })}
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={useRectangle} disabled={!selectedRoom}>
+                  <Grid3X3 size={14} /> Use Rectangle
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={addPoint} disabled={!selectedRoom}>
+                  <Plus size={14} /> Add Point
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={removePoint} disabled={!selectedRoom || editorPoints.length <= 3}>
+                  <Trash2 size={14} /> Remove Point
+                </button>
+              </div>
+            </div>
+
+            {selectedRoom && roomDraft && (
+              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
+                <div className="section-label" style={{ fontSize: 10, marginBottom: 10 }}>Polygon points</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+                  {editorPoints.map((point, index) => (
+                    <div key={`${selectedRoom.id}-${index}`} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr', gap: 8, alignItems: 'end' }}>
+                      <div style={{ height: 38, display: 'grid', placeItems: 'center', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-background)', fontSize: 11, fontWeight: 800 }}>
+                        {index + 1}
+                      </div>
+                      <GeometryNumberField
+                        label="X ft"
+                        value={point.x}
+                        min={0}
+                        max={floorPlan.widthFt}
+                        onChange={value => value !== null && setPoint(index, { ...point, x: value })}
+                      />
+                      <GeometryNumberField
+                        label="Y ft"
+                        value={point.y}
+                        min={0}
+                        max={floorPlan.depthFt}
+                        onChange={value => value !== null && setPoint(index, { ...point, y: value })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {saveMessage && (
+              <span style={{ fontSize: 12, color: saveState === 'error' ? '#b91c1c' : '#1f6b5b', fontWeight: 700 }}>
+                {saveMessage}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MeasuredFloorPlan({
   floorPlan,
   floorPlans,
@@ -359,6 +633,11 @@ function MeasuredFloorPlan({
   overlayVisible,
   overlayOpacity,
   overlayFit,
+  roomEditMode,
+  editingRoomId,
+  roomDraft,
+  onSelectRoom,
+  onRoomDraftChange,
   onMoveItem,
 }: {
   floorPlan: HomeFloorPlan;
@@ -368,10 +647,25 @@ function MeasuredFloorPlan({
   overlayVisible: boolean;
   overlayOpacity: number;
   overlayFit: OverlayFit;
+  roomEditMode: boolean;
+  editingRoomId: number | null;
+  roomDraft: RoomGeometryDraft | null;
+  onSelectRoom: (roomId: number | null) => void;
+  onRoomDraftChange: (draft: RoomGeometryDraft | null) => void;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
 }) {
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const [dragTarget, setDragTarget] = useState<GeometryDragTarget | null>(null);
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
-  const roomRects = floorRooms.map(room => ({ room, rect: planRectForRoom(room) }));
+  const roomShapes = floorRooms.map(room => ({
+    room,
+    points: displayPointsForRoom(room, roomDraft),
+    label: displayLabelPointForRoom(room, roomDraft),
+    selected: room.id === editingRoomId,
+  }));
+  const editingRoom = roomDraft ? floorRooms.find(room => room.id === roomDraft.roomId) ?? null : null;
+  const editingPoints = editingRoom && roomDraft ? roomEditorPoints(editingRoom, roomDraft) : [];
+  const editingLabel = editingRoom && roomDraft ? displayLabelPointForRoom(editingRoom, roomDraft) : null;
   const floorItems = items.filter(item => {
     if (item.floorPlanId === floorPlan.id) return true;
     return item.floorPlanId === null && item.roomId !== null && floorRooms.some(room => room.id === item.roomId);
@@ -384,6 +678,43 @@ function MeasuredFloorPlan({
     y: floorPlan.overlayOffsetYFt ?? 0,
     width: floorPlan.overlayWidthFt ?? floorPlan.widthFt,
     depth: floorPlan.overlayDepthFt ?? floorPlan.depthFt,
+  };
+
+  const pointFromPointer = (event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>) => {
+    if (!surfaceRef.current) return null;
+    const bounds = surfaceRef.current.getBoundingClientRect();
+    return {
+      x: clamp(((event.clientX - bounds.left) / bounds.width) * floorPlan.widthFt, 0, floorPlan.widthFt),
+      y: clamp(((event.clientY - bounds.top) / bounds.height) * floorPlan.depthFt, 0, floorPlan.depthFt),
+    };
+  };
+
+  const updateDraftFromPointer = (event: PointerEvent<HTMLElement>) => {
+    if (!roomEditMode || !roomDraft || !dragTarget) return;
+    const point = pointFromPointer(event);
+    if (!point) return;
+    const roundedPoint = roundPlanPoint(point);
+
+    if (dragTarget.type === 'label') {
+      onRoomDraftChange({ ...roomDraft, labelXFt: roundedPoint.x, labelYFt: roundedPoint.y });
+      return;
+    }
+
+    const selectedRoom = floorRooms.find(room => room.id === roomDraft.roomId);
+    if (!selectedRoom) return;
+    const points = roomEditorPoints(selectedRoom, roomDraft);
+    const nextPoints = points.map((entry, index) => index === dragTarget.index ? roundedPoint : entry);
+    onRoomDraftChange({ ...roomDraft, shapePoints: nextPoints });
+  };
+
+  const setLabelFromClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (!roomEditMode || !roomDraft || dragTarget) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-layout-control="true"]')) return;
+    const point = pointFromPointer(event);
+    if (!point) return;
+    const roundedPoint = roundPlanPoint(point);
+    onRoomDraftChange({ ...roomDraft, labelXFt: roundedPoint.x, labelYFt: roundedPoint.y });
   };
 
   return (
@@ -402,6 +733,7 @@ function MeasuredFloorPlan({
       </div>
       <div className="card-body">
         <div
+          ref={surfaceRef}
           onDragOver={event => event.preventDefault()}
           onDrop={event => {
             const itemId = Number(event.dataTransfer.getData('text/plain'));
@@ -414,9 +746,15 @@ function MeasuredFloorPlan({
             const rawYFt = ((event.clientY - bounds.top) / bounds.height) * floorPlan.depthFt;
             const planXFt = clamp(rawXFt, 0, Math.max(0, floorPlan.widthFt - footprint.widthFt));
             const planYFt = clamp(rawYFt, 0, Math.max(0, floorPlan.depthFt - footprint.depthFt));
-            const target = roomRects.find(({ rect }) => containsPoint(rect, planXFt, planYFt));
+            const centerXFt = planXFt + footprint.widthFt / 2;
+            const centerYFt = planYFt + footprint.depthFt / 2;
+            const target = roomShapes.find(({ points }) => containsPlanPoint(points, centerXFt, centerYFt));
             onMoveItem(item, floorPlan.id, target?.room.id ?? null, planXFt, planYFt);
           }}
+          onPointerMove={updateDraftFromPointer}
+          onPointerUp={() => setDragTarget(null)}
+          onPointerCancel={() => setDragTarget(null)}
+          onClick={setLabelFromClick}
           style={{
             position: 'relative',
             width: '100%',
@@ -474,18 +812,138 @@ function MeasuredFloorPlan({
               }}
             />
           ))}
-          {roomRects.map(({ room, rect }) => (
-            <RoomZone key={room.id} room={room} rect={rect} floorPlan={floorPlan} />
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: roomEditMode ? 'auto' : 'none' }}
+          >
+            {roomShapes.map(({ room, points, selected }) => (
+              <polygon
+                key={room.id}
+                points={pointsToSvg(points, floorPlan)}
+                fill={selected ? 'rgba(31,107,91,0.14)' : 'rgba(255,255,255,0.12)'}
+                stroke={selected ? '#1f6b5b' : 'rgba(92,86,72,0.54)'}
+                strokeWidth={selected ? 0.55 : 0.32}
+                vectorEffect="non-scaling-stroke"
+                style={{ cursor: roomEditMode ? 'pointer' : 'default' }}
+                onClick={event => {
+                  if (!roomEditMode) return;
+                  event.stopPropagation();
+                  onSelectRoom(room.id);
+                }}
+              />
+            ))}
+          </svg>
+          {roomShapes.map(({ room, label, selected }) => (
+            <button
+              key={`label-${room.id}`}
+              type="button"
+              data-layout-control="true"
+              aria-label={`Select ${room.name}`}
+              onClick={event => {
+                if (!roomEditMode) return;
+                event.stopPropagation();
+                onSelectRoom(room.id);
+              }}
+              disabled={!roomEditMode}
+              style={{
+                position: 'absolute',
+                left: `${(label.x / floorPlan.widthFt) * 100}%`,
+                top: `${(label.y / floorPlan.depthFt) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 3,
+                maxWidth: 142,
+                border: selected ? '1px solid #1f6b5b' : '1px solid rgba(92,86,72,0.22)',
+                borderRadius: 999,
+                background: selected ? 'rgba(226,243,235,0.96)' : 'rgba(255,252,247,0.88)',
+                color: 'var(--color-foreground)',
+                padding: '4px 8px',
+                fontSize: 10,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                pointerEvents: roomEditMode ? 'auto' : 'none',
+                cursor: roomEditMode ? 'pointer' : 'default',
+                boxShadow: selected ? '0 2px 8px rgba(31,107,91,0.18)' : '0 1px 4px rgba(28,25,23,0.08)',
+              }}
+            >
+              {room.name}
+            </button>
           ))}
+          {roomEditMode && roomDraft && editingRoom && editingPoints.map((point, index) => (
+            <button
+              key={`handle-${roomDraft.roomId}-${index}`}
+              type="button"
+              data-layout-control="true"
+              aria-label={`Move room point ${index + 1}`}
+              onPointerDown={event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setDragTarget({ type: 'point', index });
+              }}
+              style={{
+                position: 'absolute',
+                left: `${(point.x / floorPlan.widthFt) * 100}%`,
+                top: `${(point.y / floorPlan.depthFt) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 5,
+                width: 16,
+                height: 16,
+                borderRadius: 999,
+                border: '2px solid #1f6b5b',
+                background: '#fffaf3',
+                boxShadow: '0 2px 8px rgba(28,25,23,0.18)',
+                cursor: 'grab',
+                padding: 0,
+              }}
+            />
+          ))}
+          {roomEditMode && roomDraft && editingLabel && (
+            <button
+              type="button"
+              data-layout-control="true"
+              aria-label="Move room label"
+              onPointerDown={event => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setDragTarget({ type: 'label' });
+              }}
+              style={{
+                position: 'absolute',
+                left: `${(editingLabel.x / floorPlan.widthFt) * 100}%`,
+                top: `${(editingLabel.y / floorPlan.depthFt) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 6,
+                width: 22,
+                height: 22,
+                borderRadius: 999,
+                border: '2px solid #1f6b5b',
+                background: 'rgba(255,250,243,0.94)',
+                boxShadow: '0 2px 8px rgba(28,25,23,0.18)',
+                cursor: 'grab',
+                padding: 0,
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              <MousePointer2 size={12} color="#1f6b5b" />
+            </button>
+          )}
           {floorItems.map((item, index) => {
             const room = floorRooms.find(entry => entry.id === item.roomId);
-            const rect = room ? planRectForRoom(room) : null;
+            const defaultPoint = room ? planLabelPointForRoom(room) : null;
             const footprint = itemFootprint(item);
-            const defaultX = rect
-              ? rect.x + 1 + (index % 2) * Math.min(footprint.widthFt + 1, Math.max(rect.width / 3, 2))
+            const defaultX = defaultPoint
+              ? defaultPoint.x - footprint.widthFt / 2 + (index % 2) * Math.min(footprint.widthFt + 1, 3)
               : 2 + (index % 4) * 3;
-            const defaultY = rect
-              ? rect.y + 1 + Math.floor(index / 2) * Math.min(footprint.depthFt + 1, Math.max(rect.depth / 4, 2))
+            const defaultY = defaultPoint
+              ? defaultPoint.y - footprint.depthFt / 2 + Math.floor(index / 2) * Math.min(footprint.depthFt + 1, 3)
               : 2 + Math.floor(index / 4) * 3;
             const x = clamp(item.planXFt ?? defaultX, 0, Math.max(0, floorPlan.widthFt - footprint.widthFt));
             const y = clamp(item.planYFt ?? defaultY, 0, Math.max(0, floorPlan.depthFt - footprint.depthFt));
@@ -515,33 +973,129 @@ function MeasuredFloorPlan({
   );
 }
 
-function RoomZone({ room, rect, floorPlan }: { room: Room; rect: PlanRect; floorPlan: HomeFloorPlan }) {
+function GeometryNumberField({
+  label,
+  value,
+  min,
+  max,
+  nullable = false,
+  onChange,
+}: {
+  label: string;
+  value: number | null;
+  min?: number;
+  max?: number;
+  nullable?: boolean;
+  onChange: (value: number | null) => void;
+}) {
+  const [draft, setDraft] = useState(formatNumberInput(value));
+
+  useEffect(() => {
+    setDraft(formatNumberInput(value));
+  }, [value]);
+
+  const commit = () => {
+    const parsed = nullableNumber(draft);
+    if (parsed === null) {
+      if (nullable) {
+        onChange(null);
+        setDraft('');
+        return;
+      }
+      setDraft(formatNumberInput(value));
+      return;
+    }
+
+    const next = roundToQuarter(clamp(parsed, min ?? Number.NEGATIVE_INFINITY, max ?? Number.POSITIVE_INFINITY));
+    onChange(next);
+    setDraft(formatNumberInput(next));
+  };
+
   return (
-    <div
-      style={{
-        position: 'absolute',
-        left: `${(rect.x / floorPlan.widthFt) * 100}%`,
-        top: `${(rect.y / floorPlan.depthFt) * 100}%`,
-        width: `${(rect.width / floorPlan.widthFt) * 100}%`,
-        height: `${(rect.depth / floorPlan.depthFt) * 100}%`,
-        border: '2px solid rgba(92,86,72,0.48)',
-        background: 'rgba(255,255,255,0.14)',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.72)',
-        overflow: 'hidden',
-        pointerEvents: 'none',
-        zIndex: 2,
-      }}
-    >
-      <div style={{ padding: 8, minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--color-foreground)', textTransform: 'uppercase', letterSpacing: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {room.name}
-        </div>
-        <div style={{ fontSize: 10, color: 'var(--color-secondary)', marginTop: 3 }}>
-          {formatFt(rect.width)} x {formatFt(rect.depth)}
-        </div>
-      </div>
-    </div>
+    <label style={{ display: 'block' }}>
+      <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>{label}</span>
+      <input
+        value={draft}
+        onChange={event => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={event => {
+          if (event.key === 'Enter') event.currentTarget.blur();
+        }}
+        type="number"
+        min={min}
+        max={max}
+        step="0.25"
+      />
+    </label>
   );
+}
+
+function makeRoomGeometryDraft(room: Room): RoomGeometryDraft {
+  return {
+    roomId: room.id,
+    shapePoints: normaliseDraftPoints(room.shapePoints),
+    labelXFt: room.labelXFt,
+    labelYFt: room.labelYFt,
+  };
+}
+
+function normaliseDraftPoints(points: PlanPoint[] | null | undefined) {
+  if (!Array.isArray(points)) return null;
+  const nextPoints = points
+    .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .map(roundPlanPoint);
+  return nextPoints.length >= 3 ? nextPoints : null;
+}
+
+function roomEditorPoints(room: Room, draft: RoomGeometryDraft) {
+  return draft.shapePoints && draft.shapePoints.length >= 3 ? draft.shapePoints : planPointsForRoom(room);
+}
+
+function displayPointsForRoom(room: Room, draft: RoomGeometryDraft | null) {
+  return draft?.roomId === room.id ? roomEditorPoints(room, draft) : planPointsForRoom(room);
+}
+
+function displayLabelPointForRoom(room: Room, draft: RoomGeometryDraft | null) {
+  if (draft?.roomId === room.id) {
+    if (Number.isFinite(draft.labelXFt) && Number.isFinite(draft.labelYFt)) {
+      return { x: draft.labelXFt as number, y: draft.labelYFt as number };
+    }
+    return averagePoint(displayPointsForRoom(room, draft));
+  }
+
+  return planLabelPointForRoom(room);
+}
+
+function rectToPoints(rect: PlanRect): PlanPoint[] {
+  return [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y + rect.depth },
+    { x: rect.x, y: rect.y + rect.depth },
+  ];
+}
+
+function pointsToSvg(points: PlanPoint[], floorPlan: HomeFloorPlan) {
+  return points
+    .map(point => `${(point.x / floorPlan.widthFt) * 100},${(point.y / floorPlan.depthFt) * 100}`)
+    .join(' ');
+}
+
+function averagePoint(points: PlanPoint[]) {
+  if (points.length === 0) return { x: 0, y: 0 };
+  const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
+  return { x: sum.x / points.length, y: sum.y / points.length };
+}
+
+function roundPlanPoint(point: PlanPoint): PlanPoint {
+  return {
+    x: roundToQuarter(point.x),
+    y: roundToQuarter(point.y),
+  };
+}
+
+function formatNumberInput(value: number | null | undefined) {
+  return value === null || value === undefined ? '' : String(value);
 }
 
 function PlacedItem({
@@ -561,6 +1115,7 @@ function PlacedItem({
 }) {
   return (
     <button
+      data-layout-control="true"
       draggable
       onDragStart={event => event.dataTransfer.setData('text/plain', String(item.id))}
       title={`${item.itemName} · ${formatFt(width)} x ${formatFt(depth)}`}
@@ -619,10 +1174,6 @@ function gridLines(max: number) {
   const lines = [];
   for (let line = 0; line <= max; line += 5) lines.push(line);
   return lines;
-}
-
-function containsPoint(rect: PlanRect, x: number, y: number) {
-  return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.depth;
 }
 
 function clamp(value: number, min: number, max: number) {

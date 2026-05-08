@@ -17,6 +17,9 @@ const mockRoom = {
   name: 'Living Room',
   floor: 'Main',
   notes: null,
+  label_x_ft: 12.5,
+  label_y_ft: 8,
+  shape_points: [{ x: 1, y: 1 }, { x: 5, y: 1 }, { x: 5, y: 4 }],
   sort_index: 0,
 };
 
@@ -32,6 +35,8 @@ describe('GET /api/rooms', () => {
     const res = await GET();
     const body = await res.json();
     expect(body[0].name).toBe('Living Room');
+    expect(body[0].labelXFt).toBe(12.5);
+    expect(body[0].shapePoints).toHaveLength(3);
   });
 });
 

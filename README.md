@@ -1,6 +1,6 @@
 # Starland™ Moving
 
-A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel house-planning work: purchase/loan timeline tracking, document links, room planning, a crude visual layout planner, and future house projects. It also includes a dedicated car-planning workspace for assigning people, pets, and cargo across multiple vehicles. Access is gated by Google OAuth with a per-deployment email allowlist (`ALLOWED_EMAILS`), while private documents are intended to be stored as secure external links such as Google Drive URLs.
+A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold Spring, NY in summer 2026. The app now covers both the move itself and parallel house-planning work: purchase/loan timeline tracking, document links, room planning, a blueprint-based visual layout planner, and future house projects. It also includes a dedicated car-planning workspace for assigning people, pets, and cargo across multiple vehicles. Access is gated by Google OAuth with a per-deployment email allowlist (`ALLOWED_EMAILS`), while private documents are intended to be stored as secure external links such as Google Drive URLs.
 
 ## Stack
 
@@ -30,7 +30,7 @@ The UI uses a minimal, cozy planning aesthetic: warm paper background (`#f7f3ed`
 | **House Tasks** | `/home/tasks` | Redirects to the consolidated Tasks view filtered to house-planning areas |
 | **House Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
 | **Rooms** | `/home/rooms` | Room-by-room planning for existing brought items and planned purchases |
-| **Visual Layout** | `/home/layout` | Crude drag-and-drop room layout planner built on top of saved rooms and room items |
+| **Visual Layout** | `/home/layout` | Blueprint overlay planner with measured floor canvases, editable room outlines, labels, and draggable room items |
 | **Projects** | `/home/projects` | Future home improvement and renovation planning |
 
 ## Core Concepts
@@ -183,6 +183,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-measured-layout.sql](supabase-measured-layout.sql) — adds measured floor-plan, room, and room-item layout fields
 - [supabase-blueprint-overlays.sql](supabase-blueprint-overlays.sql) — updates existing measured floor plans to 50x50 canvases and bundled blueprint overlay asset paths
 - [supabase-floor-item-placement.sql](supabase-floor-item-placement.sql) — links room items directly to floor plans so items can be placed anywhere on a measured floor canvas
+- [supabase-room-geometry.sql](supabase-room-geometry.sql) — adds room label coordinates and polygon room outlines for blueprint-aligned planning
 - [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on the app tables
 
 ## Running Locally
@@ -202,9 +203,9 @@ npm run dev
 
 The dev server binds to `0.0.0.0:3000`.
 
-## Blueprint Overlays
+## Blueprint Layout
 
-The Visual Layout page uses bundled blueprint overlay PNGs from `public/blueprints/`. These files are committed to the repo and deploy with the app, so hosted environments can load them directly from paths such as `/blueprints/second-floor.png`.
+The Visual Layout page uses bundled blueprint overlay PNGs from `public/blueprints/`. These files are committed to the repo and deploy with the app, so hosted environments can load them directly from paths such as `/blueprints/second-floor.png`. Rooms can be shaped as polygons over the blueprint and labeled independently from their saved dimensions. Room items are placed on the measured floor canvas and assigned to a room when their center point lands inside that room outline.
 
 ## Tests
 

@@ -1,4 +1,4 @@
-import { HomeFloorPlan, Room, RoomItem } from '@/lib/types';
+import { HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
 
 export type PlanRect = {
   x: number;
@@ -176,6 +176,46 @@ export function planRectForRoom(room: Room): PlanRect {
   return DEFAULT_ROOM_RECTS[room.name] ?? { x: 4, y: 4, width: 14, depth: 10 };
 }
 
+export function planPointsForRoom(room: Room): PlanPoint[] {
+  if (Array.isArray(room.shapePoints) && room.shapePoints.length >= 3) {
+    const points = room.shapePoints.filter(isPlanPoint);
+    if (points.length >= 3) return points;
+  }
+
+  const rect = planRectForRoom(room);
+  return [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y + rect.depth },
+    { x: rect.x, y: rect.y + rect.depth },
+  ];
+}
+
+export function planLabelPointForRoom(room: Room): PlanPoint {
+  if (isFiniteNumber(room.labelXFt) && isFiniteNumber(room.labelYFt)) {
+    return { x: room.labelXFt, y: room.labelYFt };
+  }
+
+  const points = planPointsForRoom(room);
+  return polygonCentroid(points);
+}
+
+export function containsPlanPoint(points: PlanPoint[], x: number, y: number) {
+  if (points.length < 3) return false;
+
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+    const xi = points[i].x;
+    const yi = points[i].y;
+    const xj = points[j].x;
+    const yj = points[j].y;
+    const intersects = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
 export function itemFootprint(item: RoomItem) {
   const parsed = parseDimensions(item.dimensions);
   const widthIn = item.widthIn ?? parsed?.widthIn ?? estimateWidthIn(item);
@@ -238,6 +278,22 @@ function estimateDepthIn(item: RoomItem) {
   if (label.includes('shelves') || label.includes('bookcase')) return 16;
   if (label.includes('peloton') || label.includes('bike')) return 24;
   return 30;
+}
+
+function polygonCentroid(points: PlanPoint[]) {
+  if (points.length === 0) return { x: 0, y: 0 };
+
+  const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
+  return {
+    x: sum.x / points.length,
+    y: sum.y / points.length,
+  };
+}
+
+function isPlanPoint(value: unknown): value is PlanPoint {
+  if (!value || typeof value !== 'object') return false;
+  const point = value as PlanPoint;
+  return isFiniteNumber(point.x) && isFiniteNumber(point.y);
 }
 
 function isFiniteNumber(value: unknown): value is number {

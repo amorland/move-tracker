@@ -32,8 +32,10 @@ export async function POST(request: Request) {
     plan_y_ft: body.planYFt ?? null,
     plan_width_ft: body.planWidthFt ?? null,
     plan_depth_ft: body.planDepthFt ?? null,
+    label_x_ft: body.labelXFt ?? null,
+    label_y_ft: body.labelYFt ?? null,
     ceiling_height_ft: body.ceilingHeightFt ?? null,
-    shape_points: body.shapePoints ?? null,
+    shape_points: normaliseShapePoints(body.shapePoints),
     sort_index: (last?.sort_index ?? -1) + 1,
   };
 
@@ -71,8 +73,10 @@ export async function PATCH(request: Request) {
   if ('planYFt' in rest) update.plan_y_ft = rest.planYFt;
   if ('planWidthFt' in rest) update.plan_width_ft = rest.planWidthFt;
   if ('planDepthFt' in rest) update.plan_depth_ft = rest.planDepthFt;
+  if ('labelXFt' in rest) update.label_x_ft = rest.labelXFt;
+  if ('labelYFt' in rest) update.label_y_ft = rest.labelYFt;
   if ('ceilingHeightFt' in rest) update.ceiling_height_ft = rest.ceilingHeightFt;
-  if ('shapePoints' in rest) update.shape_points = rest.shapePoints;
+  if ('shapePoints' in rest) update.shape_points = normaliseShapePoints(rest.shapePoints);
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
 
   let { data, error } = await supabase
@@ -119,8 +123,10 @@ function normalise(row: Record<string, unknown>) {
     planYFt: nullableNumber(row.plan_y_ft ?? row.planYFt),
     planWidthFt: nullableNumber(row.plan_width_ft ?? row.planWidthFt),
     planDepthFt: nullableNumber(row.plan_depth_ft ?? row.planDepthFt),
+    labelXFt: nullableNumber(row.label_x_ft ?? row.labelXFt),
+    labelYFt: nullableNumber(row.label_y_ft ?? row.labelYFt),
     ceilingHeightFt: nullableNumber(row.ceiling_height_ft ?? row.ceilingHeightFt),
-    shapePoints: row.shape_points ?? row.shapePoints ?? null,
+    shapePoints: normaliseShapePoints(row.shape_points ?? row.shapePoints),
     sortIndex: row.sort_index ?? row.sortIndex ?? 0,
   };
 }
@@ -132,7 +138,7 @@ function nullableNumber(value: unknown) {
 }
 
 function isMissingMeasuredColumnError(error: { code?: string; message?: string }) {
-  return error.code === '42703' || error.code === 'PGRST204' || /plan_|floor_plan_id|shape_points|ceiling_height_ft/i.test(error.message ?? '');
+  return error.code === '42703' || error.code === 'PGRST204' || /plan_|label_|floor_plan_id|shape_points|ceiling_height_ft/i.test(error.message ?? '');
 }
 
 function stripMeasuredRoomFields(update: Record<string, unknown>) {
@@ -142,7 +148,34 @@ function stripMeasuredRoomFields(update: Record<string, unknown>) {
   delete legacyUpdate.plan_y_ft;
   delete legacyUpdate.plan_width_ft;
   delete legacyUpdate.plan_depth_ft;
+  delete legacyUpdate.label_x_ft;
+  delete legacyUpdate.label_y_ft;
   delete legacyUpdate.ceiling_height_ft;
   delete legacyUpdate.shape_points;
   return legacyUpdate;
+}
+
+function normaliseShapePoints(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = typeof value === 'string' ? safeJsonParse(value) : value;
+  if (!Array.isArray(parsed)) return null;
+
+  const points = parsed
+    .map(point => {
+      if (!point || typeof point !== 'object') return null;
+      const x = Number((point as { x?: unknown }).x);
+      const y = Number((point as { y?: unknown }).y);
+      return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+    })
+    .filter((point): point is { x: number; y: number } => point !== null);
+
+  return points.length >= 3 ? points : null;
+}
+
+function safeJsonParse(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
