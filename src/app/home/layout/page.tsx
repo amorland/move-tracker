@@ -11,7 +11,7 @@ import {
   planRectForRoom,
   PlanRect,
 } from '@/lib/homeLayout';
-import { HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
+import { ArchitecturalElement, ArchitecturalElementType, HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
 import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +35,30 @@ type RoomItemLayoutUpdate = {
   planXFt?: number | null;
   planYFt?: number | null;
 };
+type ArchitecturalElementUpdate = {
+  floorPlanId?: number;
+  roomId?: number | null;
+  elementType?: ArchitecturalElementType;
+  label?: string;
+  xFt?: number;
+  yFt?: number;
+  widthFt?: number;
+  depthFt?: number;
+  rotationDeg?: number;
+  notes?: string | null;
+};
+type ArchitecturalElementDraft = {
+  floorPlanId: number;
+  roomId: number | null;
+  elementType: ArchitecturalElementType;
+  label: string;
+  xFt: number;
+  yFt: number;
+  widthFt: number;
+  depthFt: number;
+  rotationDeg: number;
+  notes: string;
+};
 type LayoutAutomationMode = 'items' | 'rooms' | 'reflow';
 type LayoutAutomationStats = {
   layout?: {
@@ -55,6 +79,7 @@ type LayoutAutomationStats = {
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [items, setItems] = useState<RoomItem[]>([]);
+  const [architecturalElements, setArchitecturalElements] = useState<ArchitecturalElement[]>([]);
   const [floorPlans, setFloorPlans] = useState<HomeFloorPlan[]>([]);
   const [activeFloorName, setActiveFloorName] = useState<string | null>(null);
   const [overlayVisible, setOverlayVisible] = useState(true);
@@ -64,27 +89,31 @@ export default function HomeLayoutPage() {
   const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
   const [roomDraft, setRoomDraft] = useState<RoomGeometryDraft | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [selectedElementId, setSelectedElementId] = useState<number | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [automationBusy, setAutomationBusy] = useState<LayoutAutomationMode | null>(null);
   const [automationMessage, setAutomationMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    const [roomsRes, itemsRes, floorPlansRes] = await Promise.all([
+    const [roomsRes, itemsRes, elementsRes, floorPlansRes] = await Promise.all([
       fetch('/api/rooms'),
       fetch('/api/room-items'),
+      fetch('/api/architectural-elements'),
       fetch('/api/home-floor-plans'),
     ]);
     const nextRooms: Room[] = await roomsRes.json();
     const nextItems: RoomItem[] = await itemsRes.json();
+    const nextElements: ArchitecturalElement[] = elementsRes.ok ? await elementsRes.json() : [];
     const nextFloorPlans: HomeFloorPlan[] = floorPlansRes.ok ? await floorPlansRes.json() : [];
 
     setRooms(nextRooms);
     setItems(nextItems);
+    setArchitecturalElements(nextElements);
     setFloorPlans(nextFloorPlans);
     setActiveFloorName(current => current ?? (nextFloorPlans[0]?.name ?? fallbackFloorPlansForRooms(nextRooms)[0]?.name ?? null));
     setLoading(false);
-    return { rooms: nextRooms, items: nextItems, floorPlans: nextFloorPlans };
+    return { rooms: nextRooms, items: nextItems, architecturalElements: nextElements, floorPlans: nextFloorPlans };
   }, []);
 
   useEffect(() => {
@@ -103,6 +132,8 @@ export default function HomeLayoutPage() {
   }, [activeFloor, measuredFloors, rooms]);
   const unplacedItems = items.filter(item => item.roomId === null && item.floorPlanId === null);
   const selectedItem = items.find(item => item.id === selectedItemId) ?? null;
+  const activeFloorElements = activeFloor ? architecturalElements.filter(element => element.floorPlanId === activeFloor.id) : [];
+  const selectedElement = architecturalElements.find(element => element.id === selectedElementId) ?? null;
   const selectedItemRoom = selectedItem?.roomId ? rooms.find(room => room.id === selectedItem.roomId) ?? null : null;
   const selectedItemFloor = selectedItem?.floorPlanId
     ? measuredFloors.find(floor => floor.id === selectedItem.floorPlanId) ?? null
@@ -112,6 +143,7 @@ export default function HomeLayoutPage() {
 
   const moveItem = async (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => {
     setSelectedItemId(item.id);
+    setSelectedElementId(null);
     await fetch('/api/room-items', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -140,6 +172,53 @@ export default function HomeLayoutPage() {
 
     const saved: RoomItem = await res.json();
     setItems(current => current.map(item => item.id === saved.id ? saved : item));
+    return { ok: true };
+  };
+
+  const createArchitecturalElement = async (draft: ArchitecturalElementDraft): Promise<SaveResult> => {
+    const res = await fetch('/api/architectural-elements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...draft, notes: draft.notes.trim() || null }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Create failed with HTTP ${res.status}` };
+    }
+
+    const saved: ArchitecturalElement = await res.json();
+    setArchitecturalElements(current => [...current, saved]);
+    setSelectedElementId(saved.id);
+    return { ok: true };
+  };
+
+  const saveArchitecturalElement = async (elementId: number, update: ArchitecturalElementUpdate): Promise<SaveResult> => {
+    const res = await fetch('/api/architectural-elements', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: elementId, ...update }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Save failed with HTTP ${res.status}` };
+    }
+
+    const saved: ArchitecturalElement = await res.json();
+    setArchitecturalElements(current => current.map(element => element.id === saved.id ? saved : element));
+    return { ok: true };
+  };
+
+  const deleteArchitecturalElement = async (elementId: number): Promise<SaveResult> => {
+    const res = await fetch(`/api/architectural-elements?id=${elementId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Delete failed with HTTP ${res.status}` };
+    }
+
+    setArchitecturalElements(current => current.filter(element => element.id !== elementId));
+    setSelectedElementId(null);
     return { ok: true };
   };
 
@@ -346,6 +425,16 @@ export default function HomeLayoutPage() {
             onSave={saveRoomGeometry}
             onResetSuggested={resetRoomToSuggestedOutline}
           />
+          <ArchitecturalElementControls
+            key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}` : `new-${activeFloor.id}`}
+            floorPlan={activeFloor}
+            floorRooms={activeFloorRooms}
+            selectedElement={selectedElement?.floorPlanId === activeFloor.id ? selectedElement : null}
+            onCreate={createArchitecturalElement}
+            onSave={saveArchitecturalElement}
+            onDelete={deleteArchitecturalElement}
+            onClear={() => setSelectedElementId(null)}
+          />
           <SelectedItemControls
             key={selectedItem ? `${selectedItem.id}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
             item={selectedItem}
@@ -370,7 +459,16 @@ export default function HomeLayoutPage() {
             onSelectRoom={selectRoomForEditing}
             onRoomDraftChange={setRoomDraft}
             selectedItemId={selectedItemId}
-            onSelectItem={setSelectedItemId}
+            selectedElementId={selectedElementId}
+            onSelectItem={itemId => {
+              setSelectedItemId(itemId);
+              setSelectedElementId(null);
+            }}
+            architecturalElements={activeFloorElements}
+            onSelectArchitecturalElement={elementId => {
+              setSelectedElementId(elementId);
+              setSelectedItemId(null);
+            }}
             snapToGrid={snapToGrid}
             onMoveItem={moveItem}
           />
@@ -826,6 +924,175 @@ function RoomGeometryControls({
   );
 }
 
+function ArchitecturalElementControls({
+  floorPlan,
+  floorRooms,
+  selectedElement,
+  onCreate,
+  onSave,
+  onDelete,
+  onClear,
+}: {
+  floorPlan: HomeFloorPlan;
+  floorRooms: Room[];
+  selectedElement: ArchitecturalElement | null;
+  onCreate: (draft: ArchitecturalElementDraft) => Promise<SaveResult>;
+  onSave: (elementId: number, update: ArchitecturalElementUpdate) => Promise<SaveResult>;
+  onDelete: (elementId: number) => Promise<SaveResult>;
+  onClear: () => void;
+}) {
+  const [draft, setDraft] = useState(() => makeArchitecturalElementDraft(selectedElement, floorPlan, floorRooms));
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const canPersist = floorPlan.id > 0;
+
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      setDraft(makeArchitecturalElementDraft(selectedElement, floorPlan, floorRooms));
+      setSaveState('idle');
+      setSaveMessage(null);
+    });
+  }, [floorPlan, floorRooms, selectedElement]);
+
+  const updateType = (elementType: ArchitecturalElementType) => {
+    const dimensions = defaultArchitecturalElementDimensions(elementType);
+    setDraft(current => ({
+      ...current,
+      elementType,
+      label: selectedElement ? current.label : labelForArchitecturalElementType(elementType),
+      widthFt: dimensions.widthFt,
+      depthFt: dimensions.depthFt,
+    }));
+  };
+
+  const persist = async (nextDraft = draft, message = selectedElement ? 'Architectural element saved.' : 'Architectural element added.') => {
+    if (!canPersist) return;
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = selectedElement
+      ? await onSave(selectedElement.id, architecturalDraftToUpdate(nextDraft))
+      : await onCreate(nextDraft);
+
+    if (result.ok) {
+      setSaveState('saved');
+      setSaveMessage(message);
+      window.setTimeout(() => setSaveState('idle'), 1800);
+      return;
+    }
+
+    setSaveState('error');
+    setSaveMessage(result.message);
+  };
+
+  const moveBy = (dx: number, dy: number) => {
+    const nextDraft = {
+      ...draft,
+      ...clampArchitecturalElementPosition(draft.xFt + dx, draft.yFt + dy, draft.widthFt, draft.depthFt, floorPlan),
+    };
+    setDraft(nextDraft);
+    if (selectedElement) persist(nextDraft, 'Architectural element moved.');
+  };
+
+  const deleteSelected = async () => {
+    if (!selectedElement) return;
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = await onDelete(selectedElement.id);
+    if (result.ok) {
+      setSaveState('idle');
+      setSaveMessage(null);
+      return;
+    }
+    setSaveState('error');
+    setSaveMessage(result.message);
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Grid3X3 size={17} color="var(--color-accent-dark)" />
+            <div>
+              <div className="section-label" style={{ marginBottom: 4 }}>Architectural elements</div>
+              <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
+                Doors, windows, stairs, counters, cabinets, and fixtures.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {selectedElement && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onClear}>
+                <Plus size={14} /> New Element
+              </button>
+            )}
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => persist()} disabled={!canPersist || saveState === 'saving'}>
+              <Save size={14} /> {selectedElement ? 'Save Element' : 'Add Element'}
+            </button>
+            {selectedElement && (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={deleteSelected} disabled={saveState === 'saving'} style={{ color: '#b91c1c' }}>
+                <Trash2 size={14} /> Delete
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, alignItems: 'end' }}>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Type</span>
+            <select value={draft.elementType} onChange={event => updateType(event.target.value as ArchitecturalElementType)}>
+              {ARCHITECTURAL_ELEMENT_TYPES.map(type => (
+                <option key={type} value={type}>{labelForArchitecturalElementType(type)}</option>
+              ))}
+            </select>
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Room</span>
+            <select value={draft.roomId ?? ''} onChange={event => setDraft(current => ({ ...current, roomId: event.target.value ? Number(event.target.value) : null }))}>
+              <option value="">No room</option>
+              {floorRooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+            </select>
+          </label>
+          <label style={{ display: 'block', gridColumn: 'span 2' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Label</span>
+            <input value={draft.label} onChange={event => setDraft(current => ({ ...current, label: event.target.value }))} />
+          </label>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+          <GeometryNumberField label="X ft" value={draft.xFt} min={0} max={Math.max(0, floorPlan.widthFt - draft.widthFt)} onChange={xFt => xFt !== null && setDraft(current => ({ ...current, xFt }))} />
+          <GeometryNumberField label="Y ft" value={draft.yFt} min={0} max={Math.max(0, floorPlan.depthFt - draft.depthFt)} onChange={yFt => yFt !== null && setDraft(current => ({ ...current, yFt }))} />
+          <GeometryNumberField label="Width ft" value={draft.widthFt} min={0.25} max={floorPlan.widthFt} onChange={widthFt => widthFt !== null && setDraft(current => ({ ...current, widthFt }))} />
+          <GeometryNumberField label="Depth ft" value={draft.depthFt} min={0.1} max={floorPlan.depthFt} onChange={depthFt => depthFt !== null && setDraft(current => ({ ...current, depthFt }))} />
+          <GeometryNumberField label="Rotation" value={draft.rotationDeg} min={0} max={359} onChange={rotationDeg => rotationDeg !== null && setDraft(current => ({ ...current, rotationDeg: normaliseRotation(rotationDeg) }))} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <NudgePad label="0.25 ft" disabled={!selectedElement || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx * 0.25, dy * 0.25)} />
+          <NudgePad label="1 ft" disabled={!selectedElement || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx, dy)} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDraft(current => ({ ...current, rotationDeg: normaliseRotation(current.rotationDeg - 15) }))}>
+              <RotateCcw size={14} /> 15
+            </button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDraft(current => ({ ...current, rotationDeg: normaliseRotation(current.rotationDeg + 15) }))}>
+              <RotateCw size={14} /> 15
+            </button>
+          </div>
+        </div>
+
+        {!canPersist && (
+          <span style={{ fontSize: 12, color: '#b45309', fontWeight: 700 }}>Save this floor plan before adding architectural elements.</span>
+        )}
+        {saveMessage && (
+          <span style={{ fontSize: 12, color: saveState === 'error' ? '#b91c1c' : '#1f6b5b', fontWeight: 700 }}>
+            {saveMessage}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SelectedItemControls({
   item,
   room,
@@ -1050,6 +1317,7 @@ function MeasuredFloorPlan({
   floorPlans,
   rooms,
   items,
+  architecturalElements,
   overlayVisible,
   overlayOpacity,
   overlayFit,
@@ -1059,7 +1327,9 @@ function MeasuredFloorPlan({
   onSelectRoom,
   onRoomDraftChange,
   selectedItemId,
+  selectedElementId,
   onSelectItem,
+  onSelectArchitecturalElement,
   snapToGrid,
   onMoveItem,
 }: {
@@ -1067,6 +1337,7 @@ function MeasuredFloorPlan({
   floorPlans: HomeFloorPlan[];
   rooms: Room[];
   items: RoomItem[];
+  architecturalElements: ArchitecturalElement[];
   overlayVisible: boolean;
   overlayOpacity: number;
   overlayFit: OverlayFit;
@@ -1076,7 +1347,9 @@ function MeasuredFloorPlan({
   onSelectRoom: (roomId: number | null) => void;
   onRoomDraftChange: (draft: RoomGeometryDraft | null) => void;
   selectedItemId: number | null;
+  selectedElementId: number | null;
   onSelectItem: (itemId: number) => void;
+  onSelectArchitecturalElement: (elementId: number) => void;
   snapToGrid: boolean;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
 }) {
@@ -1096,6 +1369,7 @@ function MeasuredFloorPlan({
     if (item.floorPlanId === floorPlan.id) return true;
     return item.floorPlanId === null && item.roomId !== null && floorRooms.some(room => room.id === item.roomId);
   });
+  const floorArchitecturalElements = architecturalElements.filter(element => element.floorPlanId === floorPlan.id);
   const gridLinesX = gridLines(floorPlan.widthFt);
   const gridLinesY = gridLines(floorPlan.depthFt);
   const overlaySrc = toBlueprintImageSrc(floorPlan.blueprintImagePath);
@@ -1154,6 +1428,7 @@ function MeasuredFloorPlan({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span className="badge badge-neutral">{floorRooms.length} rooms</span>
+          <span className="badge badge-neutral">{floorArchitecturalElements.length} architectural</span>
           <span className="badge badge-neutral">{floorItems.length} placed items</span>
         </div>
       </div>
@@ -1378,6 +1653,15 @@ function MeasuredFloorPlan({
               <MousePointer2 size={12} color="#1f6b5b" />
             </button>
           )}
+          {floorArchitecturalElements.map(element => (
+            <ArchitecturalElementMarker
+              key={element.id}
+              element={element}
+              floorPlan={floorPlan}
+              selected={element.id === selectedElementId}
+              onSelect={() => onSelectArchitecturalElement(element.id)}
+            />
+          ))}
           {floorItems.map((item, index) => {
             const room = floorRooms.find(entry => entry.id === item.roomId);
             const defaultPoint = room ? planLabelPointForRoom(room) : null;
@@ -1732,6 +2016,90 @@ function PlacedItem({
   );
 }
 
+function ArchitecturalElementMarker({
+  element,
+  floorPlan,
+  selected,
+  onSelect,
+}: {
+  element: ArchitecturalElement;
+  floorPlan: HomeFloorPlan;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const style = architecturalElementStyle(element.elementType);
+  return (
+    <button
+      type="button"
+      data-layout-control="true"
+      onClick={event => {
+        event.stopPropagation();
+        onSelect();
+      }}
+      title={`${element.label} · ${labelForArchitecturalElementType(element.elementType)}`}
+      style={{
+        position: 'absolute',
+        left: `${(element.xFt / floorPlan.widthFt) * 100}%`,
+        top: `${(element.yFt / floorPlan.depthFt) * 100}%`,
+        width: `${(element.widthFt / floorPlan.widthFt) * 100}%`,
+        height: `${(element.depthFt / floorPlan.depthFt) * 100}%`,
+        minWidth: style.minWidth,
+        minHeight: style.minHeight,
+        borderRadius: style.borderRadius,
+        border: selected ? '2px solid #1f6b5b' : style.border,
+        background: style.background,
+        color: style.color,
+        padding: 3,
+        overflow: 'hidden',
+        boxShadow: selected ? '0 0 0 3px rgba(31,107,91,0.18), var(--shadow-sm)' : 'var(--shadow-sm)',
+        cursor: 'pointer',
+        transform: `rotate(${element.rotationDeg}deg)`,
+        transformOrigin: 'center',
+        zIndex: selected ? 7 : 4,
+      }}
+    >
+      <ArchitecturalElementGlyph element={element} />
+    </button>
+  );
+}
+
+function ArchitecturalElementGlyph({ element }: { element: ArchitecturalElement }) {
+  if (element.elementType === 'door') {
+    return (
+      <>
+        <span aria-hidden="true" style={{ position: 'absolute', left: 2, top: 2, bottom: 2, borderLeft: '2px solid #7a553a' }} />
+        <span aria-hidden="true" style={{ position: 'absolute', left: 2, top: 2, width: '72%', height: '72%', border: '1px solid rgba(122,85,58,0.42)', borderLeft: 'none', borderBottom: 'none', borderRadius: '0 999px 0 0' }} />
+      </>
+    );
+  }
+
+  if (element.elementType === 'window') {
+    return (
+      <span aria-hidden="true" style={{ position: 'absolute', inset: '35% 4px', borderTop: '2px solid #356c89', borderBottom: '2px solid #356c89' }} />
+    );
+  }
+
+  if (element.elementType === 'stairs') {
+    return (
+      <span aria-hidden="true" style={{ position: 'absolute', inset: 4, display: 'grid', gridTemplateRows: 'repeat(6, 1fr)', gap: 2 }}>
+        {Array.from({ length: 6 }).map((_, index) => <span key={index} style={{ borderTop: '1px solid rgba(85,117,139,0.72)' }} />)}
+      </span>
+    );
+  }
+
+  if (element.elementType === 'sink' || element.elementType === 'toilet') {
+    return <span aria-hidden="true" style={{ position: 'absolute', inset: '20%', border: '1px solid rgba(53,108,137,0.55)', borderRadius: element.elementType === 'toilet' ? '50% 50% 42% 42%' : 999, background: 'rgba(255,255,255,0.52)' }} />;
+  }
+
+  if (element.elementType === 'shower' || element.elementType === 'tub') {
+    return <span aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(53,108,137,0.52)', borderRadius: element.elementType === 'tub' ? 999 : 4, background: 'rgba(255,255,255,0.28)' }} />;
+  }
+
+  return (
+    <span aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(92,86,72,0.24)', background: 'rgba(255,255,255,0.24)', borderRadius: 4 }} />
+  );
+}
+
 function LayoutChip({ item, selected, onSelect }: { item: RoomItem; selected: boolean; onSelect: () => void }) {
   const footprint = itemFootprint(item);
   return (
@@ -1758,6 +2126,110 @@ function LayoutChip({ item, selected, onSelect }: { item: RoomItem; selected: bo
       </div>
     </button>
   );
+}
+
+const ARCHITECTURAL_ELEMENT_TYPES: ArchitecturalElementType[] = ['door', 'window', 'opening', 'stairs', 'counter', 'cabinet', 'sink', 'toilet', 'shower', 'tub', 'appliance', 'fixture'];
+
+function makeArchitecturalElementDraft(
+  element: ArchitecturalElement | null,
+  floorPlan: HomeFloorPlan,
+  floorRooms: Room[],
+): ArchitecturalElementDraft {
+  if (element) {
+    return {
+      floorPlanId: element.floorPlanId,
+      roomId: element.roomId,
+      elementType: element.elementType,
+      label: element.label,
+      xFt: element.xFt,
+      yFt: element.yFt,
+      widthFt: element.widthFt,
+      depthFt: element.depthFt,
+      rotationDeg: element.rotationDeg,
+      notes: element.notes ?? '',
+    };
+  }
+
+  const defaultType: ArchitecturalElementType = 'door';
+  const dimensions = defaultArchitecturalElementDimensions(defaultType);
+  const firstRoomCenter = floorRooms[0] ? planLabelPointForRoom(floorRooms[0]) : { x: floorPlan.widthFt / 2, y: floorPlan.depthFt / 2 };
+  const position = clampArchitecturalElementPosition(
+    firstRoomCenter.x - dimensions.widthFt / 2,
+    firstRoomCenter.y - dimensions.depthFt / 2,
+    dimensions.widthFt,
+    dimensions.depthFt,
+    floorPlan,
+  );
+
+  return {
+    floorPlanId: floorPlan.id,
+    roomId: floorRooms[0]?.id ?? null,
+    elementType: defaultType,
+    label: labelForArchitecturalElementType(defaultType),
+    xFt: position.xFt,
+    yFt: position.yFt,
+    widthFt: dimensions.widthFt,
+    depthFt: dimensions.depthFt,
+    rotationDeg: 0,
+    notes: '',
+  };
+}
+
+function architecturalDraftToUpdate(draft: ArchitecturalElementDraft): ArchitecturalElementUpdate {
+  return {
+    floorPlanId: draft.floorPlanId,
+    roomId: draft.roomId,
+    elementType: draft.elementType,
+    label: draft.label.trim() || labelForArchitecturalElementType(draft.elementType),
+    xFt: roundToHundredth(draft.xFt),
+    yFt: roundToHundredth(draft.yFt),
+    widthFt: roundToHundredth(draft.widthFt),
+    depthFt: roundToHundredth(draft.depthFt),
+    rotationDeg: normaliseRotation(draft.rotationDeg),
+    notes: draft.notes.trim() || null,
+  };
+}
+
+function defaultArchitecturalElementDimensions(type: ArchitecturalElementType) {
+  if (type === 'door' || type === 'opening') return { widthFt: 3, depthFt: 0.25 };
+  if (type === 'window') return { widthFt: 4, depthFt: 0.2 };
+  if (type === 'stairs') return { widthFt: 6, depthFt: 10 };
+  if (type === 'counter' || type === 'cabinet') return { widthFt: 6, depthFt: 2 };
+  if (type === 'sink' || type === 'toilet') return { widthFt: 2.5, depthFt: 2 };
+  if (type === 'shower') return { widthFt: 3, depthFt: 3 };
+  if (type === 'tub') return { widthFt: 5, depthFt: 2.5 };
+  if (type === 'appliance') return { widthFt: 3, depthFt: 2.5 };
+  return { widthFt: 2, depthFt: 2 };
+}
+
+function labelForArchitecturalElementType(type: ArchitecturalElementType) {
+  return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+function clampArchitecturalElementPosition(xFt: number, yFt: number, widthFt: number, depthFt: number, floorPlan: HomeFloorPlan) {
+  return {
+    xFt: roundToHundredth(clamp(xFt, 0, Math.max(0, floorPlan.widthFt - widthFt))),
+    yFt: roundToHundredth(clamp(yFt, 0, Math.max(0, floorPlan.depthFt - depthFt))),
+  };
+}
+
+function architecturalElementStyle(type: ArchitecturalElementType) {
+  if (type === 'door' || type === 'opening') {
+    return { minWidth: 34, minHeight: 18, borderRadius: 2, border: '1px solid #7a553a', background: 'rgba(255,252,247,0.72)', color: '#7a553a' };
+  }
+  if (type === 'window') {
+    return { minWidth: 44, minHeight: 14, borderRadius: 2, border: '1px solid #356c89', background: 'rgba(230,237,242,0.82)', color: '#356c89' };
+  }
+  if (type === 'stairs') {
+    return { minWidth: 52, minHeight: 52, borderRadius: 4, border: '1px solid #55758b', background: 'rgba(231,237,241,0.82)', color: '#55758b' };
+  }
+  if (type === 'counter' || type === 'cabinet' || type === 'appliance') {
+    return { minWidth: 42, minHeight: 28, borderRadius: 4, border: '1px solid #7d7467', background: 'rgba(239,233,221,0.9)', color: '#7d7467' };
+  }
+  if (type === 'sink' || type === 'toilet' || type === 'shower' || type === 'tub') {
+    return { minWidth: 32, minHeight: 28, borderRadius: 5, border: '1px solid #356c89', background: 'rgba(230,237,242,0.86)', color: '#356c89' };
+  }
+  return { minWidth: 30, minHeight: 30, borderRadius: 5, border: '1px solid var(--color-border-strong)', background: 'rgba(255,252,247,0.86)', color: 'var(--color-secondary)' };
 }
 
 function gridLines(max: number) {

@@ -8,6 +8,7 @@ export type DocumentCategory = 'contract' | 'disclosure' | 'loan' | 'inspection'
 export type LinkedEntityType = 'move_task' | 'planning_task' | 'event' | 'timeline_entry';
 export type PlanningTaskSection = 'purchase' | 'loan' | 'home_setup' | 'updates';
 export type DriveLoadoutType = 'adult' | 'child' | 'pet' | 'gear' | 'vehicle_addon';
+export type ArchitecturalElementType = 'door' | 'window' | 'opening' | 'stairs' | 'counter' | 'cabinet' | 'sink' | 'toilet' | 'shower' | 'tub' | 'appliance' | 'fixture';
 
 export interface MoveSettings {
   id: number;
@@ -204,6 +205,21 @@ export interface RoomItem {
   planXFt: number | null;
   planYFt: number | null;
   rotationDeg: number | null;
+  sortIndex: number;
+}
+
+export interface ArchitecturalElement {
+  id: number;
+  floorPlanId: number;
+  roomId: number | null;
+  elementType: ArchitecturalElementType;
+  label: string;
+  xFt: number;
+  yFt: number;
+  widthFt: number;
+  depthFt: number;
+  rotationDeg: number;
+  notes: string | null;
   sortIndex: number;
 }
 

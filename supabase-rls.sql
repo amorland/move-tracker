@@ -15,6 +15,7 @@ ALTER TABLE timeline_entries  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE planning_tasks    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rooms             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE room_items        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE architectural_elements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE home_floor_plans  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE home_projects     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents         ENABLE ROW LEVEL SECURITY;
@@ -54,6 +55,9 @@ CREATE POLICY "authenticated_full_access" ON rooms
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY "authenticated_full_access" ON room_items
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "authenticated_full_access" ON architectural_elements
   FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY "authenticated_full_access" ON home_floor_plans
