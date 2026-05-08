@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS documents (
   title TEXT NOT NULL,
   provider TEXT NOT NULL DEFAULT 'google_drive',
   url TEXT NOT NULL,
+  url_key TEXT,
   mime_type TEXT,
   category TEXT NOT NULL DEFAULT 'other',
   notes TEXT,
@@ -139,6 +140,8 @@ UPDATE document_links SET entity_type = 'move_task' WHERE entity_type = 'task';
 CREATE INDEX IF NOT EXISTS idx_timeline_entries_track_date ON timeline_entries(track_id, date);
 CREATE INDEX IF NOT EXISTS idx_planning_tasks_track_status_due ON planning_tasks(track_id, status, due_date);
 CREATE INDEX IF NOT EXISTS idx_document_links_entity ON document_links(entity_type, entity_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_documents_url_key_unique ON documents(url_key) WHERE url_key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_document_links_unique_entity ON document_links(document_id, entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_room_items_room ON room_items(room_id);
 CREATE INDEX IF NOT EXISTS idx_home_projects_status_target_date ON home_projects(status, target_date);
 CREATE INDEX IF NOT EXISTS idx_drive_loadout_items_vehicle ON drive_loadout_items(assigned_vehicle_id);

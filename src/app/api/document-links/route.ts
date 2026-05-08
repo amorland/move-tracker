@@ -1,4 +1,5 @@
 import { getSupabaseServer } from '@/lib/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -20,8 +21,8 @@ export async function GET(request: Request) {
   const { data: links, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const rows = links ?? [];
-  const ids = [...new Set(rows.map((row: any) => Number(row.document_id)).filter(Boolean))];
+  const rows = (links ?? []) as Record<string, unknown>[];
+  const ids = [...new Set(rows.map(row => Number(row.document_id ?? row.documentId)).filter(Boolean))];
   if (!ids.length) return NextResponse.json([]);
 
   const { data: documents, error: docError } = await supabase
@@ -31,24 +32,40 @@ export async function GET(request: Request) {
 
   if (docError) return NextResponse.json({ error: docError.message }, { status: 500 });
 
-  const docsById = new Map((documents ?? []).map((doc: any) => [Number(doc.id), normaliseDocument(doc)]));
-  return NextResponse.json(rows.map((row: any) => normaliseLink(row, docsById.get(Number(row.document_id)))));
+  const docsById = new Map(((documents ?? []) as Record<string, unknown>[]).map(doc => [Number(doc.id), normaliseDocument(doc)]));
+  return NextResponse.json(rows.map(row => normaliseLink(row, docsById.get(Number(row.document_id ?? row.documentId)))));
 }
 
 export async function POST(request: Request) {
   const supabase = await getSupabaseServer();
   const body = await request.json();
+
+  const documentId = Number(body.documentId);
+  const entityType = String(body.entityType ?? '');
+  const entityId = Number(body.entityId);
+  if (!documentId || !entityType || !entityId) {
+    return NextResponse.json({ error: 'documentId, entityType, and entityId are required.' }, { status: 400 });
+  }
+
+  const existing = await findExistingLink(supabase, documentId, entityType, entityId);
+  if (existing) return NextResponse.json(normaliseLink(existing));
+
   const { data, error } = await supabase
     .from('document_links')
     .insert([{
-      document_id: body.documentId,
-      entity_type: body.entityType,
-      entity_id: body.entityId,
+      document_id: documentId,
+      entity_type: entityType,
+      entity_id: entityId,
       label: body.label || null,
       created_at: new Date().toISOString(),
     }])
     .select()
     .single();
+
+  if (error && isUniqueViolation(error)) {
+    const duplicate = await findExistingLink(supabase, documentId, entityType, entityId);
+    if (duplicate) return NextResponse.json(normaliseLink(duplicate));
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normaliseLink(data));
@@ -82,9 +99,28 @@ function normaliseDocument(row: Record<string, unknown>) {
     title: row.title,
     provider: row.provider ?? 'google_drive',
     url: row.url,
+    urlKey: row.url_key ?? row.urlKey ?? null,
     mimeType: row.mime_type ?? row.mimeType ?? null,
     category: row.category ?? 'other',
     notes: row.notes ?? null,
     createdAt: row.created_at ?? row.createdAt ?? '',
   };
+}
+
+async function findExistingLink(supabase: SupabaseClient, documentId: number, entityType: string, entityId: number) {
+  const { data, error } = await supabase
+    .from('document_links')
+    .select('*')
+    .eq('document_id', documentId)
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .limit(1);
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as Record<string, unknown>[];
+  return rows[0] ?? null;
+}
+
+function isUniqueViolation(error: { code?: string; message?: string }) {
+  return error.code === '23505' || String(error.message ?? '').toLowerCase().includes('duplicate key');
 }

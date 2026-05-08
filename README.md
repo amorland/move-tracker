@@ -93,6 +93,8 @@ Attachable entities currently include:
 
 The Home Documents page provides a central library view over saved links.
 
+Document records are reusable. Adding a link from an attachment panel first checks for an existing saved document with the same normalized URL, then attaches that document to the current item. The same saved document can be attached to multiple tasks, events, and timeline entries without duplicating the document record.
+
 To avoid collisions between old move tasks and new home planning tasks, the attachment model distinguishes between:
 
 - `move_task`
@@ -154,6 +156,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-migration.sql](supabase-migration.sql)
 - [supabase-home-planning.sql](supabase-home-planning.sql)
 - [supabase-loan-documentation-log.sql](supabase-loan-documentation-log.sql) — idempotent data patch for the BCU loan-documentation timeline log and related loan tasks
+- [supabase-document-dedupe.sql](supabase-document-dedupe.sql) — adds document URL keys, merges duplicate document records by normalized URL, and creates uniqueness guards for reusable document attachments
 - [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on all 16 tables
 
 ## Running Locally
@@ -251,6 +254,7 @@ src/
 2. Add `https://<your-domain>/auth/callback` (and `http://localhost:3000/auth/callback` for local dev) to the **Redirect URLs** allowlist under Authentication → URL Configuration.
 3. Run `supabase-rls.sql` in the Supabase SQL editor to enable Row Level Security on all tables. Until this is done, RLS is off and the anon key has unrestricted access.
 4. To seed the current BCU loan-documentation history, run `supabase-loan-documentation-log.sql` after `supabase-home-planning.sql`. The script checks existing Loan timeline/task titles before inserting, so it can be rerun without creating duplicates.
+5. To enable database-level document reuse safeguards and clean up existing duplicate document URLs, run `supabase-document-dedupe.sql` after `supabase-home-planning.sql`.
 
 ## Current Limitations
 

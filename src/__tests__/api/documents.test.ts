@@ -20,6 +20,7 @@ const mockDocument = {
   title: 'Loan estimate',
   provider: 'google_drive',
   url: 'https://drive.google.com/file/d/abc',
+  url_key: 'google-drive:file:abc',
   mime_type: null,
   category: 'loan',
   notes: null,
@@ -40,6 +41,16 @@ describe('GET /api/documents', () => {
     expect(body).toHaveLength(1);
     expect(body[0].title).toBe('Loan estimate');
     expect(body[0].mimeType).toBeNull();
+    expect(body[0].urlKey).toBe('google-drive:file:abc');
+  });
+
+  it('filters documents by query', async () => {
+    mockFrom.mockReturnValueOnce({
+      select: vi.fn(() => ({ order: vi.fn(() => ({ data: [mockDocument], error: null })) })),
+    });
+    const res = await GET(new Request('http://localhost/api/documents?q=estimate'));
+    const body = await res.json();
+    expect(body).toHaveLength(1);
   });
 });
 
@@ -47,7 +58,11 @@ describe('POST /api/documents', () => {
   it('creates a document', async () => {
     mockSingle.mockResolvedValueOnce({ data: mockDocument, error: null });
     mockInsert.mockReturnValueOnce({ select: vi.fn(() => ({ single: mockSingle })) });
-    mockFrom.mockReturnValueOnce({ insert: mockInsert });
+    mockFrom
+      .mockReturnValueOnce({
+        select: vi.fn(() => ({ order: vi.fn(() => ({ data: [], error: null })) })),
+      })
+      .mockReturnValueOnce({ insert: mockInsert });
 
     const res = await POST(new Request('http://localhost/api/documents', {
       method: 'POST',
@@ -55,6 +70,21 @@ describe('POST /api/documents', () => {
     }));
     const body = await res.json();
     expect(body.title).toBe('Loan estimate');
+    expect(mockInsert).toHaveBeenCalledWith([expect.objectContaining({ url_key: 'google-drive:file:abc' })]);
+  });
+
+  it('reuses an existing document with the same URL key', async () => {
+    mockFrom.mockReturnValueOnce({
+      select: vi.fn(() => ({ order: vi.fn(() => ({ data: [mockDocument], error: null })) })),
+    });
+
+    const res = await POST(new Request('http://localhost/api/documents', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Duplicate title', url: 'https://drive.google.com/open?id=abc' }),
+    }));
+    const body = await res.json();
+    expect(body.id).toBe(1);
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 });
 

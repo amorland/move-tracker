@@ -109,6 +109,7 @@ export interface DocumentRecord {
   title: string;
   provider: DocumentProvider;
   url: string;
+  urlKey?: string | null;
   mimeType: string | null;
   category: DocumentCategory;
   notes: string | null;
