@@ -159,6 +159,10 @@ export interface HomeFloorPlan {
   blueprintDocumentId: number | null;
   blueprintPage: number | null;
   blueprintImagePath: string | null;
+  overlayOffsetXFt: number | null;
+  overlayOffsetYFt: number | null;
+  overlayWidthFt: number | null;
+  overlayDepthFt: number | null;
   notes: string | null;
   sortIndex: number;
 }

@@ -204,8 +204,13 @@ function BlueprintOverlayControls({
     blueprintPage: floorPlan.blueprintPage?.toString() ?? '',
     widthFt: floorPlan.widthFt.toString(),
     depthFt: floorPlan.depthFt.toString(),
+    overlayOffsetXFt: (floorPlan.overlayOffsetXFt ?? 0).toString(),
+    overlayOffsetYFt: (floorPlan.overlayOffsetYFt ?? 0).toString(),
+    overlayWidthFt: (floorPlan.overlayWidthFt ?? floorPlan.widthFt).toString(),
+    overlayDepthFt: (floorPlan.overlayDepthFt ?? floorPlan.depthFt).toString(),
   });
   const previewSrc = toBlueprintImageSrc(draft.blueprintImagePath);
+  const isLocalBlueprint = previewSrc?.startsWith('/api/home-blueprint-assets/');
 
   const save = async () => {
     setSaveState('saving');
@@ -219,6 +224,10 @@ function BlueprintOverlayControls({
       blueprintPage: nullableNumber(draft.blueprintPage),
       widthFt: nullableNumber(draft.widthFt) ?? floorPlan.widthFt,
       depthFt: nullableNumber(draft.depthFt) ?? floorPlan.depthFt,
+      overlayOffsetXFt: nullableNumber(draft.overlayOffsetXFt) ?? 0,
+      overlayOffsetYFt: nullableNumber(draft.overlayOffsetYFt) ?? 0,
+      overlayWidthFt: nullableNumber(draft.overlayWidthFt) ?? nullableNumber(draft.widthFt) ?? floorPlan.widthFt,
+      overlayDepthFt: nullableNumber(draft.overlayDepthFt) ?? nullableNumber(draft.depthFt) ?? floorPlan.depthFt,
       ceilingHeightFt: floorPlan.ceilingHeightFt,
       notes: floorPlan.notes,
       sortIndex: floorPlan.sortIndex,
@@ -242,7 +251,7 @@ function BlueprintOverlayControls({
             <div>
               <div className="section-label" style={{ marginBottom: 4 }}>Blueprint overlay</div>
               <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
-                Paste a public image URL or Google Drive image link for {floorPlan.label}.
+                Using the local extracted schematic when no custom URL is set.
               </div>
             </div>
           </div>
@@ -263,7 +272,7 @@ function BlueprintOverlayControls({
             <input
               value={draft.blueprintImagePath}
               onChange={event => setDraft({ ...draft, blueprintImagePath: event.target.value })}
-              placeholder="https://drive.google.com/file/d/... or https://..."
+              placeholder="/api/home-blueprint-assets/second-floor or https://..."
             />
           </label>
           <label style={{ display: 'block' }}>
@@ -288,6 +297,25 @@ function BlueprintOverlayControls({
           </label>
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Overlay X ft</span>
+            <input value={draft.overlayOffsetXFt} onChange={event => setDraft({ ...draft, overlayOffsetXFt: event.target.value })} type="number" step="0.25" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Overlay Y ft</span>
+            <input value={draft.overlayOffsetYFt} onChange={event => setDraft({ ...draft, overlayOffsetYFt: event.target.value })} type="number" step="0.25" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Overlay width ft</span>
+            <input value={draft.overlayWidthFt} onChange={event => setDraft({ ...draft, overlayWidthFt: event.target.value })} type="number" min="1" step="0.25" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Overlay depth ft</span>
+            <input value={draft.overlayDepthFt} onChange={event => setDraft({ ...draft, overlayDepthFt: event.target.value })} type="number" min="1" step="0.25" />
+          </label>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <SlidersHorizontal size={14} color="var(--color-secondary)" />
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 260 }}>
@@ -304,6 +332,9 @@ function BlueprintOverlayControls({
           </label>
           {draft.blueprintImagePath && !previewSrc && (
             <span style={{ fontSize: 12, color: '#b45309' }}>This does not look like a browser-loadable image URL.</span>
+          )}
+          {isLocalBlueprint && (
+            <span style={{ fontSize: 12, color: 'var(--color-secondary)' }}>Local schematic asset. It stays outside GitHub.</span>
           )}
           {floorPlan.id < 0 && (
             <span style={{ fontSize: 12, color: '#b45309' }}>This floor is using defaults; saving will create its floor-plan row.</span>
@@ -344,6 +375,12 @@ function MeasuredFloorPlan({
   const gridLinesX = gridLines(floorPlan.widthFt);
   const gridLinesY = gridLines(floorPlan.depthFt);
   const overlaySrc = toBlueprintImageSrc(floorPlan.blueprintImagePath);
+  const overlayRect = {
+    x: floorPlan.overlayOffsetXFt ?? 0,
+    y: floorPlan.overlayOffsetYFt ?? 0,
+    width: floorPlan.overlayWidthFt ?? floorPlan.widthFt,
+    depth: floorPlan.overlayDepthFt ?? floorPlan.depthFt,
+  };
 
   return (
     <div className="card">
@@ -390,7 +427,10 @@ function MeasuredFloorPlan({
               aria-hidden="true"
               style={{
                 position: 'absolute',
-                inset: 0,
+                left: `${(overlayRect.x / floorPlan.widthFt) * 100}%`,
+                top: `${(overlayRect.y / floorPlan.depthFt) * 100}%`,
+                width: `${(overlayRect.width / floorPlan.widthFt) * 100}%`,
+                height: `${(overlayRect.depth / floorPlan.depthFt) * 100}%`,
                 backgroundImage: `url(${JSON.stringify(overlaySrc)})`,
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',

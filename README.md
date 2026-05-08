@@ -169,6 +169,7 @@ The current app uses these major tables:
 - `document_links`
 - `rooms`
 - `room_items`
+- `home_floor_plans`
 - `home_projects`
 
 The repo includes the legacy base schema and migration files plus the newer home-planning expansion:
@@ -179,7 +180,9 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-loan-documentation-log.sql](supabase-loan-documentation-log.sql) — idempotent data patch for the BCU loan-documentation timeline log and related loan tasks
 - [supabase-document-dedupe.sql](supabase-document-dedupe.sql) — adds document URL keys, merges duplicate document records by normalized URL, and creates uniqueness guards for reusable document attachments
 - [supabase-task-blocked-status.sql](supabase-task-blocked-status.sql) — expands move and planning task statuses to include `Blocked`
-- [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on all 16 tables
+- [supabase-measured-layout.sql](supabase-measured-layout.sql) — adds measured floor-plan, room, and room-item layout fields
+- [supabase-blueprint-overlays.sql](supabase-blueprint-overlays.sql) — updates existing measured floor plans to 50x50 canvases and local blueprint overlay asset paths
+- [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on the app tables
 
 ## Running Locally
 
@@ -228,6 +231,8 @@ src/
 │   │   ├── drive-loadout-items/ # Drive planner cargo/passenger items
 │   │   ├── drive-vehicles/  # Drive planner vehicles
 │   │   ├── events/          # Move timeline event CRUD
+│   │   ├── home-blueprint-assets/ # Local-only blueprint overlay images
+│   │   ├── home-floor-plans/ # Measured floor plan CRUD
 │   │   ├── home-projects/   # Future home project CRUD
 │   │   ├── locations/       # Map locations CRUD
 │   │   ├── planning-tasks/  # Home planning task CRUD
@@ -278,11 +283,13 @@ src/
 4. To seed the current BCU loan-documentation history, run `supabase-loan-documentation-log.sql` after `supabase-home-planning.sql`. The script checks existing Loan timeline/task titles before inserting, so it can be rerun without creating duplicates.
 5. To enable database-level document reuse safeguards and clean up existing duplicate document URLs, run `supabase-document-dedupe.sql` after `supabase-home-planning.sql`.
 6. To allow blocked task tracking, run `supabase-task-blocked-status.sql` after `supabase-home-planning.sql`.
+7. To enable the measured home layout planner and blueprint overlays on an existing database, run `supabase-measured-layout.sql`, then `supabase-blueprint-overlays.sql`.
 
 ## Current Limitations
 
 - Documents are intended as external links, not uploaded private files
-- Room planning and visual layout are still crude MVPs, not blueprint-accurate floorplan tools
+- Room planning and visual layout now support measured floor canvases, local blueprint overlays, and draggable item placement, but they are still a simplified planner rather than a full CAD/floorplanner replacement
+- Local blueprint overlay images live under ignored `/data`; they are not committed and must exist on the machine or environment serving `/api/home-blueprint-assets/*`
 - Drive planning does not currently enforce true seat/cargo constraints; it is a flexible planning board rather than a hard validator
 - The app can seed planning structure from organized document sets, but document-derived updates still rely on review logic rather than full OCR / workflow automation
 - Production build verification may require a non-sandboxed environment because Turbopack can fail under sandbox restrictions
