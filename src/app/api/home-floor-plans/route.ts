@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     .limit(1)
     .single();
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('home_floor_plans')
     .insert([{
       name: body.name || 'New Floor',
@@ -46,6 +46,26 @@ export async function POST(request: Request) {
     }])
     .select()
     .single();
+
+  if (error && isMissingOverlayColumnError(error)) {
+    const retry = await supabase
+      .from('home_floor_plans')
+      .insert([{
+        name: body.name || 'New Floor',
+        label: body.label || body.name || 'New Floor',
+        level: body.level ?? 0,
+        width_ft: body.widthFt ?? 40,
+        depth_ft: body.depthFt ?? 32,
+        ceiling_height_ft: body.ceilingHeightFt ?? null,
+        blueprint_page: body.blueprintPage ?? null,
+        notes: body.notes || null,
+        sort_index: (last?.sort_index ?? -1) + 1,
+      }])
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -69,12 +89,23 @@ export async function PATCH(request: Request) {
   if ('notes' in rest) update.notes = rest.notes;
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('home_floor_plans')
     .update(update)
     .eq('id', id)
     .select()
     .single();
+
+  if (error && isMissingOverlayColumnError(error)) {
+    const retry = await supabase
+      .from('home_floor_plans')
+      .update(stripOverlayFields(update))
+      .eq('id', id)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -91,7 +122,7 @@ function normalise(row: Record<string, unknown>) {
     ceilingHeightFt: nullableNumber(row.ceiling_height_ft ?? row.ceilingHeightFt),
     blueprintDocumentId: nullableNumber(row.blueprint_document_id ?? row.blueprintDocumentId),
     blueprintPage: nullableNumber(row.blueprint_page ?? row.blueprintPage),
-    blueprintImagePath: row.blueprint_image_path ?? row.blueprintImagePath ?? null,
+    blueprintImagePath: nullableString(row.blueprint_image_path ?? row.blueprintImagePath),
     notes: row.notes ?? null,
     sortIndex: Number(row.sort_index ?? row.sortIndex ?? 0),
   };
@@ -105,4 +136,21 @@ function nullableNumber(value: unknown) {
 
 function isMissingTableError(error: { code?: string; message?: string }) {
   return error.code === '42P01' || /home_floor_plans/i.test(error.message ?? '') && /does not exist|not found/i.test(error.message ?? '');
+}
+
+function nullableString(value: unknown) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function isMissingOverlayColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /blueprint_document_id|blueprint_image_path/i.test(error.message ?? '');
+}
+
+function stripOverlayFields(update: Record<string, unknown>) {
+  const next = { ...update };
+  delete next.blueprint_document_id;
+  delete next.blueprint_image_path;
+  return next;
 }

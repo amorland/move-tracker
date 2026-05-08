@@ -3,15 +3,20 @@
 import HomeSubnav from '@/components/HomeSubnav';
 import { fallbackFloorPlansForRooms, floorForRoom, itemFootprint, planRectForRoom, PlanRect } from '@/lib/homeLayout';
 import { HomeFloorPlan, Room, RoomItem } from '@/lib/types';
-import { Grid3X3, MoveDiagonal, Package, Ruler } from 'lucide-react';
+import { Eye, EyeOff, Grid3X3, Image as ImageIcon, MoveDiagonal, Package, Ruler, Save, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+
+type OverlayFit = 'contain' | 'cover' | 'stretch';
 
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [items, setItems] = useState<RoomItem[]>([]);
   const [floorPlans, setFloorPlans] = useState<HomeFloorPlan[]>([]);
   const [activeFloorName, setActiveFloorName] = useState<string | null>(null);
+  const [overlayVisible, setOverlayVisible] = useState(true);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.42);
+  const [overlayFit, setOverlayFit] = useState<OverlayFit>('contain');
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -54,6 +59,16 @@ export default function HomeLayoutPage() {
         planXFt: roundToQuarter(planXFt),
         planYFt: roundToQuarter(planYFt),
       }),
+    });
+    fetchAll();
+  };
+
+  const saveFloorPlan = async (floorPlan: Partial<HomeFloorPlan> & { id: number }) => {
+    if (floorPlan.id < 0) return;
+    await fetch('/api/home-floor-plans', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(floorPlan),
     });
     fetchAll();
   };
@@ -109,13 +124,29 @@ export default function HomeLayoutPage() {
       </div>
 
       {activeFloor && (
-        <MeasuredFloorPlan
-          floorPlan={activeFloor}
-          floorPlans={measuredFloors}
-          rooms={rooms}
-          items={items}
-          onMoveItem={moveItem}
-        />
+        <>
+          <BlueprintOverlayControls
+            key={activeFloor.id}
+            floorPlan={activeFloor}
+            overlayVisible={overlayVisible}
+            overlayOpacity={overlayOpacity}
+            overlayFit={overlayFit}
+            onToggleOverlay={() => setOverlayVisible(value => !value)}
+            onOpacityChange={setOverlayOpacity}
+            onFitChange={setOverlayFit}
+            onSave={saveFloorPlan}
+          />
+          <MeasuredFloorPlan
+            floorPlan={activeFloor}
+            floorPlans={measuredFloors}
+            rooms={rooms}
+            items={items}
+            overlayVisible={overlayVisible}
+            overlayOpacity={overlayOpacity}
+            overlayFit={overlayFit}
+            onMoveItem={moveItem}
+          />
+        </>
       )}
 
       <div className="card" style={{ marginTop: 22 }}>
@@ -139,17 +170,143 @@ export default function HomeLayoutPage() {
   );
 }
 
+function BlueprintOverlayControls({
+  floorPlan,
+  overlayVisible,
+  overlayOpacity,
+  overlayFit,
+  onToggleOverlay,
+  onOpacityChange,
+  onFitChange,
+  onSave,
+}: {
+  floorPlan: HomeFloorPlan;
+  overlayVisible: boolean;
+  overlayOpacity: number;
+  overlayFit: OverlayFit;
+  onToggleOverlay: () => void;
+  onOpacityChange: (value: number) => void;
+  onFitChange: (value: OverlayFit) => void;
+  onSave: (floorPlan: Partial<HomeFloorPlan> & { id: number }) => void;
+}) {
+  const [draft, setDraft] = useState({
+    blueprintImagePath: floorPlan.blueprintImagePath ?? '',
+    blueprintPage: floorPlan.blueprintPage?.toString() ?? '',
+    widthFt: floorPlan.widthFt.toString(),
+    depthFt: floorPlan.depthFt.toString(),
+  });
+  const previewSrc = toBlueprintImageSrc(draft.blueprintImagePath);
+  const canPersist = floorPlan.id > 0;
+
+  const save = () => {
+    if (!canPersist) return;
+    onSave({
+      id: floorPlan.id,
+      blueprintImagePath: draft.blueprintImagePath.trim() || null,
+      blueprintPage: nullableNumber(draft.blueprintPage),
+      widthFt: nullableNumber(draft.widthFt) ?? floorPlan.widthFt,
+      depthFt: nullableNumber(draft.depthFt) ?? floorPlan.depthFt,
+    });
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <ImageIcon size={17} color="var(--color-accent-dark)" />
+            <div>
+              <div className="section-label" style={{ marginBottom: 4 }}>Blueprint overlay</div>
+              <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
+                Paste a public image URL or Google Drive image link for {floorPlan.label}.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleOverlay}>
+              {overlayVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+              {overlayVisible ? 'Hide' : 'Show'}
+            </button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!canPersist}>
+              <Save size={14} /> Save Overlay
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+          <label style={{ display: 'block', gridColumn: 'span 2' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Image URL</span>
+            <input
+              value={draft.blueprintImagePath}
+              onChange={event => setDraft({ ...draft, blueprintImagePath: event.target.value })}
+              placeholder="https://drive.google.com/file/d/... or https://..."
+            />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Page</span>
+            <input value={draft.blueprintPage} onChange={event => setDraft({ ...draft, blueprintPage: event.target.value })} type="number" min="1" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Width ft</span>
+            <input value={draft.widthFt} onChange={event => setDraft({ ...draft, widthFt: event.target.value })} type="number" min="1" step="0.25" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Depth ft</span>
+            <input value={draft.depthFt} onChange={event => setDraft({ ...draft, depthFt: event.target.value })} type="number" min="1" step="0.25" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Fit</span>
+            <select value={overlayFit} onChange={event => onFitChange(event.target.value as OverlayFit)}>
+              <option value="contain">Contain</option>
+              <option value="cover">Cover</option>
+              <option value="stretch">Stretch</option>
+            </select>
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <SlidersHorizontal size={14} color="var(--color-secondary)" />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 260 }}>
+            <span className="section-label" style={{ margin: 0, fontSize: 10 }}>Opacity</span>
+            <input
+              type="range"
+              min="0.08"
+              max="0.9"
+              step="0.02"
+              value={overlayOpacity}
+              onChange={event => onOpacityChange(Number(event.target.value))}
+            />
+            <span style={{ fontSize: 12, color: 'var(--color-secondary)', width: 36 }}>{Math.round(overlayOpacity * 100)}%</span>
+          </label>
+          {draft.blueprintImagePath && !previewSrc && (
+            <span style={{ fontSize: 12, color: '#b45309' }}>This does not look like a browser-loadable image URL.</span>
+          )}
+          {!canPersist && (
+            <span style={{ fontSize: 12, color: '#b45309' }}>Run the measured layout SQL before saving overlay settings.</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MeasuredFloorPlan({
   floorPlan,
   floorPlans,
   rooms,
   items,
+  overlayVisible,
+  overlayOpacity,
+  overlayFit,
   onMoveItem,
 }: {
   floorPlan: HomeFloorPlan;
   floorPlans: HomeFloorPlan[];
   rooms: Room[];
   items: RoomItem[];
+  overlayVisible: boolean;
+  overlayOpacity: number;
+  overlayFit: OverlayFit;
   onMoveItem: (item: RoomItem, roomId: number | null, planXFt: number, planYFt: number) => void;
 }) {
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
@@ -157,6 +314,7 @@ function MeasuredFloorPlan({
   const floorItems = items.filter(item => item.roomId && floorRooms.some(room => room.id === item.roomId));
   const gridLinesX = gridLines(floorPlan.widthFt);
   const gridLinesY = gridLines(floorPlan.depthFt);
+  const overlaySrc = toBlueprintImageSrc(floorPlan.blueprintImagePath);
 
   return (
     <div className="card">
@@ -198,6 +356,22 @@ function MeasuredFloorPlan({
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.5)',
           }}
         >
+          {overlayVisible && overlaySrc && (
+            <div
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundImage: `url(${JSON.stringify(overlaySrc)})`,
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: overlayFit === 'stretch' ? '100% 100%' : overlayFit,
+                opacity: overlayOpacity,
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            />
+          )}
           {gridLinesX.map(line => (
             <div
               key={`x-${line}`}
@@ -207,6 +381,7 @@ function MeasuredFloorPlan({
                 bottom: 0,
                 left: `${(line / floorPlan.widthFt) * 100}%`,
                 borderLeft: line === 0 ? 'none' : '1px solid rgba(92,86,72,0.08)',
+                zIndex: 1,
               }}
             />
           ))}
@@ -219,6 +394,7 @@ function MeasuredFloorPlan({
                 right: 0,
                 top: `${(line / floorPlan.depthFt) * 100}%`,
                 borderTop: line === 0 ? 'none' : '1px solid rgba(92,86,72,0.08)',
+                zIndex: 1,
               }}
             />
           ))}
@@ -273,6 +449,7 @@ function RoomZone({ room, rect, floorPlan }: { room: Room; rect: PlanRect; floor
         background: 'rgba(255,255,255,0.58)',
         boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.72)',
         overflow: 'hidden',
+        zIndex: 2,
       }}
     >
       <div style={{ padding: 8, minWidth: 0 }}>
@@ -325,6 +502,7 @@ function PlacedItem({
         cursor: 'grab',
         transform: `rotate(${item.rotationDeg ?? 0}deg)`,
         transformOrigin: 'center',
+        zIndex: 3,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, minWidth: 0 }}>
@@ -375,7 +553,36 @@ function roundToQuarter(value: number) {
   return Math.round(value * 4) / 4;
 }
 
+function nullableNumber(value: string) {
+  if (value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function formatFt(value: number) {
   const rounded = Math.round(value * 4) / 4;
   return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(2).replace(/0$/, '')}'`;
+}
+
+function toBlueprintImageSrc(value?: string | null) {
+  const source = value?.trim();
+  if (!source) return null;
+
+  const driveId = getGoogleDriveFileId(source);
+  if (driveId) return `https://drive.google.com/thumbnail?id=${driveId}&sz=w4000`;
+
+  if (source.startsWith('/') || /^https?:\/\//i.test(source)) return source;
+  return null;
+}
+
+function getGoogleDriveFileId(value: string) {
+  const fileMatch = value.match(/\/file\/d\/([^/]+)/);
+  if (fileMatch?.[1]) return fileMatch[1];
+
+  try {
+    const parsed = new URL(value);
+    return parsed.searchParams.get('id');
+  } catch {
+    return null;
+  }
 }
