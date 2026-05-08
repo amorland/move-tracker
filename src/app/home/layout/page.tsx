@@ -14,7 +14,7 @@ import {
 import { HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
 import { Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
-import { type MouseEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type OverlayFit = 'contain' | 'cover' | 'stretch';
 type SaveResult = { ok: true } | { ok: false; message: string };
@@ -24,7 +24,10 @@ type RoomGeometryDraft = {
   labelXFt: number | null;
   labelYFt: number | null;
 };
-type GeometryDragTarget = { type: 'point'; index: number } | { type: 'label' };
+type GeometryDragTarget =
+  | { type: 'point'; index: number }
+  | { type: 'label' }
+  | { type: 'room'; start: PlanPoint; points: PlanPoint[] };
 
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -573,7 +576,7 @@ function RoomGeometryControls({
               />
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={useRectangle} disabled={!selectedRoom}>
-                  <Grid3X3 size={14} /> Use Rectangle
+                  <Grid3X3 size={14} /> Reset Rectangle
                 </button>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={addPoint} disabled={!selectedRoom}>
                   <Plus size={14} /> Add Point
@@ -680,7 +683,7 @@ function MeasuredFloorPlan({
     depth: floorPlan.overlayDepthFt ?? floorPlan.depthFt,
   };
 
-  const pointFromPointer = (event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>) => {
+  const pointFromPointer = (event: PointerEvent<Element>) => {
     if (!surfaceRef.current) return null;
     const bounds = surfaceRef.current.getBoundingClientRect();
     return {
@@ -700,21 +703,21 @@ function MeasuredFloorPlan({
       return;
     }
 
+    if (dragTarget.type === 'room') {
+      const dx = point.x - dragTarget.start.x;
+      const dy = point.y - dragTarget.start.y;
+      onRoomDraftChange({
+        ...roomDraft,
+        shapePoints: translatePointsWithinFloor(dragTarget.points, dx, dy, floorPlan),
+      });
+      return;
+    }
+
     const selectedRoom = floorRooms.find(room => room.id === roomDraft.roomId);
     if (!selectedRoom) return;
     const points = roomEditorPoints(selectedRoom, roomDraft);
     const nextPoints = points.map((entry, index) => index === dragTarget.index ? roundedPoint : entry);
     onRoomDraftChange({ ...roomDraft, shapePoints: nextPoints });
-  };
-
-  const setLabelFromClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (!roomEditMode || !roomDraft || dragTarget) return;
-    const target = event.target as HTMLElement;
-    if (target.closest('[data-layout-control="true"]')) return;
-    const point = pointFromPointer(event);
-    if (!point) return;
-    const roundedPoint = roundPlanPoint(point);
-    onRoomDraftChange({ ...roomDraft, labelXFt: roundedPoint.x, labelYFt: roundedPoint.y });
   };
 
   return (
@@ -754,7 +757,6 @@ function MeasuredFloorPlan({
           onPointerMove={updateDraftFromPointer}
           onPointerUp={() => setDragTarget(null)}
           onPointerCancel={() => setDragTarget(null)}
-          onClick={setLabelFromClick}
           style={{
             position: 'relative',
             width: '100%',
@@ -826,11 +828,27 @@ function MeasuredFloorPlan({
                 stroke={selected ? '#1f6b5b' : 'rgba(92,86,72,0.54)'}
                 strokeWidth={selected ? 0.55 : 0.32}
                 vectorEffect="non-scaling-stroke"
-                style={{ cursor: roomEditMode ? 'pointer' : 'default' }}
+                style={{ cursor: roomEditMode && selected ? 'move' : roomEditMode ? 'pointer' : 'default' }}
+                onPointerDown={event => {
+                  if (!roomEditMode) return;
+                  event.preventDefault();
+                  event.stopPropagation();
+
+                  if (!selected) {
+                    onSelectRoom(room.id);
+                    return;
+                  }
+
+                  if (!roomDraft || roomDraft.roomId !== room.id) return;
+                  const start = pointFromPointer(event);
+                  if (!start) return;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  setDragTarget({ type: 'room', start, points });
+                }}
                 onClick={event => {
                   if (!roomEditMode) return;
                   event.stopPropagation();
-                  onSelectRoom(room.id);
+                  if (!selected) onSelectRoom(room.id);
                 }}
               />
             ))}
@@ -844,7 +862,7 @@ function MeasuredFloorPlan({
               onClick={event => {
                 if (!roomEditMode) return;
                 event.stopPropagation();
-                onSelectRoom(room.id);
+                if (!selected) onSelectRoom(room.id);
               }}
               disabled={!roomEditMode}
               style={{
@@ -1079,6 +1097,30 @@ function pointsToSvg(points: PlanPoint[], floorPlan: HomeFloorPlan) {
   return points
     .map(point => `${(point.x / floorPlan.widthFt) * 100},${(point.y / floorPlan.depthFt) * 100}`)
     .join(' ');
+}
+
+function translatePointsWithinFloor(points: PlanPoint[], dx: number, dy: number, floorPlan: HomeFloorPlan) {
+  if (points.length === 0) return points;
+  const bounds = pointBounds(points);
+  const clampedDx = clamp(dx, -bounds.minX, floorPlan.widthFt - bounds.maxX);
+  const clampedDy = clamp(dy, -bounds.minY, floorPlan.depthFt - bounds.maxY);
+
+  return points.map(point => roundPlanPoint({
+    x: point.x + clampedDx,
+    y: point.y + clampedDy,
+  }));
+}
+
+function pointBounds(points: PlanPoint[]) {
+  return points.reduce(
+    (bounds, point) => ({
+      minX: Math.min(bounds.minX, point.x),
+      maxX: Math.max(bounds.maxX, point.x),
+      minY: Math.min(bounds.minY, point.y),
+      maxY: Math.max(bounds.maxY, point.y),
+    }),
+    { minX: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, minY: Number.POSITIVE_INFINITY, maxY: Number.NEGATIVE_INFINITY },
+  );
 }
 
 function averagePoint(points: PlanPoint[]) {
