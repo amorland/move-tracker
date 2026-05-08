@@ -12,7 +12,7 @@ import {
   PlanRect,
 } from '@/lib/homeLayout';
 import { HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
-import { Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Armchair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -28,6 +28,11 @@ type GeometryDragTarget =
   | { type: 'point'; index: number }
   | { type: 'label' }
   | { type: 'room'; start: PlanPoint; points: PlanPoint[] };
+type RoomItemLayoutUpdate = {
+  widthIn?: number | null;
+  depthIn?: number | null;
+  rotationDeg?: number | null;
+};
 
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -40,6 +45,7 @@ export default function HomeLayoutPage() {
   const [roomEditMode, setRoomEditMode] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
   const [roomDraft, setRoomDraft] = useState<RoomGeometryDraft | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -75,8 +81,16 @@ export default function HomeLayoutPage() {
     return rooms.filter(room => floorForRoom(room, measuredFloors)?.name === activeFloor.name);
   }, [activeFloor, measuredFloors, rooms]);
   const unplacedItems = items.filter(item => item.roomId === null && item.floorPlanId === null);
+  const selectedItem = items.find(item => item.id === selectedItemId) ?? null;
+  const selectedItemRoom = selectedItem?.roomId ? rooms.find(room => room.id === selectedItem.roomId) ?? null : null;
+  const selectedItemFloor = selectedItem?.floorPlanId
+    ? measuredFloors.find(floor => floor.id === selectedItem.floorPlanId) ?? null
+    : selectedItemRoom
+      ? floorForRoom(selectedItemRoom, measuredFloors)
+      : null;
 
   const moveItem = async (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => {
+    setSelectedItemId(item.id);
     await fetch('/api/room-items', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -89,6 +103,23 @@ export default function HomeLayoutPage() {
       }),
     });
     fetchAll();
+  };
+
+  const saveItemLayout = async (itemId: number, update: RoomItemLayoutUpdate): Promise<SaveResult> => {
+    const res = await fetch('/api/room-items', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: itemId, ...update }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Save failed with HTTP ${res.status}` };
+    }
+
+    const saved: RoomItem = await res.json();
+    setItems(current => current.map(item => item.id === saved.id ? saved : item));
+    return { ok: true };
   };
 
   const saveFloorPlan = async (floorPlan: Partial<HomeFloorPlan> & { id: number }): Promise<SaveResult> => {
@@ -234,6 +265,14 @@ export default function HomeLayoutPage() {
             onDraftChange={setRoomDraft}
             onSave={saveRoomGeometry}
           />
+          <SelectedItemControls
+            key={selectedItem?.id ?? 'empty'}
+            item={selectedItem}
+            room={selectedItemRoom}
+            floorPlan={selectedItemFloor}
+            onSave={saveItemLayout}
+            onClear={() => setSelectedItemId(null)}
+          />
           <MeasuredFloorPlan
             floorPlan={activeFloor}
             floorPlans={measuredFloors}
@@ -247,6 +286,8 @@ export default function HomeLayoutPage() {
             roomDraft={roomDraft}
             onSelectRoom={selectRoomForEditing}
             onRoomDraftChange={setRoomDraft}
+            selectedItemId={selectedItemId}
+            onSelectItem={setSelectedItemId}
             onMoveItem={moveItem}
           />
         </>
@@ -264,7 +305,14 @@ export default function HomeLayoutPage() {
             <div style={{ fontSize: 13, color: 'var(--color-secondary)' }}>All saved room items are currently assigned.</div>
           ) : (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {unplacedItems.map(item => <LayoutChip key={item.id} item={item} />)}
+              {unplacedItems.map(item => (
+                <LayoutChip
+                  key={item.id}
+                  item={item}
+                  selected={item.id === selectedItemId}
+                  onSelect={() => setSelectedItemId(item.id)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -628,6 +676,124 @@ function RoomGeometryControls({
   );
 }
 
+function SelectedItemControls({
+  item,
+  room,
+  floorPlan,
+  onSave,
+  onClear,
+}: {
+  item: RoomItem | null;
+  room: Room | null;
+  floorPlan: HomeFloorPlan | null;
+  onSave: (itemId: number, update: RoomItemLayoutUpdate) => Promise<SaveResult>;
+  onClear: () => void;
+}) {
+  const footprint = item ? itemFootprint(item) : null;
+  const [draft, setDraft] = useState({
+    widthFt: footprint ? roundToQuarter(footprint.widthFt) : null,
+    depthFt: footprint ? roundToQuarter(footprint.depthFt) : null,
+    rotationDeg: item?.rotationDeg ?? 0,
+  });
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!item || draft.widthFt === null || draft.depthFt === null) return;
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = await onSave(item.id, {
+      widthIn: ftToIn(draft.widthFt),
+      depthIn: ftToIn(draft.depthFt),
+      rotationDeg: normaliseRotation(draft.rotationDeg ?? 0),
+    });
+    if (result.ok) {
+      setSaveState('saved');
+      setSaveMessage('Item layout saved.');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+      return;
+    }
+    setSaveState('error');
+    setSaveMessage(result.message);
+  };
+
+  const rotateBy = (degrees: number) => {
+    setDraft(current => ({ ...current, rotationDeg: normaliseRotation((current.rotationDeg ?? 0) + degrees) }));
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <Armchair size={17} color="var(--color-accent-dark)" />
+            <div style={{ minWidth: 0 }}>
+              <div className="section-label" style={{ marginBottom: 4 }}>Item layout</div>
+              <div style={{ fontSize: 13, color: item ? 'var(--color-foreground)' : 'var(--color-secondary)', fontWeight: item ? 800 : 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {item ? item.itemName : 'Select a room item'}
+              </div>
+            </div>
+          </div>
+          {item && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="badge badge-neutral">{room?.name ?? 'No room'}</span>
+              <span className="badge badge-neutral">{floorPlan?.label ?? 'No floor'}</span>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onClear}>Clear</button>
+              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saveState === 'saving' || draft.widthFt === null || draft.depthFt === null}>
+                <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Item'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {item && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+              <GeometryNumberField
+                label="Width ft"
+                value={draft.widthFt}
+                min={0.5}
+                max={30}
+                onChange={widthFt => setDraft(current => ({ ...current, widthFt }))}
+              />
+              <GeometryNumberField
+                label="Depth ft"
+                value={draft.depthFt}
+                min={0.5}
+                max={30}
+                onChange={depthFt => setDraft(current => ({ ...current, depthFt }))}
+              />
+              <GeometryNumberField
+                label="Rotation deg"
+                value={draft.rotationDeg}
+                min={0}
+                max={359}
+                onChange={rotationDeg => setDraft(current => ({ ...current, rotationDeg: rotationDeg === null ? 0 : normaliseRotation(rotationDeg) }))}
+              />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => rotateBy(-15)}>
+                  <RotateCcw size={14} /> 15
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => rotateBy(15)}>
+                  <RotateCw size={14} /> 15
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => rotateBy(90)}>
+                  <RotateCw size={14} /> 90
+                </button>
+              </div>
+            </div>
+            {saveMessage && (
+              <span style={{ fontSize: 12, color: saveState === 'error' ? '#b91c1c' : '#1f6b5b', fontWeight: 700 }}>
+                {saveMessage}
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MeasuredFloorPlan({
   floorPlan,
   floorPlans,
@@ -641,6 +807,8 @@ function MeasuredFloorPlan({
   roomDraft,
   onSelectRoom,
   onRoomDraftChange,
+  selectedItemId,
+  onSelectItem,
   onMoveItem,
 }: {
   floorPlan: HomeFloorPlan;
@@ -655,6 +823,8 @@ function MeasuredFloorPlan({
   roomDraft: RoomGeometryDraft | null;
   onSelectRoom: (roomId: number | null) => void;
   onRoomDraftChange: (draft: RoomGeometryDraft | null) => void;
+  selectedItemId: number | null;
+  onSelectItem: (itemId: number) => void;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -974,6 +1144,8 @@ function MeasuredFloorPlan({
                 width={footprint.widthFt}
                 depth={footprint.depthFt}
                 floorPlan={floorPlan}
+                selected={item.id === selectedItemId}
+                onSelect={() => onSelectItem(item.id)}
               />
             );
           })}
@@ -1140,6 +1312,89 @@ function formatNumberInput(value: number | null | undefined) {
   return value === null || value === undefined ? '' : String(value);
 }
 
+function ftToIn(value: number) {
+  return Math.round(value * 48) / 4;
+}
+
+function normaliseRotation(value: number) {
+  return ((Math.round(value) % 360) + 360) % 360;
+}
+
+type FurnitureKind = 'bed' | 'seating' | 'table' | 'desk' | 'storage' | 'rug' | 'lamp' | 'plant' | 'box';
+
+function furnitureStyleForItem(item: RoomItem): { kind: FurnitureKind; background: string; border: string; borderRadius: number } {
+  const label = item.itemName.toLowerCase();
+  if (label.includes('bed') || label.includes('crib') || label.includes('mattress')) {
+    return { kind: 'bed', background: 'rgba(244,232,215,0.96)', border: '#9f7654', borderRadius: 7 };
+  }
+  if (label.includes('sofa') || label.includes('couch') || label.includes('sectional') || label.includes('loveseat') || label.includes('chair')) {
+    return { kind: 'seating', background: 'rgba(226,243,235,0.96)', border: '#1f6b5b', borderRadius: 10 };
+  }
+  if (label.includes('dining') || label.includes('table') || label.includes('nightstand')) {
+    return { kind: 'table', background: 'rgba(246,224,205,0.96)', border: '#b85f36', borderRadius: 999 };
+  }
+  if (label.includes('desk')) {
+    return { kind: 'desk', background: 'rgba(231,237,241,0.96)', border: '#55758b', borderRadius: 6 };
+  }
+  if (label.includes('dresser') || label.includes('shelf') || label.includes('bookcase') || label.includes('cabinet') || label.includes('storage')) {
+    return { kind: 'storage', background: 'rgba(239,233,221,0.96)', border: '#7d7467', borderRadius: 5 };
+  }
+  if (label.includes('rug')) return { kind: 'rug', background: 'rgba(255,252,247,0.78)', border: '#b99b68', borderRadius: 8 };
+  if (label.includes('lamp')) return { kind: 'lamp', background: 'rgba(250,239,202,0.96)', border: '#b99b68', borderRadius: 999 };
+  if (label.includes('plant')) return { kind: 'plant', background: 'rgba(226,243,235,0.96)', border: '#4f8a60', borderRadius: 999 };
+  return {
+    kind: 'box',
+    background: item.itemSource === 'existing_belonging' ? 'rgba(246,224,205,0.96)' : 'rgba(226,243,235,0.96)',
+    border: item.itemSource === 'existing_belonging' ? 'var(--color-accent)' : '#1f6b5b',
+    borderRadius: 6,
+  };
+}
+
+function FurnitureGlyph({ kind }: { kind: FurnitureKind }) {
+  if (kind === 'bed') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(159,118,84,0.26)', borderRadius: 5 }}>
+        <div style={{ position: 'absolute', top: 3, left: 4, right: 4, height: '24%', borderRadius: 4, background: 'rgba(255,252,247,0.72)' }} />
+        <div style={{ position: 'absolute', left: 4, right: 4, top: '38%', borderTop: '1px solid rgba(159,118,84,0.24)' }} />
+      </div>
+    );
+  }
+
+  if (kind === 'seating') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, opacity: 0.42 }}>
+        <span style={{ borderRadius: 4, background: '#1f6b5b' }} />
+        <span style={{ borderRadius: 4, background: '#1f6b5b' }} />
+        <span style={{ borderRadius: 4, background: '#1f6b5b' }} />
+      </div>
+    );
+  }
+
+  if (kind === 'table') {
+    return <div aria-hidden="true" style={{ position: 'absolute', inset: '22% 18%', borderRadius: 999, border: '1px solid rgba(184,95,54,0.34)', background: 'rgba(255,252,247,0.42)' }} />;
+  }
+
+  if (kind === 'desk') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderTop: '4px solid rgba(85,117,139,0.32)', borderLeft: '1px solid rgba(85,117,139,0.24)', borderRight: '1px solid rgba(85,117,139,0.24)' }} />
+    );
+  }
+
+  if (kind === 'storage') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, opacity: 0.34 }}>
+        <span style={{ borderLeft: '1px solid #7d7467' }} />
+        <span style={{ borderLeft: '1px solid #7d7467' }} />
+        <span style={{ borderLeft: '1px solid #7d7467' }} />
+      </div>
+    );
+  }
+
+  if (kind === 'rug') return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 6, border: '1px dashed rgba(185,155,104,0.64)' }} />;
+  if (kind === 'lamp' || kind === 'plant') return <div aria-hidden="true" style={{ position: 'absolute', inset: '28%', borderRadius: 999, background: kind === 'plant' ? 'rgba(79,138,96,0.34)' : 'rgba(185,155,104,0.34)' }} />;
+  return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 4, border: '1px solid rgba(92,86,72,0.18)' }} />;
+}
+
 function PlacedItem({
   item,
   x,
@@ -1147,6 +1402,8 @@ function PlacedItem({
   width,
   depth,
   floorPlan,
+  selected,
+  onSelect,
 }: {
   item: RoomItem;
   x: number;
@@ -1154,12 +1411,19 @@ function PlacedItem({
   width: number;
   depth: number;
   floorPlan: HomeFloorPlan;
+  selected: boolean;
+  onSelect: () => void;
 }) {
+  const style = furnitureStyleForItem(item);
   return (
     <button
       data-layout-control="true"
       draggable
       onDragStart={event => event.dataTransfer.setData('text/plain', String(item.id))}
+      onClick={event => {
+        event.stopPropagation();
+        onSelect();
+      }}
       title={`${item.itemName} · ${formatFt(width)} x ${formatFt(depth)}`}
       style={{
         position: 'absolute',
@@ -1169,37 +1433,48 @@ function PlacedItem({
         height: `${(depth / floorPlan.depthFt) * 100}%`,
         minWidth: 52,
         minHeight: 34,
-        borderRadius: 6,
-        border: item.itemSource === 'existing_belonging' ? '1px solid var(--color-accent)' : '1px solid #1f6b5b',
-        background: item.itemSource === 'existing_belonging' ? 'rgba(246,224,205,0.96)' : 'rgba(226,243,235,0.96)',
+        borderRadius: style.borderRadius,
+        border: selected ? '2px solid #1f6b5b' : `1px solid ${style.border}`,
+        background: style.background,
         color: 'var(--color-foreground)',
         padding: 6,
         textAlign: 'left',
-        boxShadow: 'var(--shadow-sm)',
+        overflow: 'hidden',
+        boxShadow: selected ? '0 0 0 3px rgba(31,107,91,0.18), var(--shadow-sm)' : 'var(--shadow-sm)',
         cursor: 'grab',
         transform: `rotate(${item.rotationDeg ?? 0}deg)`,
         transformOrigin: 'center',
-        zIndex: 3,
+        zIndex: selected ? 4 : 3,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, minWidth: 0 }}>
+      <FurnitureGlyph kind={style.kind} />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 800, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName}</div>
         <MoveDiagonal size={11} color="var(--color-secondary)" />
       </div>
-      <div style={{ fontSize: 9, color: 'var(--color-secondary)', marginTop: 4, whiteSpace: 'nowrap' }}>
+      <div style={{ position: 'relative', zIndex: 1, fontSize: 9, color: 'var(--color-secondary)', marginTop: 4, whiteSpace: 'nowrap' }}>
         {formatFt(width)} x {formatFt(depth)}
       </div>
     </button>
   );
 }
 
-function LayoutChip({ item }: { item: RoomItem }) {
+function LayoutChip({ item, selected, onSelect }: { item: RoomItem; selected: boolean; onSelect: () => void }) {
   const footprint = itemFootprint(item);
   return (
     <button
       draggable
       onDragStart={event => event.dataTransfer.setData('text/plain', String(item.id))}
-      style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)', borderRadius: 8, padding: '10px 12px', cursor: 'grab', minWidth: 132, textAlign: 'left' }}
+      onClick={onSelect}
+      style={{
+        border: selected ? '2px solid #1f6b5b' : '1px solid var(--color-border)',
+        background: selected ? 'rgba(226,243,235,0.96)' : 'var(--color-surface)',
+        borderRadius: 8,
+        padding: selected ? '9px 11px' : '10px 12px',
+        cursor: 'grab',
+        minWidth: 132,
+        textAlign: 'left',
+      }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Package size={14} color="var(--color-secondary)" />

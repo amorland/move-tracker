@@ -222,8 +222,8 @@ export function itemFootprint(item: RoomItem) {
   const depthIn = item.depthIn ?? parsed?.depthIn ?? estimateDepthIn(item);
 
   return {
-    widthFt: Math.max(widthIn / 12, 1.5),
-    depthFt: Math.max(depthIn / 12, 1.25),
+    widthFt: Math.max(widthIn / 12, 0.5),
+    depthFt: Math.max(depthIn / 12, 0.5),
   };
 }
 
