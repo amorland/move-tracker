@@ -453,16 +453,17 @@ function TaskRow({
   onDelete: () => void;
 }) {
   const done = task.status === 'Complete';
+  const blocked = task.status === 'Blocked';
   return (
     <div
       className="task-row"
       style={{
         display: 'flex',
         alignItems: 'stretch',
-        background: done ? 'var(--color-background)' : 'var(--color-surface)',
+        background: done ? 'var(--color-background)' : blocked ? '#fffafa' : 'var(--color-surface)',
         borderRadius: 8,
         boxShadow: 'var(--shadow-sm)',
-        border: '1px solid var(--color-border)',
+        border: blocked ? '1px solid #fca5a5' : '1px solid var(--color-border)',
         transition: 'background 0.2s',
       }}
     >
@@ -498,6 +499,7 @@ function TaskRow({
               {getScopeLabel(task.scope)}
             </span>
           )}
+          {blocked && <BlockedBadge />}
           {task.dueDate && !done && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--color-secondary)', opacity: 0.8 }}>
               <Calendar size={10} /> {format(parseISO(task.dueDate), 'MMM d')}
@@ -629,6 +631,7 @@ function TaskModal({
               <select value={editing.status} onChange={event => setEditing({ ...editing, status: event.target.value as TaskStatus })}>
                 <option value="Not Started">Not Started</option>
                 <option value="In Progress">In Progress</option>
+                <option value="Blocked">Blocked</option>
                 <option value="Complete">Complete</option>
               </select>
             </div>
@@ -695,5 +698,13 @@ function TaskModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function BlockedBadge() {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 9px', borderRadius: 'var(--radius-pill)', fontSize: 11, fontWeight: 700, background: '#fff0f0', color: '#b91c1c', border: '1px solid #fca5a5' }}>
+      Blocked
+    </span>
   );
 }

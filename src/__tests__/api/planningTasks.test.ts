@@ -93,6 +93,24 @@ describe('PATCH /api/planning-tasks', () => {
     const body = await res.json();
     expect(body.id).toBe(10);
   });
+
+  it('allows a planning task to be marked blocked', async () => {
+    mockFrom
+      .mockReturnValueOnce({
+        update: vi.fn(() => ({ eq: vi.fn(() => ({ select: vi.fn(() => ({ single: mockSingle })) })) })),
+      })
+      .mockReturnValueOnce({
+        select: vi.fn(() => Promise.resolve({ data: [mockTrack], error: null })),
+      });
+    mockSingle.mockResolvedValueOnce({ data: { ...mockTask, status: 'Blocked' }, error: null });
+
+    const res = await PATCH(new Request('http://localhost/api/planning-tasks', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: 10, status: 'Blocked' }),
+    }));
+    const body = await res.json();
+    expect(body.status).toBe('Blocked');
+  });
 });
 
 describe('DELETE /api/planning-tasks', () => {

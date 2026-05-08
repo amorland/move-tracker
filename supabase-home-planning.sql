@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS planning_tasks (
   notes TEXT,
   sort_index INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (now())::text,
-  CONSTRAINT planning_tasks_status_check CHECK (status IN ('Not Started', 'In Progress', 'Complete')),
+  CONSTRAINT planning_tasks_status_check CHECK (status IN ('Not Started', 'In Progress', 'Blocked', 'Complete')),
   CONSTRAINT planning_tasks_owner_check CHECK (owner IS NULL OR owner IN ('Andrew', 'Tory')),
   CONSTRAINT planning_tasks_section_check CHECK (section IN ('purchase', 'loan', 'home_setup', 'updates'))
 );

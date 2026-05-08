@@ -1,4 +1,4 @@
-export type TaskStatus = 'Not Started' | 'In Progress' | 'Complete';
+export type TaskStatus = 'Not Started' | 'In Progress' | 'Blocked' | 'Complete';
 export type TaskOwner = 'Andrew' | 'Tory';
 export type TrackKey = 'move' | 'drive' | 'home_purchase' | 'loan' | 'home_updates';
 export type TimelineEntryStatus = 'estimated' | 'confirmed' | 'complete' | 'blocked';

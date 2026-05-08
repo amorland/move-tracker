@@ -90,6 +90,21 @@ describe('PATCH /api/tasks', () => {
     expect(body.status).toBe('Complete');
   });
 
+  it('allows a task to be marked blocked', async () => {
+    const updated = { ...mockTask, status: 'Blocked' };
+    mockSingle.mockResolvedValueOnce({ data: updated, error: null });
+    mockUpdate.mockReturnValueOnce({ eq: vi.fn(() => ({ select: vi.fn(() => ({ single: mockSingle })) })) });
+    mockFrom.mockReturnValueOnce({ update: mockUpdate });
+
+    const req = new Request('http://localhost/api/tasks', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: 1, status: 'Blocked' }),
+    });
+    const res = await PATCH(req);
+    const body = await res.json();
+    expect(body.status).toBe('Blocked');
+  });
+
   it('does not use literal-quote keys for dueDate/categoryId', async () => {
     let capturedUpdate: Record<string, unknown> = {};
     mockUpdate.mockImplementationOnce((update: Record<string, unknown>) => {

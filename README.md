@@ -178,6 +178,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-home-planning.sql](supabase-home-planning.sql)
 - [supabase-loan-documentation-log.sql](supabase-loan-documentation-log.sql) — idempotent data patch for the BCU loan-documentation timeline log and related loan tasks
 - [supabase-document-dedupe.sql](supabase-document-dedupe.sql) — adds document URL keys, merges duplicate document records by normalized URL, and creates uniqueness guards for reusable document attachments
+- [supabase-task-blocked-status.sql](supabase-task-blocked-status.sql) — expands move and planning task statuses to include `Blocked`
 - [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on all 16 tables
 
 ## Running Locally
@@ -204,7 +205,7 @@ npm test
 npm run test:watch
 ```
 
-Current coverage is `89` tests across `16` files covering:
+Current coverage is `92` tests across `17` files covering:
 
 - `dateUtils` milestone validation
 - move API routes: belongings, tasks, events, settings
@@ -276,6 +277,7 @@ src/
 3. Run `supabase-rls.sql` in the Supabase SQL editor to enable Row Level Security on all tables. Until this is done, RLS is off and the anon key has unrestricted access.
 4. To seed the current BCU loan-documentation history, run `supabase-loan-documentation-log.sql` after `supabase-home-planning.sql`. The script checks existing Loan timeline/task titles before inserting, so it can be rerun without creating duplicates.
 5. To enable database-level document reuse safeguards and clean up existing duplicate document URLs, run `supabase-document-dedupe.sql` after `supabase-home-planning.sql`.
+6. To allow blocked task tracking, run `supabase-task-blocked-status.sql` after `supabase-home-planning.sql`.
 
 ## Current Limitations
 

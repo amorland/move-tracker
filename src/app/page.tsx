@@ -557,6 +557,9 @@ function TaskList({ tasks, emptyText }: { tasks: TaskAsset[]; emptyText: string 
                 <span className="section-label" style={{ margin: 0 }}>{task.groupLabel}</span>
               </div>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--color-foreground)' }}>{task.title}</div>
+              {task.status === 'Blocked' && (
+                <span className="badge" style={{ marginTop: 5, background: '#fff0f0', color: '#b91c1c' }}>Blocked</span>
+              )}
             </div>
             {task.dueDate && <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-secondary)', whiteSpace: 'nowrap' }}>{format(parseISO(task.dueDate), 'MMM d')}</div>}
           </div>

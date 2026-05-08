@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   "categoryId" BIGINT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   description TEXT,
-  status TEXT NOT NULL CHECK (status IN ('Not Started', 'In Progress', 'Complete')),
+  status TEXT NOT NULL CHECK (status IN ('Not Started', 'In Progress', 'Blocked', 'Complete')),
   owner TEXT NOT NULL CHECK (owner IN ('Andrew', 'Tory', 'Both')),
   phase TEXT NOT NULL DEFAULT 'Both' CHECK (phase IN ('Move Out', 'Move In', 'Both')),
   "dueDate" TEXT,

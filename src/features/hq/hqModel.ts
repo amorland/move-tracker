@@ -164,10 +164,11 @@ export function buildHqModel(input: HqModelInput): HqModel {
 
   const loanTasks = taskAssets.filter(task => task.scope === 'loan');
   const loanOpenTasks = loanTasks.filter(task => task.status !== 'Complete').sort(compareTasks);
+  const loanBlockedTasks = loanTasks.filter(task => task.status === 'Blocked');
   const loanTimeline = timelineAssets
     .filter(item => item.filters.includes('loan') && item.kind === 'track_entry')
     .sort(compareTimelineDesc);
-  const loanBlockedTimeline = loanTimeline.filter(item => item.status === 'blocked');
+  const loanBlockedTimeline = timelineAssets.filter(item => item.filters.includes('loan') && item.status === 'blocked');
 
   const placedItems = input.roomItems.filter(item => item.roomId !== null);
   const unplacedItems = input.roomItems.filter(item => item.roomId === null);
@@ -219,7 +220,7 @@ export function buildHqModel(input: HqModelInput): HqModel {
     loanSummary: {
       taskTotal: loanTasks.length,
       taskOpen: loanOpenTasks.length,
-      taskBlocked: loanOpenTasks.length + loanBlockedTimeline.length,
+      taskBlocked: loanBlockedTasks.length,
       timelineTotal: loanTimeline.length,
       timelineBlocked: loanBlockedTimeline.length,
       latestTimeline: loanTimeline[0] ?? null,

@@ -5,6 +5,7 @@ import {
   MoveSettings,
   PlanningTask,
   Task,
+  TaskStatus,
   TimelineEntry,
   TrackKey,
 } from '@/lib/types';
@@ -102,7 +103,7 @@ function buildMoveTaskAssets(tasks: Task[]): TimelineAsset[] {
       title: task.title,
       date: parseISO(task.dueDate!),
       kind: 'move_task' as const,
-      status: task.status,
+      status: getTaskTimelineStatus(task.status),
       filters: ['tasks'],
       label: 'Move Task',
       notes: task.notes,
@@ -200,7 +201,7 @@ function buildPlanningTaskAssets(tasks: PlanningTask[]): TimelineAsset[] {
         title: task.title,
         date: parseISO(task.dueDate!),
         kind: 'planning_task' as const,
-        status: task.status,
+        status: getTaskTimelineStatus(task.status),
         filters,
         label: task.trackName ? `${task.trackName} Task` : 'Planning Task',
         notes: task.notes,
@@ -209,4 +210,10 @@ function buildPlanningTaskAssets(tasks: PlanningTask[]): TimelineAsset[] {
         rawPlanningTask: task,
       };
     });
+}
+
+function getTaskTimelineStatus(status: TaskStatus) {
+  if (status === 'Blocked') return 'blocked';
+  if (status === 'Complete') return 'complete';
+  return status;
 }

@@ -61,7 +61,7 @@ const planningTasks: PlanningTask[] = [
     section: 'loan',
     title: 'Get employer letter',
     description: null,
-    status: 'Not Started',
+    status: 'Blocked',
     owner: 'Andrew',
     dueDate: '2026-05-10',
     completedAt: null,
@@ -220,8 +220,10 @@ describe('buildHqModel', () => {
   it('surfaces loan timeline entries and blocked loan work', () => {
     const model = buildModel();
     expect(model.loanSummary.timelineTotal).toBe(2);
-    expect(model.loanSummary.timelineBlocked).toBe(1);
+    expect(model.loanSummary.timelineBlocked).toBe(2);
+    expect(model.loanSummary.taskBlocked).toBe(1);
     expect(model.loanSummary.taskOpen).toBe(1);
+    expect(model.timelineSummary.blocked).toHaveLength(2);
     expect(model.loanSummary.latestTimeline?.title).toBe('Appraisal report received');
   });
 
