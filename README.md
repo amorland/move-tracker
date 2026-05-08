@@ -30,7 +30,7 @@ The UI uses a minimal, cozy planning aesthetic: warm paper background (`#f7f3ed`
 | **House Tasks** | `/home/tasks` | Redirects to the consolidated Tasks view filtered to house-planning areas |
 | **House Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
 | **Rooms** | `/home/rooms` | Room-by-room planning for existing brought items and planned purchases |
-| **Visual Layout** | `/home/layout` | Blueprint overlay planner with measured floor canvases, editable room outlines, labels, and draggable/rotatable room items |
+| **Visual Layout** | `/home/layout` | Blueprint overlay planner with measured floor canvases, editable room outlines, labels, and precise draggable/rotatable room items |
 | **Projects** | `/home/projects` | Future home improvement and renovation planning |
 
 ## Core Concepts
@@ -205,7 +205,7 @@ The dev server binds to `0.0.0.0:3000`.
 
 ## Blueprint Layout
 
-The Visual Layout page uses bundled blueprint overlay PNGs from `public/blueprints/`. These files are committed to the repo and deploy with the app, so hosted environments can load them directly from paths such as `/blueprints/second-floor.png`. Rooms can be shaped as polygons over the blueprint and labeled independently from their saved dimensions. Room items are placed on the measured floor canvas, assigned to a room when their center point lands inside that room outline, and can be selected to edit footprint and rotation.
+The Visual Layout page uses bundled blueprint overlay PNGs from `public/blueprints/`. These files are committed to the repo and deploy with the app, so hosted environments can load them directly from paths such as `/blueprints/second-floor.png`. Rooms can be shaped as polygons over the blueprint and labeled independently from their saved dimensions. Room items are placed on the measured floor canvas, assigned to a room when their center point lands inside that room outline, and can be selected to edit footprint, X/Y placement, rotation, snap behavior, and nudge positioning.
 
 ## Tests
 

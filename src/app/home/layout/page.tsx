@@ -12,7 +12,7 @@ import {
   PlanRect,
 } from '@/lib/homeLayout';
 import { HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
-import { Armchair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -32,6 +32,8 @@ type RoomItemLayoutUpdate = {
   widthIn?: number | null;
   depthIn?: number | null;
   rotationDeg?: number | null;
+  planXFt?: number | null;
+  planYFt?: number | null;
 };
 
 export default function HomeLayoutPage() {
@@ -46,6 +48,7 @@ export default function HomeLayoutPage() {
   const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
   const [roomDraft, setRoomDraft] = useState<RoomGeometryDraft | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [snapToGrid, setSnapToGrid] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -98,8 +101,8 @@ export default function HomeLayoutPage() {
         id: item.id,
         floorPlanId: floorPlanId > 0 ? floorPlanId : null,
         roomId,
-        planXFt: roundToQuarter(planXFt),
-        planYFt: roundToQuarter(planYFt),
+        planXFt: roundToHundredth(planXFt),
+        planYFt: roundToHundredth(planYFt),
       }),
     });
     fetchAll();
@@ -266,11 +269,13 @@ export default function HomeLayoutPage() {
             onSave={saveRoomGeometry}
           />
           <SelectedItemControls
-            key={selectedItem?.id ?? 'empty'}
+            key={selectedItem ? `${selectedItem.id}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
             item={selectedItem}
             room={selectedItemRoom}
             floorPlan={selectedItemFloor}
+            snapToGrid={snapToGrid}
             onSave={saveItemLayout}
+            onSnapChange={setSnapToGrid}
             onClear={() => setSelectedItemId(null)}
           />
           <MeasuredFloorPlan
@@ -288,6 +293,7 @@ export default function HomeLayoutPage() {
             onRoomDraftChange={setRoomDraft}
             selectedItemId={selectedItemId}
             onSelectItem={setSelectedItemId}
+            snapToGrid={snapToGrid}
             onMoveItem={moveItem}
           />
         </>
@@ -680,36 +686,45 @@ function SelectedItemControls({
   item,
   room,
   floorPlan,
+  snapToGrid,
   onSave,
+  onSnapChange,
   onClear,
 }: {
   item: RoomItem | null;
   room: Room | null;
   floorPlan: HomeFloorPlan | null;
+  snapToGrid: boolean;
   onSave: (itemId: number, update: RoomItemLayoutUpdate) => Promise<SaveResult>;
+  onSnapChange: (value: boolean) => void;
   onClear: () => void;
 }) {
   const footprint = item ? itemFootprint(item) : null;
+  const initialPlacement = item && footprint && floorPlan ? itemPlacementForControls(item, room, floorPlan, footprint) : null;
   const [draft, setDraft] = useState({
     widthFt: footprint ? roundToQuarter(footprint.widthFt) : null,
     depthFt: footprint ? roundToQuarter(footprint.depthFt) : null,
     rotationDeg: item?.rotationDeg ?? 0,
+    planXFt: initialPlacement?.planXFt ?? null,
+    planYFt: initialPlacement?.planYFt ?? null,
   });
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  const save = async () => {
-    if (!item || draft.widthFt === null || draft.depthFt === null) return;
+  const save = async (nextDraft = draft, successMessage = 'Item layout saved.') => {
+    if (!item || nextDraft.widthFt === null || nextDraft.depthFt === null) return;
     setSaveState('saving');
     setSaveMessage(null);
     const result = await onSave(item.id, {
-      widthIn: ftToIn(draft.widthFt),
-      depthIn: ftToIn(draft.depthFt),
-      rotationDeg: normaliseRotation(draft.rotationDeg ?? 0),
+      widthIn: ftToIn(nextDraft.widthFt),
+      depthIn: ftToIn(nextDraft.depthFt),
+      rotationDeg: normaliseRotation(nextDraft.rotationDeg ?? 0),
+      planXFt: nextDraft.planXFt === null ? undefined : roundToHundredth(nextDraft.planXFt),
+      planYFt: nextDraft.planYFt === null ? undefined : roundToHundredth(nextDraft.planYFt),
     });
     if (result.ok) {
       setSaveState('saved');
-      setSaveMessage('Item layout saved.');
+      setSaveMessage(successMessage);
       window.setTimeout(() => setSaveState('idle'), 1800);
       return;
     }
@@ -720,6 +735,29 @@ function SelectedItemControls({
   const rotateBy = (degrees: number) => {
     setDraft(current => ({ ...current, rotationDeg: normaliseRotation((current.rotationDeg ?? 0) + degrees) }));
   };
+
+  const moveBy = (dx: number, dy: number) => {
+    if (!floorPlan || draft.widthFt === null || draft.depthFt === null || draft.planXFt === null || draft.planYFt === null) return;
+    const nextDraft = {
+      ...draft,
+      ...clampItemPosition(draft.planXFt + dx, draft.planYFt + dy, draft.widthFt, draft.depthFt, floorPlan),
+    };
+    setDraft(nextDraft);
+    save(nextDraft, 'Item moved.');
+  };
+
+  const centerInRoom = () => {
+    if (!room || !floorPlan || draft.widthFt === null || draft.depthFt === null) return;
+    const center = averagePoint(planPointsForRoom(room));
+    const nextDraft = {
+      ...draft,
+      ...clampItemPosition(center.x - draft.widthFt / 2, center.y - draft.depthFt / 2, draft.widthFt, draft.depthFt, floorPlan),
+    };
+    setDraft(nextDraft);
+    save(nextDraft, 'Item centered.');
+  };
+
+  const canPosition = Boolean(item && floorPlan && draft.planXFt !== null && draft.planYFt !== null && draft.widthFt !== null && draft.depthFt !== null);
 
   return (
     <div className="card" style={{ marginBottom: 18 }}>
@@ -739,7 +777,7 @@ function SelectedItemControls({
               <span className="badge badge-neutral">{room?.name ?? 'No room'}</span>
               <span className="badge badge-neutral">{floorPlan?.label ?? 'No floor'}</span>
               <button type="button" className="btn btn-secondary btn-sm" onClick={onClear}>Clear</button>
-              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saveState === 'saving' || draft.widthFt === null || draft.depthFt === null}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => save()} disabled={saveState === 'saving' || draft.widthFt === null || draft.depthFt === null}>
                 <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Item'}
               </button>
             </div>
@@ -782,6 +820,45 @@ function SelectedItemControls({
                 </button>
               </div>
             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+              <GeometryNumberField
+                label="X ft"
+                value={draft.planXFt}
+                min={0}
+                max={floorPlan ? Math.max(0, floorPlan.widthFt - (draft.widthFt ?? 0)) : undefined}
+                nullable
+                onChange={planXFt => setDraft(current => ({
+                  ...current,
+                  planXFt: planXFt === null || !floorPlan || current.widthFt === null || current.depthFt === null
+                    ? planXFt
+                    : clampItemPosition(planXFt, current.planYFt ?? 0, current.widthFt, current.depthFt, floorPlan).planXFt,
+                }))}
+              />
+              <GeometryNumberField
+                label="Y ft"
+                value={draft.planYFt}
+                min={0}
+                max={floorPlan ? Math.max(0, floorPlan.depthFt - (draft.depthFt ?? 0)) : undefined}
+                nullable
+                onChange={planYFt => setDraft(current => ({
+                  ...current,
+                  planYFt: planYFt === null || !floorPlan || current.widthFt === null || current.depthFt === null
+                    ? planYFt
+                    : clampItemPosition(current.planXFt ?? 0, planYFt, current.widthFt, current.depthFt, floorPlan).planYFt,
+                }))}
+              />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 38, paddingTop: 16 }}>
+                <input type="checkbox" checked={snapToGrid} onChange={event => onSnapChange(event.target.checked)} style={{ width: 16, height: 16 }} />
+                <span className="section-label" style={{ margin: 0, fontSize: 10 }}>Snap 0.25 ft</span>
+              </label>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={centerInRoom} disabled={!room || !canPosition || saveState === 'saving'}>
+                <Crosshair size={14} /> Center in Room
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <NudgePad label="0.25 ft" disabled={!canPosition || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx * 0.25, dy * 0.25)} />
+              <NudgePad label="1 ft" disabled={!canPosition || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx, dy)} />
+            </div>
             {saveMessage && (
               <span style={{ fontSize: 12, color: saveState === 'error' ? '#b91c1c' : '#1f6b5b', fontWeight: 700 }}>
                 {saveMessage}
@@ -790,6 +867,36 @@ function SelectedItemControls({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function NudgePad({
+  label,
+  disabled,
+  onMove,
+}: {
+  label: string;
+  disabled: boolean;
+  onMove: (dx: number, dy: number) => void;
+}) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '32px 32px 32px', gridTemplateRows: '24px 24px 24px', gap: 4, alignItems: 'center' }}>
+      <div style={{ gridColumn: '1 / 4', fontSize: 10, fontWeight: 800, color: 'var(--color-secondary)', textAlign: 'center' }}>{label}</div>
+      <span />
+      <button type="button" className="btn btn-secondary btn-sm" aria-label={`Move up ${label}`} onClick={() => onMove(0, -1)} disabled={disabled} style={{ width: 32, minWidth: 32, padding: 0 }}>
+        <ArrowUp size={14} />
+      </button>
+      <span />
+      <button type="button" className="btn btn-secondary btn-sm" aria-label={`Move left ${label}`} onClick={() => onMove(-1, 0)} disabled={disabled} style={{ width: 32, minWidth: 32, padding: 0 }}>
+        <ArrowLeft size={14} />
+      </button>
+      <button type="button" className="btn btn-secondary btn-sm" aria-label={`Move down ${label}`} onClick={() => onMove(0, 1)} disabled={disabled} style={{ width: 32, minWidth: 32, padding: 0 }}>
+        <ArrowDown size={14} />
+      </button>
+      <button type="button" className="btn btn-secondary btn-sm" aria-label={`Move right ${label}`} onClick={() => onMove(1, 0)} disabled={disabled} style={{ width: 32, minWidth: 32, padding: 0 }}>
+        <ArrowRight size={14} />
+      </button>
     </div>
   );
 }
@@ -809,6 +916,7 @@ function MeasuredFloorPlan({
   onRoomDraftChange,
   selectedItemId,
   onSelectItem,
+  snapToGrid,
   onMoveItem,
 }: {
   floorPlan: HomeFloorPlan;
@@ -825,6 +933,7 @@ function MeasuredFloorPlan({
   onRoomDraftChange: (draft: RoomGeometryDraft | null) => void;
   selectedItemId: number | null;
   onSelectItem: (itemId: number) => void;
+  snapToGrid: boolean;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -917,8 +1026,10 @@ function MeasuredFloorPlan({
             const footprint = itemFootprint(item);
             const rawXFt = ((event.clientX - bounds.left) / bounds.width) * floorPlan.widthFt;
             const rawYFt = ((event.clientY - bounds.top) / bounds.height) * floorPlan.depthFt;
-            const planXFt = clamp(rawXFt, 0, Math.max(0, floorPlan.widthFt - footprint.widthFt));
-            const planYFt = clamp(rawYFt, 0, Math.max(0, floorPlan.depthFt - footprint.depthFt));
+            const snappedXFt = snapPlanValue(rawXFt, snapToGrid);
+            const snappedYFt = snapPlanValue(rawYFt, snapToGrid);
+            const planXFt = clamp(snappedXFt, 0, Math.max(0, floorPlan.widthFt - footprint.widthFt));
+            const planYFt = clamp(snappedYFt, 0, Math.max(0, floorPlan.depthFt - footprint.depthFt));
             const centerXFt = planXFt + footprint.widthFt / 2;
             const centerYFt = planYFt + footprint.depthFt / 2;
             const target = roomShapes.find(({ points }) => containsPlanPoint(points, centerXFt, centerYFt));
@@ -1312,6 +1423,24 @@ function formatNumberInput(value: number | null | undefined) {
   return value === null || value === undefined ? '' : String(value);
 }
 
+function itemPlacementForControls(item: RoomItem, room: Room | null, floorPlan: HomeFloorPlan, footprint: { widthFt: number; depthFt: number }) {
+  const fallbackCenter = room ? averagePoint(planPointsForRoom(room)) : { x: floorPlan.widthFt / 2, y: floorPlan.depthFt / 2 };
+  return clampItemPosition(
+    item.planXFt ?? fallbackCenter.x - footprint.widthFt / 2,
+    item.planYFt ?? fallbackCenter.y - footprint.depthFt / 2,
+    footprint.widthFt,
+    footprint.depthFt,
+    floorPlan,
+  );
+}
+
+function clampItemPosition(x: number, y: number, widthFt: number, depthFt: number, floorPlan: HomeFloorPlan) {
+  return {
+    planXFt: roundToHundredth(clamp(x, 0, Math.max(0, floorPlan.widthFt - widthFt))),
+    planYFt: roundToHundredth(clamp(y, 0, Math.max(0, floorPlan.depthFt - depthFt))),
+  };
+}
+
 function ftToIn(value: number) {
   return Math.round(value * 48) / 4;
 }
@@ -1499,6 +1628,14 @@ function clamp(value: number, min: number, max: number) {
 
 function roundToQuarter(value: number) {
   return Math.round(value * 4) / 4;
+}
+
+function roundToHundredth(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function snapPlanValue(value: number, snapToGrid: boolean) {
+  return snapToGrid ? roundToQuarter(value) : roundToHundredth(value);
 }
 
 function nullableNumber(value: string) {
