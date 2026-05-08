@@ -143,11 +143,38 @@ export interface PlanningTask {
   createdAt: string;
 }
 
+export interface PlanPoint {
+  x: number;
+  y: number;
+}
+
+export interface HomeFloorPlan {
+  id: number;
+  name: string;
+  label: string;
+  level: number;
+  widthFt: number;
+  depthFt: number;
+  ceilingHeightFt: number | null;
+  blueprintDocumentId: number | null;
+  blueprintPage: number | null;
+  blueprintImagePath: string | null;
+  notes: string | null;
+  sortIndex: number;
+}
+
 export interface Room {
   id: number;
   name: string;
   floor: string | null;
   notes: string | null;
+  floorPlanId: number | null;
+  planXFt: number | null;
+  planYFt: number | null;
+  planWidthFt: number | null;
+  planDepthFt: number | null;
+  ceilingHeightFt: number | null;
+  shapePoints: PlanPoint[] | null;
   sortIndex: number;
 }
 
@@ -164,6 +191,12 @@ export interface RoomItem {
   layoutY: number | null;
   layoutW: number | null;
   layoutH: number | null;
+  widthIn: number | null;
+  depthIn: number | null;
+  heightIn: number | null;
+  planXFt: number | null;
+  planYFt: number | null;
+  rotationDeg: number | null;
   sortIndex: number;
 }
 

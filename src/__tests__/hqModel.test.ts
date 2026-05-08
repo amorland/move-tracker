@@ -163,12 +163,12 @@ const documents: DocumentRecord[] = [
 ];
 
 const rooms: Room[] = [
-  { id: 1, name: 'Kitchen', floor: '1', notes: null, sortIndex: 0 },
+  { id: 1, name: 'Kitchen', floor: '1', notes: null, floorPlanId: null, planXFt: null, planYFt: null, planWidthFt: null, planDepthFt: null, ceilingHeightFt: null, shapePoints: null, sortIndex: 0 },
 ];
 
 const roomItems: RoomItem[] = [
-  { id: 1, roomId: 1, belongingId: 1, itemName: 'Table', itemSource: 'existing_belonging', status: 'placed', dimensions: null, notes: null, layoutX: 1, layoutY: 1, layoutW: 2, layoutH: 2, sortIndex: 0 },
-  { id: 2, roomId: null, belongingId: null, itemName: 'Sofa', itemSource: 'planned_purchase', status: 'planned', dimensions: null, notes: null, layoutX: null, layoutY: null, layoutW: null, layoutH: null, sortIndex: 1 },
+  { id: 1, roomId: 1, belongingId: 1, itemName: 'Table', itemSource: 'existing_belonging', status: 'placed', dimensions: null, notes: null, layoutX: 1, layoutY: 1, layoutW: 2, layoutH: 2, widthIn: null, depthIn: null, heightIn: null, planXFt: null, planYFt: null, rotationDeg: null, sortIndex: 0 },
+  { id: 2, roomId: null, belongingId: null, itemName: 'Sofa', itemSource: 'planned_purchase', status: 'planned', dimensions: null, notes: null, layoutX: null, layoutY: null, layoutW: null, layoutH: null, widthIn: null, depthIn: null, heightIn: null, planXFt: null, planYFt: null, rotationDeg: null, sortIndex: 1 },
 ];
 
 const projects: HomeProject[] = [

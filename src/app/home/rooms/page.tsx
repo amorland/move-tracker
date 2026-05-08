@@ -4,7 +4,7 @@ import HomeSubnav from '@/components/HomeSubnav';
 import { Belonging, Room, RoomItem } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { Box, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const FLOOR_ORDER = ['Basement', 'Main Floor', 'Second Floor', 'Third Floor', 'Exterior', 'Flexible', 'Multiple', 'Unassigned floor'];
 const ROOM_ORDER = [
@@ -65,11 +65,7 @@ export default function HomeRoomsPage() {
 
   useScrollLock(roomModal !== null || itemModal !== null);
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     const [roomsRes, itemsRes, belongingsRes] = await Promise.all([
       fetch('/api/rooms'),
       fetch('/api/room-items'),
@@ -80,7 +76,12 @@ export default function HomeRoomsPage() {
     const belongingData: Belonging[] = await belongingsRes.json();
     setBelongings(belongingData.filter(item => item.action === 'Bring'));
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchAll();
+  }, [fetchAll]);
 
   const saveRoom = async (room: Partial<Room>) => {
     const res = await fetch('/api/rooms', {
@@ -258,6 +259,18 @@ function RoomModal({
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes</label>
             <textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} style={{ height: 72, resize: 'none' }} />
           </div>
+          <div>
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Measured Layout</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+              <NumberField label="X ft" value={editing.planXFt} onChange={planXFt => setEditing({ ...editing, planXFt })} />
+              <NumberField label="Y ft" value={editing.planYFt} onChange={planYFt => setEditing({ ...editing, planYFt })} />
+              <NumberField label="Width ft" value={editing.planWidthFt} onChange={planWidthFt => setEditing({ ...editing, planWidthFt })} />
+              <NumberField label="Depth ft" value={editing.planDepthFt} onChange={planDepthFt => setEditing({ ...editing, planDepthFt })} />
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <NumberField label="Ceiling height ft" value={editing.ceilingHeightFt} onChange={ceilingHeightFt => setEditing({ ...editing, ceilingHeightFt })} />
+            </div>
+          </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
@@ -421,6 +434,15 @@ function RoomItemModal({
             </div>
           </div>
           <div>
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Measured Footprint</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 10 }}>
+              <NumberField label="Width in" value={editing.widthIn} onChange={widthIn => setEditing({ ...editing, widthIn })} />
+              <NumberField label="Depth in" value={editing.depthIn} onChange={depthIn => setEditing({ ...editing, depthIn })} />
+              <NumberField label="Height in" value={editing.heightIn} onChange={heightIn => setEditing({ ...editing, heightIn })} />
+              <NumberField label="Rotate deg" value={editing.rotationDeg} onChange={rotationDeg => setEditing({ ...editing, rotationDeg })} />
+            </div>
+          </div>
+          <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes</label>
             <textarea value={editing.notes || ''} onChange={e => setEditing({ ...editing, notes: e.target.value })} style={{ height: 72, resize: 'none' }} />
           </div>
@@ -432,4 +454,32 @@ function RoomItemModal({
       </div>
     </div>
   );
+}
+
+function NumberField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null | undefined;
+  onChange: (value: number | null) => void;
+}) {
+  return (
+    <label style={{ display: 'block' }}>
+      <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>{label}</span>
+      <input
+        type="number"
+        step="0.25"
+        value={value ?? ''}
+        onChange={event => onChange(nullableNumber(event.target.value))}
+      />
+    </label>
+  );
+}
+
+function nullableNumber(value: string) {
+  if (value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }

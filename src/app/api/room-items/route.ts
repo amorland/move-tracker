@@ -29,24 +29,42 @@ export async function POST(request: Request) {
     .limit(1)
     .single();
 
-  const { data, error } = await supabase
+  const insert = {
+    room_id: body.roomId || null,
+    belonging_id: body.belongingId || null,
+    item_name: body.itemName || 'New Item',
+    item_source: body.itemSource || 'planned_purchase',
+    status: body.status || 'planned',
+    dimensions: body.dimensions || null,
+    notes: body.notes || null,
+    layout_x: body.layoutX ?? null,
+    layout_y: body.layoutY ?? null,
+    layout_w: body.layoutW ?? null,
+    layout_h: body.layoutH ?? null,
+    width_in: body.widthIn ?? null,
+    depth_in: body.depthIn ?? null,
+    height_in: body.heightIn ?? null,
+    plan_x_ft: body.planXFt ?? null,
+    plan_y_ft: body.planYFt ?? null,
+    rotation_deg: body.rotationDeg ?? null,
+    sort_index: (last?.sort_index ?? -1) + 1,
+  };
+
+  let { data, error } = await supabase
     .from('room_items')
-    .insert([{
-      room_id: body.roomId || null,
-      belonging_id: body.belongingId || null,
-      item_name: body.itemName || 'New Item',
-      item_source: body.itemSource || 'planned_purchase',
-      status: body.status || 'planned',
-      dimensions: body.dimensions || null,
-      notes: body.notes || null,
-      layout_x: body.layoutX ?? null,
-      layout_y: body.layoutY ?? null,
-      layout_w: body.layoutW ?? null,
-      layout_h: body.layoutH ?? null,
-      sort_index: (last?.sort_index ?? -1) + 1,
-    }])
+    .insert([insert])
     .select()
     .single();
+
+  if (error && isMissingMeasuredColumnError(error)) {
+    const retry = await supabase
+      .from('room_items')
+      .insert([stripMeasuredItemFields(insert)])
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -69,14 +87,31 @@ export async function PATCH(request: Request) {
   if ('layoutY' in rest) update.layout_y = rest.layoutY;
   if ('layoutW' in rest) update.layout_w = rest.layoutW;
   if ('layoutH' in rest) update.layout_h = rest.layoutH;
+  if ('widthIn' in rest) update.width_in = rest.widthIn;
+  if ('depthIn' in rest) update.depth_in = rest.depthIn;
+  if ('heightIn' in rest) update.height_in = rest.heightIn;
+  if ('planXFt' in rest) update.plan_x_ft = rest.planXFt;
+  if ('planYFt' in rest) update.plan_y_ft = rest.planYFt;
+  if ('rotationDeg' in rest) update.rotation_deg = rest.rotationDeg;
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('room_items')
     .update(update)
     .eq('id', id)
     .select()
     .single();
+
+  if (error && isMissingMeasuredColumnError(error)) {
+    const retry = await supabase
+      .from('room_items')
+      .update(stripMeasuredItemFields(update))
+      .eq('id', id)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -106,6 +141,33 @@ function normalise(row: Record<string, unknown>) {
     layoutY: row.layout_y ?? row.layoutY ?? null,
     layoutW: row.layout_w ?? row.layoutW ?? null,
     layoutH: row.layout_h ?? row.layoutH ?? null,
+    widthIn: nullableNumber(row.width_in ?? row.widthIn),
+    depthIn: nullableNumber(row.depth_in ?? row.depthIn),
+    heightIn: nullableNumber(row.height_in ?? row.heightIn),
+    planXFt: nullableNumber(row.plan_x_ft ?? row.planXFt),
+    planYFt: nullableNumber(row.plan_y_ft ?? row.planYFt),
+    rotationDeg: nullableNumber(row.rotation_deg ?? row.rotationDeg),
     sortIndex: row.sort_index ?? row.sortIndex ?? 0,
   };
+}
+
+function nullableNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isMissingMeasuredColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /width_in|depth_in|height_in|plan_|rotation_deg/i.test(error.message ?? '');
+}
+
+function stripMeasuredItemFields(update: Record<string, unknown>) {
+  const legacyUpdate = { ...update };
+  delete legacyUpdate.width_in;
+  delete legacyUpdate.depth_in;
+  delete legacyUpdate.height_in;
+  delete legacyUpdate.plan_x_ft;
+  delete legacyUpdate.plan_y_ft;
+  delete legacyUpdate.rotation_deg;
+  return legacyUpdate;
 }
