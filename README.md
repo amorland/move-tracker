@@ -102,6 +102,27 @@ To avoid collisions between old move tasks and new home planning tasks, the atta
 - `event`
 - `timeline_entry`
 
+### Loan Document Import Workflow
+
+The repo includes an offline import helper for reconciling loan-underwriting Google Drive manifests with exported Supabase tables. It does not connect to Supabase directly; instead, it generates a review report and SQL patch from local CSV exports.
+
+Private CSVs and generated SQL should live under `data/`, which is git-ignored:
+
+- `data/exports/documents_rows.csv`
+- `data/exports/document_links_rows.csv`
+- `data/exports/timeline_entries_rows.csv`
+- `data/exports/planning_tasks_rows.csv`
+- `data/exports/tracks_rows.csv`
+- `data/imports/loan-underwriting-documents-manifest-*.csv`
+
+Run:
+
+```bash
+python3 scripts/loan_document_import.py
+```
+
+Review `data/generated/loan-document-import-dry-run.md`, then run `data/generated/loan-document-import-apply.sql` in Supabase after `supabase-loan-documentation-log.sql` and `supabase-document-dedupe.sql` have been applied. The generated SQL contains private document URLs and should remain uncommitted.
+
 ### Consolidated Tasks And Timelines
 
 Tasks and timelines now use top-level umbrella pages:
@@ -183,7 +204,7 @@ npm test
 npm run test:watch
 ```
 
-Current coverage is `76` tests across `13` files covering:
+Current coverage is `89` tests across `16` files covering:
 
 - `dateUtils` milestone validation
 - move API routes: belongings, tasks, events, settings
