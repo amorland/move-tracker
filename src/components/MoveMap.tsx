@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MoveLocation, MoveSettings } from '@/lib/types';
+import { MoveLocation } from '@/lib/types';
 import { MapPin, Plus, Trash2, X, Info, Moon, Pencil, Home } from 'lucide-react';
 
 const OriginIcon = L.divIcon({
@@ -33,6 +33,24 @@ interface RouteStats {
   durationSeconds: number;
   legs: { distanceMiles: number; durationSeconds: number }[];
 }
+
+type OsrmLeg = {
+  distance: number;
+  duration: number;
+};
+
+type OsrmRoute = {
+  distance: number;
+  duration: number;
+  legs?: OsrmLeg[];
+  geometry: {
+    coordinates: [number, number][];
+  };
+};
+
+type OsrmResponse = {
+  routes?: OsrmRoute[];
+};
 
 function fmtDuration(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -66,7 +84,6 @@ async function geocode(address: string): Promise<{ lat: number; lng: number } | 
 
 export default function MoveMap() {
   const [locations, setLocations] = useState<MoveLocation[]>([]);
-  const [settings, setSettings] = useState<MoveSettings | null>(null);
   const [routeCoords, setRouteCoords] = useState<[number, number][]>([]);
   const [routeStats, setRouteStats] = useState<RouteStats | null>(null);
   const [bounds, setBounds] = useState<L.LatLngBoundsExpression | null>(null);
@@ -76,17 +93,7 @@ export default function MoveMap() {
   const [editingLoc, setEditingLoc] = useState<MoveLocation | null>(null);
   const [editOvernight, setEditOvernight] = useState(false);
 
-  useEffect(() => { fetchAll(); }, []);
-
-  const fetchAll = async () => {
-    const [lRes, sRes] = await Promise.all([fetch('/api/locations'), fetch('/api/settings')]);
-    const locs: MoveLocation[] = await lRes.json();
-    setLocations(locs);
-    setSettings(await sRes.json());
-    if (locs.length >= 2) fetchRoute(locs);
-  };
-
-  const fetchRoute = async (locs: MoveLocation[]) => {
+  const fetchRoute = useCallback(async (locs: MoveLocation[]) => {
     const routePoints = locs
       .filter(l => ['Origin', 'Stop', 'Destination'].includes(l.category) && l.lat && l.lng)
       .sort((a, b) => {
@@ -102,14 +109,14 @@ export default function MoveMap() {
     const coords = routePoints.map(p => `${p.lng},${p.lat}`).join(';');
     try {
       const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`);
-      const data = await res.json();
+      const data = await res.json() as OsrmResponse;
       if (data.routes?.[0]) {
         const route = data.routes[0];
         setRouteCoords(route.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]));
         setRouteStats({
           distanceMiles: route.distance * 0.000621371,
           durationSeconds: route.duration,
-          legs: (route.legs ?? []).map((leg: any) => ({
+          legs: (route.legs ?? []).map(leg => ({
             distanceMiles: leg.distance * 0.000621371,
             durationSeconds: leg.duration,
           })),
@@ -121,7 +128,18 @@ export default function MoveMap() {
     } catch {
       setRouteCoords(routePoints.map(p => [p.lat!, p.lng!]));
     }
-  };
+  }, []);
+
+  const fetchAll = useCallback(async () => {
+    const lRes = await fetch('/api/locations');
+    const locs: MoveLocation[] = await lRes.json();
+    setLocations(locs);
+    if (locs.length >= 2) await fetchRoute(locs);
+  }, [fetchRoute]);
+
+  useEffect(() => {
+    void Promise.resolve().then(fetchAll);
+  }, [fetchAll]);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,7 +284,7 @@ export default function MoveMap() {
                 <form onSubmit={isAdding ? handleAdd : handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <input required placeholder="Name (e.g. Hotel)" value={formLoc.name || ''} onChange={e => setFormLoc({ ...formLoc, name: e.target.value })} />
                   <input required placeholder="Full address" value={formLoc.address || ''} onChange={e => setFormLoc({ ...formLoc, address: e.target.value })} />
-                  <select value={formLoc.category} onChange={e => { setFormLoc({ ...formLoc, category: e.target.value as any }); setFormOvernight(false); }}>
+                  <select value={formLoc.category} onChange={e => { setFormLoc({ ...formLoc, category: e.target.value as MoveLocation['category'] }); setFormOvernight(false); }}>
                     <option value="Stop">Travel Stop</option>
                     <option value="Origin">Origin</option>
                     <option value="Destination">Destination</option>

@@ -1,4 +1,6 @@
 import { getSupabaseServer } from '@/lib/supabase';
+import { removeBelongingLayoutItems, syncBelongingLayoutItem } from '@/lib/server/homeLayoutSync';
+import type { Belonging, BelongingAction } from '@/lib/types';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -30,7 +32,10 @@ export async function POST(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(normalise(data));
+  const saved = normalise(data);
+  const sync = await syncBelongingLayoutItem(supabase, saved);
+  if (sync.errors.length > 0) console.error('Belonging layout sync failed', sync.errors);
+  return NextResponse.json(saved);
 }
 
 export async function PATCH(request: Request) {
@@ -56,7 +61,10 @@ export async function PATCH(request: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(normalise(data));
+  const saved = normalise(data);
+  const sync = await syncBelongingLayoutItem(supabase, saved);
+  if (sync.errors.length > 0) console.error('Belonging layout sync failed', sync.errors);
+  return NextResponse.json(saved);
 }
 
 export async function DELETE(request: Request) {
@@ -64,19 +72,27 @@ export async function DELETE(request: Request) {
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
 
+  const sync = await removeBelongingLayoutItems(supabase, Number(id));
+  if (sync.errors.length > 0) return NextResponse.json({ error: sync.errors.join('; ') }, { status: 500 });
+
   const { error } = await supabase.from('belongings').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });
 }
 
-function normalise(row: Record<string, unknown>) {
+function normalise(row: Record<string, unknown>): Belonging {
   return {
-    id: row.id,
-    room: row.room,
-    itemName: row.itemName ?? row.item_name ?? 'Unnamed Item',
-    action: row.action,
-    status: row.status as 'unresolved' | 'resolved',
-    notes: row.notes ?? null,
-    createdAt: row.createdAt ?? row.created_at ?? '',
+    id: Number(row.id),
+    room: String(row.room ?? 'Other'),
+    itemName: String(row.itemName ?? row.item_name ?? 'Unnamed Item'),
+    action: normaliseAction(row.action),
+    status: String(row.status ?? 'unresolved') === 'resolved' ? 'resolved' : 'unresolved',
+    notes: row.notes === null || row.notes === undefined ? null : String(row.notes),
+    createdAt: String(row.createdAt ?? row.created_at ?? ''),
   };
+}
+
+function normaliseAction(value: unknown): BelongingAction {
+  const action = String(value ?? 'Bring');
+  return action === 'Sell' || action === 'Donate' || action === 'Trash' ? action : 'Bring';
 }

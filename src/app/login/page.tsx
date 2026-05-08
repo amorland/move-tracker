@@ -1,19 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const err = params.get('error');
-    if (err === 'unauthorized') setError('Your Google account is not authorized to access this app.');
-    else if (err === 'auth_failed') setError('Sign-in failed. Please try again.');
-    else if (err === 'no_code') setError('Authentication was cancelled. Please try again.');
-  }, []);
+  const [error, setError] = useState(getInitialAuthError);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -75,4 +67,15 @@ export default function LoginPage() {
       </div>
     </div>
   );
+}
+
+function getInitialAuthError() {
+  if (typeof window === 'undefined') return '';
+
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get('error');
+  if (error === 'unauthorized') return 'Your Google account is not authorized to access this app.';
+  if (error === 'auth_failed') return 'Sign-in failed. Please try again.';
+  if (error === 'no_code') return 'Authentication was cancelled. Please try again.';
+  return '';
 }

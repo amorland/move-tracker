@@ -4,7 +4,7 @@ import HomeSubnav from '@/components/HomeSubnav';
 import { HomeProject } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { Calendar, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 const STATUS_OPTIONS: HomeProject['status'][] = ['idea', 'planning', 'quoted', 'scheduled', 'complete'];
 const PRIORITY_OPTIONS: HomeProject['priority'][] = ['low', 'medium', 'high'];
@@ -19,15 +19,15 @@ export default function HomeProjectsPage() {
 
   useScrollLock(modalProject !== null);
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     const res = await fetch('/api/home-projects');
     setProjects(await res.json());
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(fetchProjects);
+  }, [fetchProjects]);
 
   const saveProject = async (project: Partial<HomeProject>) => {
     const res = await fetch('/api/home-projects', {

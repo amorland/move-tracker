@@ -14,8 +14,8 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const supabase = await getSupabaseServer();
-  const body = await request.json();
-  const { id, ...insertData } = body;
+  const insertData = await request.json() as Record<string, unknown>;
+  delete insertData.id;
 
   const { data, error } = await supabase
     .from('locations')

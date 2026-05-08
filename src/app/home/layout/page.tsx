@@ -35,6 +35,22 @@ type RoomItemLayoutUpdate = {
   planXFt?: number | null;
   planYFt?: number | null;
 };
+type LayoutAutomationMode = 'items' | 'rooms';
+type LayoutAutomationStats = {
+  layout?: {
+    created?: number;
+    updated?: number;
+    removed?: number;
+    deduped?: number;
+    unmatched?: number;
+  };
+  roomSeeds?: {
+    updated?: number;
+    skipped?: number;
+    missing?: number;
+  } | null;
+  error?: string;
+};
 
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -49,6 +65,8 @@ export default function HomeLayoutPage() {
   const [roomDraft, setRoomDraft] = useState<RoomGeometryDraft | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(true);
+  const [automationBusy, setAutomationBusy] = useState<LayoutAutomationMode | null>(null);
+  const [automationMessage, setAutomationMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -69,7 +87,6 @@ export default function HomeLayoutPage() {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchAll();
   }, [fetchAll]);
 
@@ -194,6 +211,36 @@ export default function HomeLayoutPage() {
     return { ok: true };
   };
 
+  const runLayoutAutomation = async (mode: LayoutAutomationMode): Promise<SaveResult> => {
+    setAutomationBusy(mode);
+    setAutomationMessage(null);
+    try {
+      const res = await fetch('/api/home-layout-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ includeRoomSeeds: mode === 'rooms', overwriteRoomSeeds: false }),
+      });
+      const body = await res.json().catch(() => null) as LayoutAutomationStats | null;
+
+      if (!res.ok) {
+        const message = body?.error || `Layout sync failed with HTTP ${res.status}`;
+        setAutomationMessage(message);
+        return { ok: false, message };
+      }
+
+      setAutomationMessage(formatAutomationMessage(mode, body));
+      await fetchAll();
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Layout sync failed.';
+      setAutomationBusy(null);
+      setAutomationMessage(message);
+      return { ok: false, message };
+    } finally {
+      setAutomationBusy(null);
+    }
+  };
+
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading layout...</div>;
 
   return (
@@ -256,6 +303,12 @@ export default function HomeLayoutPage() {
             onOpacityChange={setOverlayOpacity}
             onFitChange={setOverlayFit}
             onSave={saveFloorPlan}
+          />
+          <LayoutAutomationControls
+            busy={automationBusy}
+            message={automationMessage}
+            onSyncItems={() => runLayoutAutomation('items')}
+            onSeedRooms={() => runLayoutAutomation('rooms')}
           />
           <RoomGeometryControls
             floorPlan={activeFloor}
@@ -493,6 +546,47 @@ function BlueprintOverlayControls({
               {saveMessage}
             </span>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LayoutAutomationControls({
+  busy,
+  message,
+  onSyncItems,
+  onSeedRooms,
+}: {
+  busy: LayoutAutomationMode | null;
+  message: string | null;
+  onSyncItems: () => Promise<SaveResult>;
+  onSeedRooms: () => Promise<SaveResult>;
+}) {
+  return (
+    <div className="card" style={{ marginBottom: 18 }}>
+      <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Package size={17} color="var(--color-accent-dark)" />
+          <div>
+            <div className="section-label" style={{ marginBottom: 4 }}>Layout automation</div>
+            <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
+              Bring items and blueprint room outlines can be synced into this planner.
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {message && (
+            <span style={{ fontSize: 12, color: message.toLowerCase().includes('failed') ? '#b91c1c' : 'var(--color-secondary)', fontWeight: 700 }}>
+              {message}
+            </span>
+          )}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={busy !== null}>
+            <RotateCw size={14} /> {busy === 'items' ? 'Syncing...' : 'Sync Bring Items'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedRooms} disabled={busy !== null}>
+            <Ruler size={14} /> {busy === 'rooms' ? 'Applying...' : 'Apply Suggested Outlines'}
+          </button>
         </div>
       </div>
     </div>
@@ -1642,6 +1736,16 @@ function nullableNumber(value: string) {
   if (value.trim() === '') return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatAutomationMessage(mode: LayoutAutomationMode, body: LayoutAutomationStats | null) {
+  if (mode === 'rooms') {
+    const seeds = body?.roomSeeds;
+    return `Outlines updated ${seeds?.updated ?? 0}; skipped ${seeds?.skipped ?? 0}.`;
+  }
+
+  const layout = body?.layout;
+  return `Items created ${layout?.created ?? 0}; updated ${layout?.updated ?? 0}; removed ${layout?.removed ?? 0}.`;
 }
 
 function formatFt(value: number) {

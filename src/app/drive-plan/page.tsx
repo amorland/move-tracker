@@ -2,8 +2,8 @@
 
 import { DriveLoadoutItem, DriveLoadoutType, DriveVehicle } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
-import { CarFront, Dog, Baby, Bike, Briefcase, Leaf, Package, PackagePlus, Pencil, Plus, Trash2, User, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Dog, Baby, Bike, Briefcase, Leaf, Package, PackagePlus, Pencil, Plus, Trash2, User, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 const DEFAULT_VEHICLES: Omit<DriveVehicle, 'id' | 'orderIndex'>[] = [
   {
@@ -47,11 +47,7 @@ export default function DrivePlanPage() {
 
   useScrollLock(vehicleModal !== null || itemModal !== null);
 
-  useEffect(() => {
-    fetchAll();
-  }, []);
-
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     const [vehicleRes, itemRes] = await Promise.all([
       fetch('/api/drive-vehicles'),
       fetch('/api/drive-loadout-items'),
@@ -59,7 +55,11 @@ export default function DrivePlanPage() {
     setVehicles(await vehicleRes.json());
     setItems(await itemRes.json());
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    void Promise.resolve().then(fetchAll);
+  }, [fetchAll]);
 
   const saveVehicle = async (vehicle: Partial<DriveVehicle>) => {
     const res = await fetch('/api/drive-vehicles', {

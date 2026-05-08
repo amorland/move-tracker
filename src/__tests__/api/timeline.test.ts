@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFrom, mockSingle, mockInsert, mockUpdate, mockDelete } = vi.hoisted(() => {
+const { mockFrom, mockSingle, mockDelete } = vi.hoisted(() => {
   const mockSingle = vi.fn();
-  const mockInsert = vi.fn();
-  const mockUpdate = vi.fn();
   const mockDelete = vi.fn();
   const mockFrom = vi.fn();
-  return { mockFrom, mockSingle, mockInsert, mockUpdate, mockDelete };
+  return { mockFrom, mockSingle, mockDelete };
 });
 
 vi.mock('@/lib/supabase', () => ({

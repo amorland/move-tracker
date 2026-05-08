@@ -2,13 +2,19 @@ import { getSupabaseServer } from '@/lib/supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
-async function getTrackMap(supabase: SupabaseClient) {
+type TrackSummary = {
+  id: number;
+  key: string;
+  name: string;
+};
+
+async function getTrackMap(supabase: SupabaseClient): Promise<Map<number, TrackSummary>> {
   const { data: tracks, error } = await supabase.from('tracks').select('*');
   if (error) throw new Error(error.message);
-  return new Map((tracks ?? []).map((track: any) => [Number(track.id), {
-    id: track.id,
-    key: track.key,
-    name: track.name,
+  return new Map((tracks ?? []).map(track => [Number(track.id), {
+    id: Number(track.id),
+    key: String(track.key),
+    name: String(track.name),
   }]));
 }
 
@@ -21,7 +27,7 @@ export async function GET(request: Request) {
 
   const trackMap = await getTrackMap(supabase);
   const selectedTrackIds = track
-    ? [...trackMap.values()].filter((item: any) => item.key === track).map((item: any) => Number(item.id))
+    ? [...trackMap.values()].filter(item => item.key === track).map(item => item.id)
     : [];
 
   let query = supabase
@@ -37,7 +43,7 @@ export async function GET(request: Request) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json((data ?? []).map((row: any) => normalise(row, trackMap.get(Number(row.track_id)))));
+  return NextResponse.json((data ?? []).map(row => normalise(row as Record<string, unknown>, trackMap.get(Number(row.track_id)))));
 }
 
 export async function POST(request: Request) {
@@ -113,7 +119,7 @@ export async function DELETE(request: Request) {
   return NextResponse.json({ success: true });
 }
 
-function normalise(row: Record<string, unknown>, track?: { key: string; name: string }) {
+function normalise(row: Record<string, unknown>, track?: TrackSummary) {
   return {
     id: row.id,
     trackId: row.track_id ?? row.trackId,

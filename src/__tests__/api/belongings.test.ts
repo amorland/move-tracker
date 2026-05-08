@@ -1,16 +1,39 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockFrom, mockSingle, mockInsert, mockUpdate, mockDelete } = vi.hoisted(() => {
+const {
+  mockFrom,
+  mockSingle,
+  mockInsert,
+  mockUpdate,
+  mockDelete,
+  mockSyncBelongingLayoutItem,
+  mockRemoveBelongingLayoutItems,
+} = vi.hoisted(() => {
   const mockSingle = vi.fn();
   const mockInsert = vi.fn();
   const mockUpdate = vi.fn();
   const mockDelete = vi.fn();
   const mockFrom = vi.fn();
-  return { mockFrom, mockSingle, mockInsert, mockUpdate, mockDelete };
+  const mockSyncBelongingLayoutItem = vi.fn();
+  const mockRemoveBelongingLayoutItems = vi.fn();
+  return {
+    mockFrom,
+    mockSingle,
+    mockInsert,
+    mockUpdate,
+    mockDelete,
+    mockSyncBelongingLayoutItem,
+    mockRemoveBelongingLayoutItems,
+  };
 });
 
 vi.mock('@/lib/supabase', () => ({
   getSupabaseServer: vi.fn().mockResolvedValue({ from: mockFrom }),
+}));
+
+vi.mock('@/lib/server/homeLayoutSync', () => ({
+  syncBelongingLayoutItem: mockSyncBelongingLayoutItem,
+  removeBelongingLayoutItems: mockRemoveBelongingLayoutItems,
 }));
 
 import { GET, POST, PATCH, DELETE } from '@/app/api/belongings/route';
@@ -27,6 +50,24 @@ const mockItem = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSyncBelongingLayoutItem.mockResolvedValue({
+    created: 0,
+    updated: 0,
+    removed: 0,
+    deduped: 0,
+    skipped: 0,
+    unmatched: 0,
+    errors: [],
+  });
+  mockRemoveBelongingLayoutItems.mockResolvedValue({
+    created: 0,
+    updated: 0,
+    removed: 0,
+    deduped: 0,
+    skipped: 0,
+    unmatched: 0,
+    errors: [],
+  });
 });
 
 describe('GET /api/belongings', () => {
@@ -66,6 +107,7 @@ describe('POST /api/belongings', () => {
     const body = await res.json();
     expect(body.itemName).toBe('Coffee maker');
     expect(body.action).toBe('Bring');
+    expect(mockSyncBelongingLayoutItem).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ itemName: 'Coffee maker' }));
   });
 
   it('returns 500 on insert error', async () => {
@@ -97,6 +139,7 @@ describe('PATCH /api/belongings', () => {
     const res = await PATCH(req);
     const body = await res.json();
     expect(body.status).toBe('resolved');
+    expect(mockSyncBelongingLayoutItem).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ status: 'resolved' }));
   });
 
   it('does not include literal-quote key in update object for itemName', async () => {
@@ -141,6 +184,7 @@ describe('DELETE /api/belongings', () => {
     const res = await DELETE(req);
     const body = await res.json();
     expect(body.success).toBe(true);
+    expect(mockRemoveBelongingLayoutItems).toHaveBeenCalledWith(expect.anything(), 1);
     expect(mockEq).toHaveBeenCalledWith('id', '1');
   });
 

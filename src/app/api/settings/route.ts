@@ -1,6 +1,7 @@
 import { getSupabaseServer } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 import { validateDates } from '@/lib/dateUtils';
+import type { MoveSettings } from '@/lib/types';
 
 export async function GET() {
   const supabase = await getSupabaseServer();
@@ -14,7 +15,7 @@ export async function GET() {
 
   // FORCE SANITIZE: Fix existing bad data in DB
   let needsFix = false;
-  const updates: any = {};
+  const updates: Partial<MoveSettings> = {};
   if (data.isClosingDateConfirmed && !data.closingDate) { updates.isClosingDateConfirmed = false; needsFix = true; }
   if (data.isUpackDropoffConfirmed && !data.upackDropoffDate) { updates.isUpackDropoffConfirmed = false; needsFix = true; }
   if (data.isUpackPickupConfirmed && !data.upackPickupDate) { updates.isUpackPickupConfirmed = false; needsFix = true; }
@@ -33,8 +34,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   const supabase = await getSupabaseServer();
-  const body = await request.json();
-  const { id, ...updateData } = body;
+  const body = await request.json() as Record<string, unknown>;
+  const updateData = { ...body };
+  delete updateData.id;
 
   const { data: currentSettings } = await supabase
     .from('settings')
@@ -42,7 +44,7 @@ export async function PATCH(request: Request) {
     .eq('id', 1)
     .single();
 
-  const mergedSettings = { ...currentSettings, ...updateData };
+  const mergedSettings = { ...currentSettings, ...updateData } as Partial<MoveSettings>;
   const validationError = validateDates(mergedSettings);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
