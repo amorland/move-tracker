@@ -35,7 +35,7 @@ type RoomItemLayoutUpdate = {
   planXFt?: number | null;
   planYFt?: number | null;
 };
-type LayoutAutomationMode = 'items' | 'rooms';
+type LayoutAutomationMode = 'items' | 'rooms' | 'reflow';
 type LayoutAutomationStats = {
   layout?: {
     created?: number;
@@ -84,6 +84,7 @@ export default function HomeLayoutPage() {
     setFloorPlans(nextFloorPlans);
     setActiveFloorName(current => current ?? (nextFloorPlans[0]?.name ?? fallbackFloorPlansForRooms(nextRooms)[0]?.name ?? null));
     setLoading(false);
+    return { rooms: nextRooms, items: nextItems, floorPlans: nextFloorPlans };
   }, []);
 
   useEffect(() => {
@@ -218,7 +219,11 @@ export default function HomeLayoutPage() {
       const res = await fetch('/api/home-layout-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ includeRoomSeeds: mode === 'rooms', overwriteRoomSeeds: false }),
+        body: JSON.stringify({
+          includeRoomSeeds: mode === 'rooms',
+          overwriteRoomSeeds: false,
+          reflowItems: mode === 'reflow',
+        }),
       });
       const body = await res.json().catch(() => null) as LayoutAutomationStats | null;
 
@@ -239,6 +244,24 @@ export default function HomeLayoutPage() {
     } finally {
       setAutomationBusy(null);
     }
+  };
+
+  const resetRoomToSuggestedOutline = async (roomId: number): Promise<SaveResult> => {
+    const res = await fetch('/api/home-layout-sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ includeRoomSeeds: true, overwriteRoomSeeds: true, roomId }),
+    });
+    const body = await res.json().catch(() => null) as LayoutAutomationStats | null;
+
+    if (!res.ok) {
+      return { ok: false, message: body?.error || `Reset failed with HTTP ${res.status}` };
+    }
+
+    const next = await fetchAll();
+    const resetRoom = next.rooms.find(room => room.id === roomId);
+    if (resetRoom) setRoomDraft(makeRoomGeometryDraft(resetRoom));
+    return { ok: true };
   };
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading layout...</div>;
@@ -308,6 +331,7 @@ export default function HomeLayoutPage() {
             busy={automationBusy}
             message={automationMessage}
             onSyncItems={() => runLayoutAutomation('items')}
+            onReflowItems={() => runLayoutAutomation('reflow')}
             onSeedRooms={() => runLayoutAutomation('rooms')}
           />
           <RoomGeometryControls
@@ -320,6 +344,7 @@ export default function HomeLayoutPage() {
             onSelectRoom={selectRoomForEditing}
             onDraftChange={setRoomDraft}
             onSave={saveRoomGeometry}
+            onResetSuggested={resetRoomToSuggestedOutline}
           />
           <SelectedItemControls
             key={selectedItem ? `${selectedItem.id}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
@@ -556,11 +581,13 @@ function LayoutAutomationControls({
   busy,
   message,
   onSyncItems,
+  onReflowItems,
   onSeedRooms,
 }: {
   busy: LayoutAutomationMode | null;
   message: string | null;
   onSyncItems: () => Promise<SaveResult>;
+  onReflowItems: () => Promise<SaveResult>;
   onSeedRooms: () => Promise<SaveResult>;
 }) {
   return (
@@ -584,6 +611,9 @@ function LayoutAutomationControls({
           <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={busy !== null}>
             <RotateCw size={14} /> {busy === 'items' ? 'Syncing...' : 'Sync Bring Items'}
           </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onReflowItems} disabled={busy !== null}>
+            <MoveDiagonal size={14} /> {busy === 'reflow' ? 'Reflowing...' : 'Reflow Bring Items'}
+          </button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedRooms} disabled={busy !== null}>
             <Ruler size={14} /> {busy === 'rooms' ? 'Applying...' : 'Apply Suggested Outlines'}
           </button>
@@ -603,6 +633,7 @@ function RoomGeometryControls({
   onSelectRoom,
   onDraftChange,
   onSave,
+  onResetSuggested,
 }: {
   floorPlan: HomeFloorPlan;
   floorRooms: Room[];
@@ -613,6 +644,7 @@ function RoomGeometryControls({
   onSelectRoom: (roomId: number | null) => void;
   onDraftChange: (draft: RoomGeometryDraft | null) => void;
   onSave: (draft: RoomGeometryDraft) => Promise<SaveResult>;
+  onResetSuggested: (roomId: number) => Promise<SaveResult>;
 }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -667,6 +699,21 @@ function RoomGeometryControls({
     const points = roomEditorPoints(selectedRoom, roomDraft);
     if (points.length <= 3) return;
     updateDraft({ shapePoints: points.slice(0, -1) });
+  };
+
+  const resetSuggested = async () => {
+    if (!selectedRoom) return;
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = await onResetSuggested(selectedRoom.id);
+    if (result.ok) {
+      setSaveState('saved');
+      setSaveMessage('Suggested outline applied.');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+      return;
+    }
+    setSaveState('error');
+    setSaveMessage(result.message);
   };
 
   return (
@@ -725,6 +772,9 @@ function RoomGeometryControls({
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={useRectangle} disabled={!selectedRoom}>
                   <Grid3X3 size={14} /> Reset Rectangle
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={resetSuggested} disabled={!selectedRoom || saveState === 'saving'}>
+                  <RotateCcw size={14} /> Reset to Suggested
                 </button>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={addPoint} disabled={!selectedRoom}>
                   <Plus size={14} /> Add Point
@@ -1745,6 +1795,7 @@ function formatAutomationMessage(mode: LayoutAutomationMode, body: LayoutAutomat
   }
 
   const layout = body?.layout;
+  if (mode === 'reflow') return `Items reflowed ${layout?.updated ?? 0}; created ${layout?.created ?? 0}.`;
   return `Items created ${layout?.created ?? 0}; updated ${layout?.updated ?? 0}; removed ${layout?.removed ?? 0}.`;
 }
 

@@ -18,6 +18,15 @@ export type RoomSeedStats = {
   errors: string[];
 };
 
+type RoomGeometrySeedOptions = {
+  overwrite?: boolean;
+  roomId?: number | null;
+};
+
+type LayoutSyncOptions = {
+  reflowExisting?: boolean;
+};
+
 type LayoutContext = {
   rooms: Room[];
   floorPlans: HomeFloorPlan[];
@@ -248,7 +257,10 @@ export async function removeBelongingLayoutItems(
   return stats;
 }
 
-export async function syncBringItemsToLayout(supabase: SupabaseClient): Promise<LayoutSyncStats> {
+export async function syncBringItemsToLayout(
+  supabase: SupabaseClient,
+  options: LayoutSyncOptions = {},
+): Promise<LayoutSyncStats> {
   const stats = freshStats();
   const belongingsResult = await supabase
     .from('belongings')
@@ -292,13 +304,16 @@ export async function syncBringItemsToLayout(supabase: SupabaseClient): Promise<
     stats.removed += staleItems.length;
   }
 
-  const placementIndexByRoom = makePlacementIndex(context.value.roomItems.filter(item => !staleItems.some(stale => stale.id === item.id)));
+  const placementIndexSourceItems = context.value.roomItems
+    .filter(item => !staleItems.some(stale => stale.id === item.id))
+    .filter(item => !options.reflowExisting || item.itemSource !== 'existing_belonging');
+  const placementIndexByRoom = makePlacementIndex(placementIndexSourceItems);
   for (const belonging of belongings) {
     if (belonging.action !== 'Bring') {
       stats.skipped += 1;
       continue;
     }
-    await syncOneBelonging(supabase, belonging, context.value, placementIndexByRoom, stats);
+    await syncOneBelonging(supabase, belonging, context.value, placementIndexByRoom, stats, options);
   }
 
   return stats;
@@ -306,15 +321,29 @@ export async function syncBringItemsToLayout(supabase: SupabaseClient): Promise<
 
 export async function applySuggestedRoomGeometries(
   supabase: SupabaseClient,
-  overwrite = false,
+  options: RoomGeometrySeedOptions = {},
 ): Promise<RoomSeedStats> {
+  const overwrite = Boolean(options.overwrite);
   const stats: RoomSeedStats = { updated: 0, skipped: 0, missing: 0, errors: [] };
   const context = await loadLayoutContext(supabase);
   if (context.errors.length > 0) return { ...stats, errors: context.errors };
 
-  for (const [roomName, seed] of Object.entries(SUGGESTED_ROOM_GEOMETRIES)) {
-    const room = context.value.rooms.find(entry => normaliseName(entry.name) === normaliseName(roomName));
+  const roomsToSeed = options.roomId
+    ? context.value.rooms.filter(room => room.id === options.roomId)
+    : context.value.rooms.filter(room => suggestedSeedForRoom(room));
+
+  if (roomsToSeed.length === 0) {
+    stats.missing += 1;
+    return stats;
+  }
+
+  for (const room of roomsToSeed) {
+    const seed = suggestedSeedForRoom(room);
     if (!room) {
+      stats.missing += 1;
+      continue;
+    }
+    if (!seed) {
       stats.missing += 1;
       continue;
     }
@@ -359,6 +388,7 @@ async function syncOneBelonging(
   context: LayoutContext,
   placementIndexByRoom: Map<number, number>,
   stats: LayoutSyncStats,
+  options: LayoutSyncOptions = {},
 ) {
   if (belonging.action !== 'Bring') {
     const removal = await removeBelongingLayoutItems(supabase, belonging.id);
@@ -391,7 +421,7 @@ async function syncOneBelonging(
   }
 
   const existing = existingItems[0] ?? null;
-  const shouldKeepPosition = existing &&
+  const shouldKeepPosition = !options.reflowExisting && existing &&
     existing.planXFt !== null &&
     existing.planYFt !== null &&
     existing.roomId === (placement.room?.id ?? null) &&
@@ -498,18 +528,15 @@ function makePlacementPlan(
   const index = placementIndexByRoom.get(room.id) ?? 0;
   placementIndexByRoom.set(room.id, index + 1);
   const points = pointsForRoom(room);
-  const center = centroid(points);
-  const offset = placementOffset(index);
   const widthFt = footprint.widthIn / 12;
   const depthFt = footprint.depthIn / 12;
-  const planXFt = clamp(center.x - widthFt / 2 + offset.x, 0, Math.max(floorPlan.widthFt - widthFt, 0));
-  const planYFt = clamp(center.y - depthFt / 2 + offset.y, 0, Math.max(floorPlan.depthFt - depthFt, 0));
+  const placement = chooseRoomPlacement(points, floorPlan, widthFt, depthFt, index);
 
   return {
     room,
     floorPlan,
-    planXFt: roundToHundredth(planXFt),
-    planYFt: roundToHundredth(planYFt),
+    planXFt: placement.x,
+    planYFt: placement.y,
     widthIn: footprint.widthIn,
     depthIn: footprint.depthIn,
   };
@@ -547,16 +574,6 @@ function makePlacementIndex(roomItems: RoomItem[]) {
   return counts;
 }
 
-function placementOffset(index: number): PlanPoint {
-  const columns = 4;
-  const col = index % columns;
-  const row = Math.floor(index / columns);
-  return {
-    x: (col - 1.5) * 1.25,
-    y: row * 1.25,
-  };
-}
-
 function estimateItemFootprint(itemName: string) {
   const label = itemName.toLowerCase();
   if (label.includes('sectional')) return { widthIn: 120, depthIn: 84 };
@@ -571,6 +588,59 @@ function estimateItemFootprint(itemName: string) {
   if (label.includes('peloton') || label.includes('bike')) return { widthIn: 48, depthIn: 24 };
   if (label.includes('chair')) return { widthIn: 32, depthIn: 32 };
   return { widthIn: 48, depthIn: 30 };
+}
+
+function chooseRoomPlacement(
+  points: PlanPoint[],
+  floorPlan: HomeFloorPlan,
+  widthFt: number,
+  depthFt: number,
+  index: number,
+) {
+  const bounds = boundsForPoints(points);
+  const margin = 0.5;
+  const step = 1.25;
+  const candidates: PlanPoint[] = [];
+  const startX = bounds.x + margin;
+  const startY = bounds.y + margin;
+  const maxX = bounds.x + bounds.width - widthFt - margin;
+  const maxY = bounds.y + bounds.depth - depthFt - margin;
+
+  for (let y = startY; y <= maxY; y += step) {
+    const rowCandidates: PlanPoint[] = [];
+    for (let x = startX; x <= maxX; x += step) {
+      const candidate = { x: roundToHundredth(x), y: roundToHundredth(y) };
+      if (isItemInsideRoom(points, candidate.x, candidate.y, widthFt, depthFt)) {
+        rowCandidates.push(candidate);
+      }
+    }
+    candidates.push(...(Math.floor((y - startY) / step) % 2 === 0 ? rowCandidates : rowCandidates.reverse()));
+  }
+
+  if (candidates.length > 0) {
+    const selected = candidates[index % candidates.length];
+    return {
+      x: roundToHundredth(clamp(selected.x, 0, Math.max(floorPlan.widthFt - widthFt, 0))),
+      y: roundToHundredth(clamp(selected.y, 0, Math.max(floorPlan.depthFt - depthFt, 0))),
+    };
+  }
+
+  const center = centroid(points);
+  return {
+    x: roundToHundredth(clamp(center.x - widthFt / 2, 0, Math.max(floorPlan.widthFt - widthFt, 0))),
+    y: roundToHundredth(clamp(center.y - depthFt / 2, 0, Math.max(floorPlan.depthFt - depthFt, 0))),
+  };
+}
+
+function isItemInsideRoom(points: PlanPoint[], x: number, y: number, widthFt: number, depthFt: number) {
+  const inset = Math.min(0.2, widthFt / 4, depthFt / 4);
+  return [
+    { x: x + inset, y: y + inset },
+    { x: x + widthFt - inset, y: y + inset },
+    { x: x + widthFt - inset, y: y + depthFt - inset },
+    { x: x + inset, y: y + depthFt - inset },
+    { x: x + widthFt / 2, y: y + depthFt / 2 },
+  ].every(point => containsPoint(points, point));
 }
 
 function pointsForRoom(room: Room) {
@@ -607,12 +677,34 @@ function boundsForPoints(points: PlanPoint[]) {
   };
 }
 
+function suggestedSeedForRoom(room: Room) {
+  return Object.entries(SUGGESTED_ROOM_GEOMETRIES)
+    .find(([roomName]) => normaliseName(roomName) === normaliseName(room.name))?.[1] ?? null;
+}
+
 function centroid(points: PlanPoint[]) {
   const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
   return {
     x: sum.x / points.length,
     y: sum.y / points.length,
   };
+}
+
+function containsPoint(points: PlanPoint[], point: PlanPoint) {
+  if (points.length < 3) return false;
+
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+    const xi = points[i].x;
+    const yi = points[i].y;
+    const xj = points[j].x;
+    const yj = points[j].y;
+    const intersects = yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
 }
 
 function normaliseBelonging(row: Record<string, unknown>): Belonging {
