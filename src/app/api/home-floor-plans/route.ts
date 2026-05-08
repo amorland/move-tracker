@@ -29,38 +29,30 @@ export async function POST(request: Request) {
     .limit(1)
     .single();
 
+  const insert = {
+    name: body.name || 'New Floor',
+    label: body.label || body.name || 'New Floor',
+    level: body.level ?? 0,
+    width_ft: body.widthFt ?? 40,
+    depth_ft: body.depthFt ?? 32,
+    ceiling_height_ft: body.ceilingHeightFt ?? null,
+    blueprint_document_id: body.blueprintDocumentId ?? null,
+    blueprint_page: body.blueprintPage ?? null,
+    blueprint_image_path: body.blueprintImagePath ?? null,
+    notes: body.notes || null,
+    sort_index: body.sortIndex ?? (last?.sort_index ?? -1) + 1,
+  };
+
   let { data, error } = await supabase
     .from('home_floor_plans')
-    .insert([{
-      name: body.name || 'New Floor',
-      label: body.label || body.name || 'New Floor',
-      level: body.level ?? 0,
-      width_ft: body.widthFt ?? 40,
-      depth_ft: body.depthFt ?? 32,
-      ceiling_height_ft: body.ceilingHeightFt ?? null,
-      blueprint_document_id: body.blueprintDocumentId ?? null,
-      blueprint_page: body.blueprintPage ?? null,
-      blueprint_image_path: body.blueprintImagePath ?? null,
-      notes: body.notes || null,
-      sort_index: (last?.sort_index ?? -1) + 1,
-    }])
+    .upsert([insert], { onConflict: 'name' })
     .select()
     .single();
 
   if (error && isMissingOverlayColumnError(error)) {
     const retry = await supabase
       .from('home_floor_plans')
-      .insert([{
-        name: body.name || 'New Floor',
-        label: body.label || body.name || 'New Floor',
-        level: body.level ?? 0,
-        width_ft: body.widthFt ?? 40,
-        depth_ft: body.depthFt ?? 32,
-        ceiling_height_ft: body.ceilingHeightFt ?? null,
-        blueprint_page: body.blueprintPage ?? null,
-        notes: body.notes || null,
-        sort_index: (last?.sort_index ?? -1) + 1,
-      }])
+      .upsert([stripOverlayFields(insert)], { onConflict: 'name' })
       .select()
       .single();
     data = retry.data;

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 type OverlayFit = 'contain' | 'cover' | 'stretch';
+type SaveResult = { ok: true } | { ok: false; message: string };
 
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -63,14 +64,21 @@ export default function HomeLayoutPage() {
     fetchAll();
   };
 
-  const saveFloorPlan = async (floorPlan: Partial<HomeFloorPlan> & { id: number }) => {
-    if (floorPlan.id < 0) return;
-    await fetch('/api/home-floor-plans', {
-      method: 'PATCH',
+  const saveFloorPlan = async (floorPlan: Partial<HomeFloorPlan> & { id: number }): Promise<SaveResult> => {
+    const method = floorPlan.id > 0 ? 'PATCH' : 'POST';
+    const res = await fetch('/api/home-floor-plans', {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(floorPlan),
     });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Save failed with HTTP ${res.status}` };
+    }
+
     fetchAll();
+    return { ok: true };
   };
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading layout...</div>;
@@ -187,8 +195,10 @@ function BlueprintOverlayControls({
   onToggleOverlay: () => void;
   onOpacityChange: (value: number) => void;
   onFitChange: (value: OverlayFit) => void;
-  onSave: (floorPlan: Partial<HomeFloorPlan> & { id: number }) => void;
+  onSave: (floorPlan: Partial<HomeFloorPlan> & { id: number }) => Promise<SaveResult>;
 }) {
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     blueprintImagePath: floorPlan.blueprintImagePath ?? '',
     blueprintPage: floorPlan.blueprintPage?.toString() ?? '',
@@ -196,17 +206,31 @@ function BlueprintOverlayControls({
     depthFt: floorPlan.depthFt.toString(),
   });
   const previewSrc = toBlueprintImageSrc(draft.blueprintImagePath);
-  const canPersist = floorPlan.id > 0;
 
-  const save = () => {
-    if (!canPersist) return;
-    onSave({
+  const save = async () => {
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = await onSave({
       id: floorPlan.id,
+      name: floorPlan.name,
+      label: floorPlan.label,
+      level: floorPlan.level,
       blueprintImagePath: draft.blueprintImagePath.trim() || null,
       blueprintPage: nullableNumber(draft.blueprintPage),
       widthFt: nullableNumber(draft.widthFt) ?? floorPlan.widthFt,
       depthFt: nullableNumber(draft.depthFt) ?? floorPlan.depthFt,
+      ceilingHeightFt: floorPlan.ceilingHeightFt,
+      notes: floorPlan.notes,
+      sortIndex: floorPlan.sortIndex,
     });
+    if (result.ok) {
+      setSaveState('saved');
+      setSaveMessage('Overlay saved.');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+      return;
+    }
+    setSaveState('error');
+    setSaveMessage(result.message);
   };
 
   return (
@@ -227,8 +251,8 @@ function BlueprintOverlayControls({
               {overlayVisible ? <EyeOff size={14} /> : <Eye size={14} />}
               {overlayVisible ? 'Hide' : 'Show'}
             </button>
-            <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!canPersist}>
-              <Save size={14} /> Save Overlay
+            <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={saveState === 'saving'}>
+              <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Overlay'}
             </button>
           </div>
         </div>
@@ -281,8 +305,13 @@ function BlueprintOverlayControls({
           {draft.blueprintImagePath && !previewSrc && (
             <span style={{ fontSize: 12, color: '#b45309' }}>This does not look like a browser-loadable image URL.</span>
           )}
-          {!canPersist && (
-            <span style={{ fontSize: 12, color: '#b45309' }}>Run the measured layout SQL before saving overlay settings.</span>
+          {floorPlan.id < 0 && (
+            <span style={{ fontSize: 12, color: '#b45309' }}>This floor is using defaults; saving will create its floor-plan row.</span>
+          )}
+          {saveMessage && (
+            <span style={{ fontSize: 12, color: saveState === 'error' ? '#b91c1c' : '#1f6b5b', fontWeight: 700 }}>
+              {saveMessage}
+            </span>
           )}
         </div>
       </div>
