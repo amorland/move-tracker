@@ -39,12 +39,14 @@ ALTER TABLE rooms ADD COLUMN IF NOT EXISTS shape_points JSONB;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS width_in NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS depth_in NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS height_in NUMERIC;
+ALTER TABLE room_items ADD COLUMN IF NOT EXISTS floor_plan_id BIGINT REFERENCES home_floor_plans(id) ON DELETE SET NULL;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS plan_x_ft NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS plan_y_ft NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS rotation_deg NUMERIC;
 
 CREATE INDEX IF NOT EXISTS idx_home_floor_plans_sort ON home_floor_plans(sort_index, level);
 CREATE INDEX IF NOT EXISTS idx_rooms_floor_plan ON rooms(floor_plan_id);
+CREATE INDEX IF NOT EXISTS idx_room_items_floor_plan ON room_items(floor_plan_id);
 CREATE INDEX IF NOT EXISTS idx_room_items_measured_position ON room_items(room_id, plan_x_ft, plan_y_ft);
 
 INSERT INTO home_floor_plans (
@@ -87,3 +89,10 @@ SET floor_plan_id = home_floor_plans.id
 FROM home_floor_plans
 WHERE rooms.floor_plan_id IS NULL
   AND rooms.floor = home_floor_plans.name;
+
+UPDATE room_items
+SET floor_plan_id = rooms.floor_plan_id
+FROM rooms
+WHERE room_items.floor_plan_id IS NULL
+  AND room_items.room_id = rooms.id
+  AND rooms.floor_plan_id IS NOT NULL;

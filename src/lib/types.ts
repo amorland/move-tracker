@@ -185,6 +185,7 @@ export interface Room {
 export interface RoomItem {
   id: number;
   roomId: number | null;
+  floorPlanId: number | null;
   belongingId: number | null;
   itemName: string;
   itemSource: 'existing_belonging' | 'planned_purchase';

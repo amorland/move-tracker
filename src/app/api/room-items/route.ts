@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
   const insert = {
     room_id: body.roomId || null,
+    floor_plan_id: body.floorPlanId ?? null,
     belonging_id: body.belongingId || null,
     item_name: body.itemName || 'New Item',
     item_source: body.itemSource || 'planned_purchase',
@@ -77,6 +78,7 @@ export async function PATCH(request: Request) {
 
   const update: Record<string, unknown> = {};
   if ('roomId' in rest) update.room_id = rest.roomId;
+  if ('floorPlanId' in rest) update.floor_plan_id = rest.floorPlanId;
   if ('belongingId' in rest) update.belonging_id = rest.belongingId;
   if ('itemName' in rest) update.item_name = rest.itemName;
   if ('itemSource' in rest) update.item_source = rest.itemSource;
@@ -131,6 +133,7 @@ function normalise(row: Record<string, unknown>) {
   return {
     id: row.id,
     roomId: row.room_id ?? row.roomId ?? null,
+    floorPlanId: row.floor_plan_id ?? row.floorPlanId ?? null,
     belongingId: row.belonging_id ?? row.belongingId ?? null,
     itemName: row.item_name ?? row.itemName,
     itemSource: row.item_source ?? row.itemSource ?? 'planned_purchase',
@@ -158,11 +161,12 @@ function nullableNumber(value: unknown) {
 }
 
 function isMissingMeasuredColumnError(error: { code?: string; message?: string }) {
-  return error.code === '42703' || error.code === 'PGRST204' || /width_in|depth_in|height_in|plan_|rotation_deg/i.test(error.message ?? '');
+  return error.code === '42703' || error.code === 'PGRST204' || /floor_plan_id|width_in|depth_in|height_in|plan_|rotation_deg/i.test(error.message ?? '');
 }
 
 function stripMeasuredItemFields(update: Record<string, unknown>) {
   const legacyUpdate = { ...update };
+  delete legacyUpdate.floor_plan_id;
   delete legacyUpdate.width_in;
   delete legacyUpdate.depth_in;
   delete legacyUpdate.height_in;

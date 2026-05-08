@@ -15,6 +15,7 @@ import { DELETE, GET, PATCH, POST } from '@/app/api/room-items/route';
 const mockRoomItem = {
   id: 7,
   room_id: 1,
+  floor_plan_id: 3,
   belonging_id: 2,
   item_name: 'Sectional Sofa',
   item_source: 'existing_belonging',
@@ -36,6 +37,7 @@ describe('GET /api/room-items', () => {
     const res = await GET(new Request('http://localhost/api/room-items'));
     const body = await res.json();
     expect(body[0].itemName).toBe('Sectional Sofa');
+    expect(body[0].floorPlanId).toBe(3);
   });
 });
 

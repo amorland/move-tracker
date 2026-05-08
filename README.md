@@ -182,6 +182,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-task-blocked-status.sql](supabase-task-blocked-status.sql) — expands move and planning task statuses to include `Blocked`
 - [supabase-measured-layout.sql](supabase-measured-layout.sql) — adds measured floor-plan, room, and room-item layout fields
 - [supabase-blueprint-overlays.sql](supabase-blueprint-overlays.sql) — updates existing measured floor plans to 50x50 canvases and bundled blueprint overlay asset paths
+- [supabase-floor-item-placement.sql](supabase-floor-item-placement.sql) — links room items directly to floor plans so items can be placed anywhere on a measured floor canvas
 - [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on the app tables
 
 ## Running Locally
@@ -287,11 +288,12 @@ src/
 5. To enable database-level document reuse safeguards and clean up existing duplicate document URLs, run `supabase-document-dedupe.sql` after `supabase-home-planning.sql`.
 6. To allow blocked task tracking, run `supabase-task-blocked-status.sql` after `supabase-home-planning.sql`.
 7. To enable the measured home layout planner and blueprint overlays on an existing database, run `supabase-measured-layout.sql`, then `supabase-blueprint-overlays.sql`.
+8. To allow room items to be placed anywhere on a measured floor canvas, run `supabase-floor-item-placement.sql`.
 
 ## Current Limitations
 
 - Documents are intended as external links, not uploaded private files
-- Room planning and visual layout now support measured floor canvases, bundled blueprint overlays, and draggable item placement, but they are still a simplified planner rather than a full CAD/floorplanner replacement
+- Room planning and visual layout now support measured floor canvases, bundled blueprint overlays, and floor-level draggable item placement, but they are still a simplified planner rather than a full CAD/floorplanner replacement
 - Drive planning does not currently enforce true seat/cargo constraints; it is a flexible planning board rather than a hard validator
 - The app can seed planning structure from organized document sets, but document-derived updates still rely on review logic rather than full OCR / workflow automation
 - Production build verification may require a non-sandboxed environment because Turbopack can fail under sandbox restrictions

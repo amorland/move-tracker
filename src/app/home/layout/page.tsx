@@ -48,14 +48,15 @@ export default function HomeLayoutPage() {
   }, [floorPlans, rooms]);
 
   const activeFloor = measuredFloors.find(floor => floor.name === activeFloorName) ?? measuredFloors[0];
-  const unplacedItems = items.filter(item => item.roomId === null);
+  const unplacedItems = items.filter(item => item.roomId === null && item.floorPlanId === null);
 
-  const moveItem = async (item: RoomItem, roomId: number | null, planXFt: number, planYFt: number) => {
+  const moveItem = async (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => {
     await fetch('/api/room-items', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: item.id,
+        floorPlanId: floorPlanId > 0 ? floorPlanId : null,
         roomId,
         planXFt: roundToQuarter(planXFt),
         planYFt: roundToQuarter(planYFt),
@@ -367,11 +368,14 @@ function MeasuredFloorPlan({
   overlayVisible: boolean;
   overlayOpacity: number;
   overlayFit: OverlayFit;
-  onMoveItem: (item: RoomItem, roomId: number | null, planXFt: number, planYFt: number) => void;
+  onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
 }) {
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
   const roomRects = floorRooms.map(room => ({ room, rect: planRectForRoom(room) }));
-  const floorItems = items.filter(item => item.roomId && floorRooms.some(room => room.id === item.roomId));
+  const floorItems = items.filter(item => {
+    if (item.floorPlanId === floorPlan.id) return true;
+    return item.floorPlanId === null && item.roomId !== null && floorRooms.some(room => room.id === item.roomId);
+  });
   const gridLinesX = gridLines(floorPlan.widthFt);
   const gridLinesY = gridLines(floorPlan.depthFt);
   const overlaySrc = toBlueprintImageSrc(floorPlan.blueprintImagePath);
@@ -405,10 +409,13 @@ function MeasuredFloorPlan({
             if (!item) return;
 
             const bounds = event.currentTarget.getBoundingClientRect();
-            const planXFt = clamp(((event.clientX - bounds.left) / bounds.width) * floorPlan.widthFt, 0, floorPlan.widthFt);
-            const planYFt = clamp(((event.clientY - bounds.top) / bounds.height) * floorPlan.depthFt, 0, floorPlan.depthFt);
+            const footprint = itemFootprint(item);
+            const rawXFt = ((event.clientX - bounds.left) / bounds.width) * floorPlan.widthFt;
+            const rawYFt = ((event.clientY - bounds.top) / bounds.height) * floorPlan.depthFt;
+            const planXFt = clamp(rawXFt, 0, Math.max(0, floorPlan.widthFt - footprint.widthFt));
+            const planYFt = clamp(rawYFt, 0, Math.max(0, floorPlan.depthFt - footprint.depthFt));
             const target = roomRects.find(({ rect }) => containsPoint(rect, planXFt, planYFt));
-            onMoveItem(item, target?.room.id ?? item.roomId ?? null, planXFt, planYFt);
+            onMoveItem(item, floorPlan.id, target?.room.id ?? null, planXFt, planYFt);
           }}
           style={{
             position: 'relative',
@@ -472,13 +479,16 @@ function MeasuredFloorPlan({
           ))}
           {floorItems.map((item, index) => {
             const room = floorRooms.find(entry => entry.id === item.roomId);
-            if (!room) return null;
-            const rect = planRectForRoom(room);
+            const rect = room ? planRectForRoom(room) : null;
             const footprint = itemFootprint(item);
-            const defaultX = rect.x + 1 + (index % 2) * Math.min(footprint.widthFt + 1, Math.max(rect.width / 3, 2));
-            const defaultY = rect.y + 1 + Math.floor(index / 2) * Math.min(footprint.depthFt + 1, Math.max(rect.depth / 4, 2));
-            const x = clamp(item.planXFt ?? defaultX, rect.x, Math.max(rect.x, rect.x + rect.width - footprint.widthFt));
-            const y = clamp(item.planYFt ?? defaultY, rect.y, Math.max(rect.y, rect.y + rect.depth - footprint.depthFt));
+            const defaultX = rect
+              ? rect.x + 1 + (index % 2) * Math.min(footprint.widthFt + 1, Math.max(rect.width / 3, 2))
+              : 2 + (index % 4) * 3;
+            const defaultY = rect
+              ? rect.y + 1 + Math.floor(index / 2) * Math.min(footprint.depthFt + 1, Math.max(rect.depth / 4, 2))
+              : 2 + Math.floor(index / 4) * 3;
+            const x = clamp(item.planXFt ?? defaultX, 0, Math.max(0, floorPlan.widthFt - footprint.widthFt));
+            const y = clamp(item.planYFt ?? defaultY, 0, Math.max(0, floorPlan.depthFt - footprint.depthFt));
             return (
               <PlacedItem
                 key={item.id}
@@ -515,9 +525,10 @@ function RoomZone({ room, rect, floorPlan }: { room: Room; rect: PlanRect; floor
         width: `${(rect.width / floorPlan.widthFt) * 100}%`,
         height: `${(rect.depth / floorPlan.depthFt) * 100}%`,
         border: '2px solid rgba(92,86,72,0.48)',
-        background: 'rgba(255,255,255,0.58)',
+        background: 'rgba(255,255,255,0.14)',
         boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.72)',
         overflow: 'hidden',
+        pointerEvents: 'none',
         zIndex: 2,
       }}
     >
