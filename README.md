@@ -121,7 +121,7 @@ Run:
 python3 scripts/loan_document_import.py
 ```
 
-Review `data/generated/loan-document-import-dry-run.md`, then run `data/generated/loan-document-import-apply.sql` in Supabase after `supabase-loan-documentation-log.sql` and `supabase-document-dedupe.sql` have been applied. The generated SQL contains private document URLs and should remain uncommitted.
+Review `data/generated/loan-document-import-dry-run.md`, then run `data/generated/loan-document-import-apply.sql` in Supabase after `supabase-loan-documentation-log.sql` and `supabase-document-dedupe.sql` have been applied. The generated SQL contains private document URLs and should remain uncommitted unless intentionally promoted to a root-level Supabase patch.
 
 ### Consolidated Tasks And Timelines
 
@@ -178,6 +178,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-home-planning.sql](supabase-home-planning.sql)
 - [supabase-loan-documentation-log.sql](supabase-loan-documentation-log.sql) — idempotent data patch for the BCU loan-documentation timeline log and related loan tasks
 - [supabase-document-dedupe.sql](supabase-document-dedupe.sql) — adds document URL keys, merges duplicate document records by normalized URL, and creates uniqueness guards for reusable document attachments
+- [supabase-loan-document-import.sql](supabase-loan-document-import.sql) — reviewed import patch that creates/links the loan underwriting Drive documents and consolidates duplicate loan-documentation timeline entries
 - [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on all 16 tables
 
 ## Running Locally
