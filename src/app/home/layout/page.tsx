@@ -26,6 +26,7 @@ type RoomGeometryDraft = {
 };
 type GeometryDragTarget =
   | { type: 'point'; index: number }
+  | { type: 'edge'; index: number; points: PlanPoint[]; start: PlanPoint }
   | { type: 'label' }
   | { type: 'room'; start: PlanPoint; points: PlanPoint[] }
   | { type: 'item'; item: RoomItem; start: PlanPoint; xFt: number; yFt: number; widthFt: number; depthFt: number }
@@ -978,6 +979,9 @@ function RoomGeometryControls({
                       {selectedSource.label}
                     </span>
                   )}
+                  <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>
+                    Corner handles move points; side handles move a whole wall. Save Room applies changes.
+                  </span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
                   {editorPoints.map((point, index) => (
@@ -1554,6 +1558,16 @@ function MeasuredFloorPlan({
       return;
     }
 
+    if (dragTarget.type === 'edge') {
+      const dx = point.x - dragTarget.start.x;
+      const dy = point.y - dragTarget.start.y;
+      onRoomDraftChange({
+        ...roomDraft,
+        shapePoints: translateEdgeWithinFloor(dragTarget.points, dragTarget.index, dx, dy, floorPlan, snapToGrid),
+      });
+      return;
+    }
+
     const selectedRoom = floorRooms.find(room => room.id === roomDraft.roomId);
     if (!selectedRoom) return;
     const points = roomEditorPoints(selectedRoom, roomDraft);
@@ -1805,6 +1819,47 @@ function MeasuredFloorPlan({
               }}
             />
           ))}
+          {roomEditMode && roomDraft && editingRoom && editingPoints.map((point, index) => {
+            const nextPoint = editingPoints[(index + 1) % editingPoints.length];
+            const midpoint = {
+              x: (point.x + nextPoint.x) / 2,
+              y: (point.y + nextPoint.y) / 2,
+            };
+            const cursor = edgeResizeCursor(point, nextPoint);
+            return (
+              <button
+                key={`edge-${roomDraft.roomId}-${index}`}
+                type="button"
+                data-layout-control="true"
+                aria-label={`Move room side ${index + 1}`}
+                title="Drag this side to resize the room"
+                onPointerDown={event => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const start = pointFromPointer(event);
+                  if (!start) return;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  setDragTarget({ type: 'edge', index, points: editingPoints, start });
+                }}
+                style={{
+                  position: 'absolute',
+                  left: `${(midpoint.x / floorPlan.widthFt) * 100}%`,
+                  top: `${(midpoint.y / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 5,
+                  width: cursor === 'ew-resize' ? 12 : 24,
+                  height: cursor === 'ns-resize' ? 12 : 24,
+                  borderRadius: 999,
+                  border: '2px solid #9a5a2f',
+                  background: 'rgba(255,250,243,0.96)',
+                  boxShadow: '0 2px 8px rgba(28,25,23,0.16)',
+                  cursor,
+                  padding: 0,
+                  touchAction: 'none',
+                }}
+              />
+            );
+          })}
           {roomEditMode && roomDraft && editingLabel && (
             <button
               type="button"
@@ -2082,6 +2137,52 @@ function translatePointsWithinFloor(points: PlanPoint[], dx: number, dy: number,
     x: point.x + clampedDx,
     y: point.y + clampedDy,
   }));
+}
+
+function translateEdgeWithinFloor(
+  points: PlanPoint[],
+  edgeIndex: number,
+  dx: number,
+  dy: number,
+  floorPlan: HomeFloorPlan,
+  snapToGrid: boolean,
+) {
+  if (points.length < 3) return points;
+  const startIndex = edgeIndex;
+  const endIndex = (edgeIndex + 1) % points.length;
+  const startPoint = points[startIndex];
+  const endPoint = points[endIndex];
+  const orientation = edgeOrientation(startPoint, endPoint);
+  const requestedDx = orientation === 'vertical' ? dx : orientation === 'horizontal' ? 0 : dx;
+  const requestedDy = orientation === 'horizontal' ? dy : orientation === 'vertical' ? 0 : dy;
+  const movingPoints = [startPoint, endPoint];
+  const movingBounds = pointBounds(movingPoints);
+  const clampedDx = clamp(requestedDx, -movingBounds.minX, floorPlan.widthFt - movingBounds.maxX);
+  const clampedDy = clamp(requestedDy, -movingBounds.minY, floorPlan.depthFt - movingBounds.maxY);
+
+  return points.map((point, index) => {
+    if (index !== startIndex && index !== endIndex) return point;
+    const next = {
+      x: point.x + clampedDx,
+      y: point.y + clampedDy,
+    };
+    return snapToGrid ? roundPlanPoint(next) : { x: roundToHundredth(next.x), y: roundToHundredth(next.y) };
+  });
+}
+
+function edgeResizeCursor(startPoint: PlanPoint, endPoint: PlanPoint) {
+  const orientation = edgeOrientation(startPoint, endPoint);
+  if (orientation === 'vertical') return 'ew-resize';
+  if (orientation === 'horizontal') return 'ns-resize';
+  return 'move';
+}
+
+function edgeOrientation(startPoint: PlanPoint, endPoint: PlanPoint) {
+  const dx = Math.abs(endPoint.x - startPoint.x);
+  const dy = Math.abs(endPoint.y - startPoint.y);
+  if (dx > dy * 1.2) return 'horizontal';
+  if (dy > dx * 1.2) return 'vertical';
+  return 'diagonal';
 }
 
 function pointBounds(points: PlanPoint[]) {
