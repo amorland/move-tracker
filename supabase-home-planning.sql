@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS architectural_elements (
   sort_index INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (now())::text,
   CONSTRAINT architectural_elements_type_check CHECK (
-    element_type IN ('door', 'window', 'opening', 'stairs', 'counter', 'cabinet', 'sink', 'toilet', 'shower', 'tub', 'appliance', 'fixture')
+    element_type IN ('door', 'window', 'opening', 'wall', 'stairs', 'closet', 'laundry', 'porch', 'storage', 'counter', 'cabinet', 'sink', 'toilet', 'shower', 'tub', 'appliance', 'fixture')
   ),
   CONSTRAINT architectural_elements_width_check CHECK (width_ft > 0),
   CONSTRAINT architectural_elements_depth_check CHECK (depth_ft > 0),
@@ -183,6 +183,11 @@ END $$;
 
 ALTER TABLE architectural_elements ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
 ALTER TABLE architectural_elements ADD COLUMN IF NOT EXISTS source_key TEXT;
+
+ALTER TABLE architectural_elements DROP CONSTRAINT IF EXISTS architectural_elements_type_check;
+ALTER TABLE architectural_elements ADD CONSTRAINT architectural_elements_type_check CHECK (
+  element_type IN ('door', 'window', 'opening', 'wall', 'stairs', 'closet', 'laundry', 'porch', 'storage', 'counter', 'cabinet', 'sink', 'toilet', 'shower', 'tub', 'appliance', 'fixture')
+);
 
 DO $$
 BEGIN

@@ -8,7 +8,7 @@ export type DocumentCategory = 'contract' | 'disclosure' | 'loan' | 'inspection'
 export type LinkedEntityType = 'move_task' | 'planning_task' | 'event' | 'timeline_entry';
 export type PlanningTaskSection = 'purchase' | 'loan' | 'home_setup' | 'updates';
 export type DriveLoadoutType = 'adult' | 'child' | 'pet' | 'gear' | 'vehicle_addon';
-export type ArchitecturalElementType = 'door' | 'window' | 'opening' | 'stairs' | 'counter' | 'cabinet' | 'sink' | 'toilet' | 'shower' | 'tub' | 'appliance' | 'fixture';
+export type ArchitecturalElementType = 'door' | 'window' | 'opening' | 'wall' | 'stairs' | 'closet' | 'laundry' | 'porch' | 'storage' | 'counter' | 'cabinet' | 'sink' | 'toilet' | 'shower' | 'tub' | 'appliance' | 'fixture';
 export type ArchitecturalElementSource = 'recommended' | 'manual';
 export type RoomGeometrySource = 'recommended' | 'custom' | 'unknown';
 

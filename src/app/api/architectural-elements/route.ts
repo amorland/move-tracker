@@ -152,7 +152,12 @@ function normaliseElementType(value: unknown): ArchitecturalElementType {
     type === 'door' ||
     type === 'window' ||
     type === 'opening' ||
+    type === 'wall' ||
     type === 'stairs' ||
+    type === 'closet' ||
+    type === 'laundry' ||
+    type === 'porch' ||
+    type === 'storage' ||
     type === 'counter' ||
     type === 'cabinet' ||
     type === 'sink' ||
@@ -176,9 +181,14 @@ function defaultLabelForType(type: ArchitecturalElementType) {
 }
 
 function defaultDimensionsForType(type: ArchitecturalElementType) {
+  if (type === 'wall') return { widthFt: 8, depthFt: 0.25 };
   if (type === 'door' || type === 'opening') return { widthFt: 3, depthFt: 0.25 };
   if (type === 'window') return { widthFt: 4, depthFt: 0.2 };
   if (type === 'stairs') return { widthFt: 6, depthFt: 10 };
+  if (type === 'closet') return { widthFt: 4, depthFt: 2.5 };
+  if (type === 'laundry') return { widthFt: 5, depthFt: 3 };
+  if (type === 'porch') return { widthFt: 12, depthFt: 6 };
+  if (type === 'storage') return { widthFt: 5, depthFt: 5 };
   if (type === 'counter' || type === 'cabinet') return { widthFt: 6, depthFt: 2 };
   if (type === 'sink' || type === 'toilet') return { widthFt: 2.5, depthFt: 2 };
   if (type === 'shower') return { widthFt: 3, depthFt: 3 };

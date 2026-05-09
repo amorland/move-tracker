@@ -324,22 +324,36 @@ const RECOMMENDED_ARCHITECTURAL_ELEMENTS: ArchitecturalElementSeed[] = [
   { sourceKey: 'main-kitchen-sink', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'sink', label: 'Kitchen Sink', xFt: 26, yFt: 8.25, widthFt: 2.5, depthFt: 1.5, rotationDeg: 0, sortIndex: 70 },
   { sourceKey: 'main-kitchen-range', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'appliance', label: 'Range', xFt: 31, yFt: 12, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 80 },
   { sourceKey: 'main-kitchen-fridge', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'appliance', label: 'Refrigerator', xFt: 19.5, yFt: 17.5, widthFt: 3, depthFt: 2.5, rotationDeg: 0, sortIndex: 90 },
+  { sourceKey: 'main-kitchen-island', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'cabinet', label: 'Kitchen Island', xFt: 24, yFt: 14.5, widthFt: 6, depthFt: 3, rotationDeg: 0, sortIndex: 95 },
   { sourceKey: 'main-mudroom-door', floorName: 'Main Floor', roomName: 'Mud Room', elementType: 'door', label: 'Mud Room Exterior Door', xFt: 7.5, yFt: 8.5, widthFt: 0.25, depthFt: 3, rotationDeg: 0, sortIndex: 100 },
+  { sourceKey: 'main-mudroom-porch', floorName: 'Main Floor', roomName: 'Mud Room', elementType: 'porch', label: 'Mud Room Porch', xFt: 0.75, yFt: 11, widthFt: 6.5, depthFt: 9, rotationDeg: 0, sortIndex: 105 },
   { sourceKey: 'main-half-bath-toilet', floorName: 'Main Floor', roomName: 'Half Bath', elementType: 'toilet', label: 'Half Bath Toilet', xFt: 8.25, yFt: 19, widthFt: 2.25, depthFt: 2.5, rotationDeg: 0, sortIndex: 110 },
   { sourceKey: 'main-half-bath-sink', floorName: 'Main Floor', roomName: 'Half Bath', elementType: 'sink', label: 'Half Bath Sink', xFt: 12.5, yFt: 18.5, widthFt: 2.25, depthFt: 1.5, rotationDeg: 0, sortIndex: 120 },
+  { sourceKey: 'main-foyer-closet', floorName: 'Main Floor', roomName: 'Foyer', elementType: 'closet', label: 'Foyer Closet', xFt: 8.25, yFt: 31, widthFt: 4.75, depthFt: 5, rotationDeg: 0, sortIndex: 130 },
+  { sourceKey: 'main-front-porch', floorName: 'Main Floor', roomName: 'Foyer', elementType: 'porch', label: 'Front Porch', xFt: 9, yFt: 46.25, widthFt: 22, depthFt: 3.5, rotationDeg: 0, sortIndex: 140 },
+  { sourceKey: 'main-family-porch', floorName: 'Main Floor', roomName: 'Study / Lounge', elementType: 'porch', label: 'Side Porch', xFt: 37, yFt: 22.75, widthFt: 12, depthFt: 14, rotationDeg: 0, sortIndex: 150 },
   { sourceKey: 'second-stair-opening', floorName: 'Second Floor', elementType: 'stairs', label: 'Second Floor Stair', xFt: 7.5, yFt: 22, widthFt: 6.5, depthFt: 9.5, rotationDeg: 0, sortIndex: 200 },
   { sourceKey: 'second-master-bed-windows', floorName: 'Second Floor', roomName: 'Master Bedroom', elementType: 'window', label: 'Primary Bedroom Rear Windows', xFt: 12, yFt: 4.1, widthFt: 12, depthFt: 0.2, rotationDeg: 0, sortIndex: 210 },
+  { sourceKey: 'second-master-closet-north', floorName: 'Second Floor', roomName: 'Master Bedroom', elementType: 'closet', label: 'Primary Closet', xFt: 8.5, yFt: 6, widthFt: 3.5, depthFt: 5.5, rotationDeg: 0, sortIndex: 215 },
+  { sourceKey: 'second-master-closet-south', floorName: 'Second Floor', roomName: 'Master Bedroom', elementType: 'closet', label: 'Primary Closet', xFt: 8.5, yFt: 13, widthFt: 3.5, depthFt: 5.5, rotationDeg: 0, sortIndex: 216 },
   { sourceKey: 'second-master-bath-shower', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'shower', label: 'Primary Shower', xFt: 33, yFt: 8, widthFt: 4, depthFt: 4, rotationDeg: 0, sortIndex: 220 },
   { sourceKey: 'second-master-bath-tub', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'tub', label: 'Primary Tub', xFt: 42, yFt: 8, widthFt: 5, depthFt: 2.5, rotationDeg: 0, sortIndex: 230 },
   { sourceKey: 'second-master-bath-vanity', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'sink', label: 'Primary Vanity', xFt: 40, yFt: 17, widthFt: 6, depthFt: 2, rotationDeg: 0, sortIndex: 240 },
   { sourceKey: 'second-master-bath-toilet', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'toilet', label: 'Primary Toilet', xFt: 33, yFt: 16.5, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 250 },
+  { sourceKey: 'second-hall-laundry', floorName: 'Second Floor', elementType: 'laundry', label: 'Laundry', xFt: 29, yFt: 21, widthFt: 6, depthFt: 4, rotationDeg: 0, sortIndex: 255 },
+  { sourceKey: 'second-hall-linen', floorName: 'Second Floor', elementType: 'closet', label: 'Linen Closet', xFt: 20, yFt: 31.5, widthFt: 3.5, depthFt: 3.5, rotationDeg: 0, sortIndex: 258 },
+  { sourceKey: 'second-bedroom-closet', floorName: 'Second Floor', roomName: 'Second Bedroom', elementType: 'closet', label: 'Bedroom Closet', xFt: 19, yFt: 35, widthFt: 4, depthFt: 8, rotationDeg: 0, sortIndex: 259 },
   { sourceKey: 'second-hall-bath-tub', floorName: 'Second Floor', roomName: 'Second Bathroom', elementType: 'tub', label: 'Hall Bath Tub', xFt: 25, yFt: 24.5, widthFt: 5, depthFt: 2.5, rotationDeg: 0, sortIndex: 260 },
   { sourceKey: 'second-hall-bath-vanity', floorName: 'Second Floor', roomName: 'Second Bathroom', elementType: 'sink', label: 'Hall Bath Vanity', xFt: 32.5, yFt: 24.5, widthFt: 3, depthFt: 2, rotationDeg: 0, sortIndex: 270 },
   { sourceKey: 'second-hall-bath-toilet', floorName: 'Second Floor', roomName: 'Second Bathroom', elementType: 'toilet', label: 'Hall Bath Toilet', xFt: 33, yFt: 28, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 280 },
   { sourceKey: 'second-bedroom-window', floorName: 'Second Floor', roomName: 'Second Bedroom', elementType: 'window', label: 'Second Bedroom Window', xFt: 24, yFt: 45.7, widthFt: 7, depthFt: 0.2, rotationDeg: 0, sortIndex: 290 },
+  { sourceKey: 'second-roof-deck-marker', floorName: 'Second Floor', elementType: 'porch', label: 'Roof Below', xFt: 36.5, yFt: 28, widthFt: 12, depthFt: 18, rotationDeg: 0, sortIndex: 295 },
   { sourceKey: 'third-stair-opening', floorName: 'Third Floor', elementType: 'stairs', label: 'Third Floor Stair', xFt: 7.5, yFt: 22, widthFt: 6.5, depthFt: 9.5, rotationDeg: 0, sortIndex: 300 },
   { sourceKey: 'third-bedroom-window', floorName: 'Third Floor', roomName: 'Third Bedroom', elementType: 'window', label: 'Third Bedroom Window', xFt: 18, yFt: 5.1, widthFt: 8, depthFt: 0.2, rotationDeg: 0, sortIndex: 310 },
   { sourceKey: 'third-fourth-bedroom-window', floorName: 'Third Floor', roomName: 'Fourth Bedroom', elementType: 'window', label: 'Fourth Bedroom Window', xFt: 18, yFt: 45.7, widthFt: 8, depthFt: 0.2, rotationDeg: 0, sortIndex: 320 },
+  { sourceKey: 'third-north-attic-storage', floorName: 'Third Floor', elementType: 'storage', label: 'Attic Storage', xFt: 8, yFt: 7, widthFt: 7, depthFt: 12, rotationDeg: 0, sortIndex: 325 },
+  { sourceKey: 'third-south-attic-storage', floorName: 'Third Floor', elementType: 'storage', label: 'Attic Storage', xFt: 8, yFt: 32, widthFt: 7, depthFt: 12, rotationDeg: 0, sortIndex: 326 },
+  { sourceKey: 'third-large-attic-storage', floorName: 'Third Floor', elementType: 'storage', label: 'Large Attic Storage', xFt: 32, yFt: 9, widthFt: 16, depthFt: 17, rotationDeg: 0, sortIndex: 327 },
   { sourceKey: 'third-bath-vanity', floorName: 'Third Floor', roomName: 'Third Bathroom', elementType: 'sink', label: 'Third Floor Bath Vanity', xFt: 34, yFt: 5.75, widthFt: 4, depthFt: 2, rotationDeg: 0, sortIndex: 330 },
   { sourceKey: 'third-bath-toilet', floorName: 'Third Floor', roomName: 'Third Bathroom', elementType: 'toilet', label: 'Third Floor Bath Toilet', xFt: 40, yFt: 7, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 340 },
   { sourceKey: 'third-attic-access', floorName: 'Third Floor', elementType: 'opening', label: 'Attic Access', xFt: 35, yFt: 24, widthFt: 4, depthFt: 3, rotationDeg: 0, sortIndex: 350 },
@@ -1095,7 +1109,12 @@ function normaliseArchitecturalElementType(value: unknown): ArchitecturalElement
     type === 'door' ||
     type === 'window' ||
     type === 'opening' ||
+    type === 'wall' ||
     type === 'stairs' ||
+    type === 'closet' ||
+    type === 'laundry' ||
+    type === 'porch' ||
+    type === 'storage' ||
     type === 'counter' ||
     type === 'cabinet' ||
     type === 'sink' ||

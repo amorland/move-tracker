@@ -1102,6 +1102,11 @@ function ArchitecturalElementControls({
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {selectedElement && (
+              <span className="badge badge-neutral" style={{ alignSelf: 'center' }}>
+                {selectedElement.source === 'recommended' ? 'Recommended detail' : 'Manual detail'}
+              </span>
+            )}
+            {selectedElement && (
               <button type="button" className="btn btn-secondary btn-sm" onClick={onClear}>
                 <Plus size={14} /> New Element
               </button>
@@ -2226,6 +2231,7 @@ function ArchitecturalElementMarker({
   onStartDrag: (event: PointerEvent<HTMLButtonElement>) => void;
 }) {
   const style = architecturalElementStyle(element.elementType);
+  const showLabel = selected || ['stairs', 'closet', 'laundry', 'porch', 'storage'].includes(element.elementType);
   return (
     <button
       type="button"
@@ -2258,11 +2264,38 @@ function ArchitecturalElementMarker({
       }}
     >
       <ArchitecturalElementGlyph element={element} />
+      {showLabel && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: 4,
+            right: 4,
+            bottom: 3,
+            color: style.color,
+            fontSize: 8,
+            fontWeight: 900,
+            lineHeight: 1,
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            textAlign: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          {element.label}
+        </span>
+      )}
     </button>
   );
 }
 
 function ArchitecturalElementGlyph({ element }: { element: ArchitecturalElement }) {
+  if (element.elementType === 'wall') {
+    return <span aria-hidden="true" style={{ position: 'absolute', inset: '35% 2px', background: 'rgba(255,250,243,0.22)' }} />;
+  }
+
   if (element.elementType === 'door') {
     return (
       <>
@@ -2284,6 +2317,25 @@ function ArchitecturalElementGlyph({ element }: { element: ArchitecturalElement 
         {Array.from({ length: 6 }).map((_, index) => <span key={index} style={{ borderTop: '1px solid rgba(85,117,139,0.72)' }} />)}
       </span>
     );
+  }
+
+  if (element.elementType === 'closet' || element.elementType === 'storage') {
+    return (
+      <span aria-hidden="true" style={{ position: 'absolute', inset: 5, border: '1px dashed rgba(125,116,103,0.58)', borderRadius: 3, background: 'rgba(255,252,247,0.28)' }} />
+    );
+  }
+
+  if (element.elementType === 'laundry') {
+    return (
+      <span aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+        <span style={{ borderRadius: 999, border: '1px solid rgba(85,117,139,0.58)', background: 'rgba(255,255,255,0.42)' }} />
+        <span style={{ borderRadius: 999, border: '1px solid rgba(85,117,139,0.58)', background: 'rgba(255,255,255,0.42)' }} />
+      </span>
+    );
+  }
+
+  if (element.elementType === 'porch') {
+    return <span aria-hidden="true" style={{ position: 'absolute', inset: 5, border: '1px dashed rgba(122,85,58,0.5)', backgroundImage: 'repeating-linear-gradient(90deg, rgba(122,85,58,0.14) 0 1px, transparent 1px 6px)' }} />;
   }
 
   if (element.elementType === 'sink' || element.elementType === 'toilet') {
@@ -2327,7 +2379,25 @@ function LayoutChip({ item, selected, onSelect }: { item: RoomItem; selected: bo
   );
 }
 
-const ARCHITECTURAL_ELEMENT_TYPES: ArchitecturalElementType[] = ['door', 'window', 'opening', 'stairs', 'counter', 'cabinet', 'sink', 'toilet', 'shower', 'tub', 'appliance', 'fixture'];
+const ARCHITECTURAL_ELEMENT_TYPES: ArchitecturalElementType[] = [
+  'door',
+  'window',
+  'opening',
+  'wall',
+  'stairs',
+  'closet',
+  'laundry',
+  'porch',
+  'storage',
+  'counter',
+  'cabinet',
+  'sink',
+  'toilet',
+  'shower',
+  'tub',
+  'appliance',
+  'fixture',
+];
 
 function makeArchitecturalElementDraft(
   element: ArchitecturalElement | null,
@@ -2390,9 +2460,14 @@ function architecturalDraftToUpdate(draft: ArchitecturalElementDraft): Architect
 }
 
 function defaultArchitecturalElementDimensions(type: ArchitecturalElementType) {
+  if (type === 'wall') return { widthFt: 8, depthFt: 0.25 };
   if (type === 'door' || type === 'opening') return { widthFt: 3, depthFt: 0.25 };
   if (type === 'window') return { widthFt: 4, depthFt: 0.2 };
   if (type === 'stairs') return { widthFt: 6, depthFt: 10 };
+  if (type === 'closet') return { widthFt: 4, depthFt: 2.5 };
+  if (type === 'laundry') return { widthFt: 5, depthFt: 3 };
+  if (type === 'porch') return { widthFt: 12, depthFt: 6 };
+  if (type === 'storage') return { widthFt: 5, depthFt: 5 };
   if (type === 'counter' || type === 'cabinet') return { widthFt: 6, depthFt: 2 };
   if (type === 'sink' || type === 'toilet') return { widthFt: 2.5, depthFt: 2 };
   if (type === 'shower') return { widthFt: 3, depthFt: 3 };
@@ -2413,6 +2488,9 @@ function clampArchitecturalElementPosition(xFt: number, yFt: number, widthFt: nu
 }
 
 function architecturalElementStyle(type: ArchitecturalElementType) {
+  if (type === 'wall') {
+    return { minWidth: 52, minHeight: 12, borderRadius: 1, border: '1px solid #3f3a34', background: 'rgba(63,58,52,0.78)', color: '#fffaf3' };
+  }
   if (type === 'door' || type === 'opening') {
     return { minWidth: 34, minHeight: 18, borderRadius: 2, border: '1px solid #7a553a', background: 'rgba(255,252,247,0.72)', color: '#7a553a' };
   }
@@ -2421,6 +2499,15 @@ function architecturalElementStyle(type: ArchitecturalElementType) {
   }
   if (type === 'stairs') {
     return { minWidth: 52, minHeight: 52, borderRadius: 4, border: '1px solid #55758b', background: 'rgba(231,237,241,0.82)', color: '#55758b' };
+  }
+  if (type === 'closet' || type === 'storage') {
+    return { minWidth: 44, minHeight: 34, borderRadius: 4, border: '1px dashed #7d7467', background: 'rgba(255,252,247,0.76)', color: '#7d7467' };
+  }
+  if (type === 'laundry') {
+    return { minWidth: 46, minHeight: 34, borderRadius: 5, border: '1px solid #55758b', background: 'rgba(231,237,241,0.86)', color: '#55758b' };
+  }
+  if (type === 'porch') {
+    return { minWidth: 58, minHeight: 38, borderRadius: 4, border: '1px dashed #9f7654', background: 'rgba(244,232,215,0.46)', color: '#7a553a' };
   }
   if (type === 'counter' || type === 'cabinet' || type === 'appliance') {
     return { minWidth: 42, minHeight: 28, borderRadius: 4, border: '1px solid #7d7467', background: 'rgba(239,233,221,0.9)', color: '#7d7467' };
