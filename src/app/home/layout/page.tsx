@@ -28,6 +28,7 @@ type GeometryDragTarget =
   | { type: 'point'; index: number }
   | { type: 'label' }
   | { type: 'room'; start: PlanPoint; points: PlanPoint[] }
+  | { type: 'item'; item: RoomItem; start: PlanPoint; xFt: number; yFt: number; widthFt: number; depthFt: number }
   | { type: 'architecturalElement'; element: ArchitecturalElement; start: PlanPoint; xFt: number; yFt: number };
 type RoomItemLayoutUpdate = {
   widthIn?: number | null;
@@ -105,6 +106,7 @@ export default function HomeLayoutPage() {
   const [snapToGrid, setSnapToGrid] = useState(true);
   const [automationBusy, setAutomationBusy] = useState<LayoutAutomationMode | null>(null);
   const [automationMessage, setAutomationMessage] = useState<string | null>(null);
+  const [layoutMessage, setLayoutMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
@@ -156,7 +158,8 @@ export default function HomeLayoutPage() {
   const moveItem = async (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => {
     setSelectedItemId(item.id);
     setSelectedElementId(null);
-    await fetch('/api/room-items', {
+    setLayoutMessage('Saving item position...');
+    const res = await fetch('/api/room-items', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -167,6 +170,15 @@ export default function HomeLayoutPage() {
         planYFt: roundToHundredth(planYFt),
       }),
     });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      setLayoutMessage(body?.error || 'Item position failed to save.');
+      return;
+    }
+
+    setLayoutMessage('Item position saved.');
+    window.setTimeout(() => setLayoutMessage(null), 1800);
     fetchAll();
   };
 
@@ -509,6 +521,7 @@ export default function HomeLayoutPage() {
             onMoveArchitecturalElement={saveArchitecturalElement}
             snapToGrid={snapToGrid}
             onMoveItem={moveItem}
+            statusMessage={layoutMessage}
           />
         </>
       )}
@@ -1196,6 +1209,7 @@ function SelectedItemControls({
   onClear: () => void;
 }) {
   const footprint = item ? itemFootprint(item) : null;
+  const profile = item ? furnitureProfileForItem(item) : null;
   const initialPlacement = item && footprint && floorPlan ? itemPlacementForControls(item, room, floorPlan, footprint) : null;
   const [draft, setDraft] = useState({
     widthFt: footprint ? roundToQuarter(footprint.widthFt) : null,
@@ -1272,6 +1286,7 @@ function SelectedItemControls({
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <span className="badge badge-neutral">{room?.name ?? 'No room'}</span>
               <span className="badge badge-neutral">{floorPlan?.label ?? 'No floor'}</span>
+              {profile && <span className="badge badge-neutral">{profile.label}</span>}
               <button type="button" className="btn btn-secondary btn-sm" onClick={onClear}>Clear</button>
               <button type="button" className="btn btn-primary btn-sm" onClick={() => save()} disabled={saveState === 'saving' || draft.widthFt === null || draft.depthFt === null}>
                 <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Item'}
@@ -1418,6 +1433,7 @@ function MeasuredFloorPlan({
   onMoveArchitecturalElement,
   snapToGrid,
   onMoveItem,
+  statusMessage,
 }: {
   floorPlan: HomeFloorPlan;
   floorPlans: HomeFloorPlan[];
@@ -1439,9 +1455,11 @@ function MeasuredFloorPlan({
   onMoveArchitecturalElement: (elementId: number, update: ArchitecturalElementUpdate) => Promise<SaveResult>;
   snapToGrid: boolean;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
+  statusMessage: string | null;
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [dragTarget, setDragTarget] = useState<GeometryDragTarget | null>(null);
+  const [itemDragPreview, setItemDragPreview] = useState<{ itemId: number; xFt: number; yFt: number } | null>(null);
   const [architecturalDragPreview, setArchitecturalDragPreview] = useState<{ elementId: number; xFt: number; yFt: number } | null>(null);
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
   const roomShapes = floorRooms.map(room => ({
@@ -1461,6 +1479,10 @@ function MeasuredFloorPlan({
   const displayedArchitecturalElements = floorArchitecturalElements.map(element => {
     if (architecturalDragPreview?.elementId !== element.id) return element;
     return { ...element, xFt: architecturalDragPreview.xFt, yFt: architecturalDragPreview.yFt };
+  });
+  const displayedFloorItems = floorItems.map(item => {
+    if (itemDragPreview?.itemId !== item.id) return item;
+    return { ...item, planXFt: itemDragPreview.xFt, planYFt: itemDragPreview.yFt };
   });
   const gridLinesX = gridLines(floorPlan.widthFt);
   const gridLinesY = gridLines(floorPlan.depthFt);
@@ -1485,6 +1507,20 @@ function MeasuredFloorPlan({
     if (!dragTarget) return;
     const point = pointFromPointer(event);
     if (!point) return;
+
+    if (dragTarget.type === 'item') {
+      const dx = point.x - dragTarget.start.x;
+      const dy = point.y - dragTarget.start.y;
+      const next = clampItemPosition(
+        snapPlanValue(dragTarget.xFt + dx, snapToGrid),
+        snapPlanValue(dragTarget.yFt + dy, snapToGrid),
+        dragTarget.widthFt,
+        dragTarget.depthFt,
+        floorPlan,
+      );
+      setItemDragPreview({ itemId: dragTarget.item.id, xFt: next.planXFt, yFt: next.planYFt });
+      return;
+    }
 
     if (dragTarget.type === 'architecturalElement') {
       const dx = point.x - dragTarget.start.x;
@@ -1527,9 +1563,19 @@ function MeasuredFloorPlan({
 
   const finishPointerDrag = async () => {
     const target = dragTarget;
+    const itemPreview = itemDragPreview;
     const preview = architecturalDragPreview;
     setDragTarget(null);
+    setItemDragPreview(null);
     setArchitecturalDragPreview(null);
+
+    if (target?.type === 'item' && itemPreview?.itemId === target.item.id) {
+      const centerXFt = itemPreview.xFt + target.widthFt / 2;
+      const centerYFt = itemPreview.yFt + target.depthFt / 2;
+      const targetRoom = roomShapes.find(({ points }) => containsPlanPoint(points, centerXFt, centerYFt));
+      onMoveItem(target.item, floorPlan.id, targetRoom?.room.id ?? null, itemPreview.xFt, itemPreview.yFt);
+      return;
+    }
 
     if (target?.type !== 'architecturalElement' || preview?.elementId !== target.element.id) return;
     await onMoveArchitecturalElement(target.element.id, {
@@ -1555,6 +1601,11 @@ function MeasuredFloorPlan({
         </div>
       </div>
       <div className="card-body">
+        {statusMessage && (
+          <div style={{ marginBottom: 10, fontSize: 12, fontWeight: 800, color: statusMessage.toLowerCase().includes('failed') ? '#b91c1c' : 'var(--color-secondary)' }}>
+            {statusMessage}
+          </div>
+        )}
         <div
           ref={surfaceRef}
           onDragOver={event => event.preventDefault()}
@@ -1580,6 +1631,7 @@ function MeasuredFloorPlan({
           onPointerUp={() => { void finishPointerDrag(); }}
           onPointerCancel={() => {
             setDragTarget(null);
+            setItemDragPreview(null);
             setArchitecturalDragPreview(null);
           }}
           style={{
@@ -1803,7 +1855,7 @@ function MeasuredFloorPlan({
               }}
             />
           ))}
-          {floorItems.map((item, index) => {
+          {displayedFloorItems.map((item, index) => {
             const room = floorRooms.find(entry => entry.id === item.roomId);
             const defaultPoint = room ? planLabelPointForRoom(room) : null;
             const footprint = itemFootprint(item);
@@ -1826,6 +1878,15 @@ function MeasuredFloorPlan({
                 floorPlan={floorPlan}
                 selected={item.id === selectedItemId}
                 onSelect={() => onSelectItem(item.id)}
+                onStartDrag={event => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const start = pointFromPointer(event);
+                  if (!start) return;
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                  onSelectItem(item.id);
+                  setDragTarget({ type: 'item', item, start, xFt: x, yFt: y, widthFt: footprint.widthFt, depthFt: footprint.depthFt });
+                }}
               />
             );
           })}
@@ -2078,58 +2139,127 @@ function normaliseRotation(value: number) {
   return ((Math.round(value) % 360) + 360) % 360;
 }
 
-type FurnitureKind = 'bed' | 'seating' | 'table' | 'desk' | 'storage' | 'rug' | 'lamp' | 'plant' | 'box';
+type FurnitureKind =
+  | 'bed'
+  | 'crib'
+  | 'sofa'
+  | 'sectional'
+  | 'chair'
+  | 'dining_table'
+  | 'coffee_table'
+  | 'side_table'
+  | 'desk'
+  | 'dresser'
+  | 'bookcase'
+  | 'tv_stand'
+  | 'storage'
+  | 'rug'
+  | 'lamp'
+  | 'plant'
+  | 'box';
 
-function furnitureStyleForItem(item: RoomItem): { kind: FurnitureKind; background: string; border: string; borderRadius: number } {
+type FurnitureProfile = {
+  kind: FurnitureKind;
+  label: string;
+  background: string;
+  border: string;
+  borderRadius: number;
+};
+
+function furnitureProfileForItem(item: RoomItem): FurnitureProfile {
   const label = item.itemName.toLowerCase();
-  if (label.includes('bed') || label.includes('crib') || label.includes('mattress')) {
-    return { kind: 'bed', background: 'rgba(244,232,215,0.96)', border: '#9f7654', borderRadius: 7 };
-  }
-  if (label.includes('sofa') || label.includes('couch') || label.includes('sectional') || label.includes('loveseat') || label.includes('chair')) {
-    return { kind: 'seating', background: 'rgba(226,243,235,0.96)', border: '#1f6b5b', borderRadius: 10 };
-  }
-  if (label.includes('dining') || label.includes('table') || label.includes('nightstand')) {
-    return { kind: 'table', background: 'rgba(246,224,205,0.96)', border: '#b85f36', borderRadius: 999 };
-  }
-  if (label.includes('desk')) {
-    return { kind: 'desk', background: 'rgba(231,237,241,0.96)', border: '#55758b', borderRadius: 6 };
-  }
-  if (label.includes('dresser') || label.includes('shelf') || label.includes('bookcase') || label.includes('cabinet') || label.includes('storage')) {
-    return { kind: 'storage', background: 'rgba(239,233,221,0.96)', border: '#7d7467', borderRadius: 5 };
-  }
-  if (label.includes('rug')) return { kind: 'rug', background: 'rgba(255,252,247,0.78)', border: '#b99b68', borderRadius: 8 };
-  if (label.includes('lamp')) return { kind: 'lamp', background: 'rgba(250,239,202,0.96)', border: '#b99b68', borderRadius: 999 };
-  if (label.includes('plant')) return { kind: 'plant', background: 'rgba(226,243,235,0.96)', border: '#4f8a60', borderRadius: 999 };
-  return {
-    kind: 'box',
-    background: item.itemSource === 'existing_belonging' ? 'rgba(246,224,205,0.96)' : 'rgba(226,243,235,0.96)',
-    border: item.itemSource === 'existing_belonging' ? 'var(--color-accent)' : '#1f6b5b',
-    borderRadius: 6,
-  };
+  if (label.includes('crib')) return furnitureProfile('crib', 'Crib', 'rgba(244,232,215,0.96)', '#9f7654', 7);
+  if (label.includes('bed') || label.includes('mattress')) return furnitureProfile('bed', 'Bed', 'rgba(244,232,215,0.96)', '#9f7654', 7);
+  if (label.includes('sectional')) return furnitureProfile('sectional', 'Sectional', 'rgba(226,243,235,0.96)', '#1f6b5b', 10);
+  if (label.includes('sofa') || label.includes('couch') || label.includes('loveseat')) return furnitureProfile('sofa', 'Sofa', 'rgba(226,243,235,0.96)', '#1f6b5b', 10);
+  if (label.includes('chair') || label.includes('recliner')) return furnitureProfile('chair', 'Chair', 'rgba(226,243,235,0.96)', '#1f6b5b', 999);
+  if (label.includes('dining')) return furnitureProfile('dining_table', 'Dining Table', 'rgba(246,224,205,0.96)', '#b85f36', 999);
+  if (label.includes('coffee table')) return furnitureProfile('coffee_table', 'Coffee Table', 'rgba(246,224,205,0.96)', '#b85f36', 8);
+  if (label.includes('side table') || label.includes('end table') || label.includes('nightstand')) return furnitureProfile('side_table', 'Side Table', 'rgba(246,224,205,0.96)', '#b85f36', 8);
+  if (label.includes('table')) return furnitureProfile('dining_table', 'Table', 'rgba(246,224,205,0.96)', '#b85f36', 999);
+  if (label.includes('desk')) return furnitureProfile('desk', 'Desk', 'rgba(231,237,241,0.96)', '#55758b', 6);
+  if (label.includes('dresser') || label.includes('drawer')) return furnitureProfile('dresser', 'Dresser', 'rgba(239,233,221,0.96)', '#7d7467', 5);
+  if (label.includes('bookcase') || label.includes('bookshelf') || label.includes('shelf')) return furnitureProfile('bookcase', 'Bookcase', 'rgba(239,233,221,0.96)', '#7d7467', 5);
+  if (label.includes('tv stand') || label.includes('media console') || label.includes('console')) return furnitureProfile('tv_stand', 'TV Stand', 'rgba(239,233,221,0.96)', '#7d7467', 5);
+  if (label.includes('cabinet') || label.includes('storage')) return furnitureProfile('storage', 'Storage', 'rgba(239,233,221,0.96)', '#7d7467', 5);
+  if (label.includes('rug')) return furnitureProfile('rug', 'Rug', 'rgba(255,252,247,0.78)', '#b99b68', 8);
+  if (label.includes('lamp')) return furnitureProfile('lamp', 'Lamp', 'rgba(250,239,202,0.96)', '#b99b68', 999);
+  if (label.includes('plant')) return furnitureProfile('plant', 'Plant', 'rgba(226,243,235,0.96)', '#4f8a60', 999);
+  return furnitureProfile(
+    'box',
+    'General Item',
+    item.itemSource === 'existing_belonging' ? 'rgba(246,224,205,0.96)' : 'rgba(226,243,235,0.96)',
+    item.itemSource === 'existing_belonging' ? 'var(--color-accent)' : '#1f6b5b',
+    6,
+  );
 }
 
-function FurnitureGlyph({ kind }: { kind: FurnitureKind }) {
-  if (kind === 'bed') {
+function furnitureProfile(kind: FurnitureKind, label: string, background: string, border: string, borderRadius: number): FurnitureProfile {
+  return { kind, label, background, border, borderRadius };
+}
+
+function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
+  const kind = profile.kind;
+  if (kind === 'bed' || kind === 'crib') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(159,118,84,0.26)', borderRadius: 5 }}>
         <div style={{ position: 'absolute', top: 3, left: 4, right: 4, height: '24%', borderRadius: 4, background: 'rgba(255,252,247,0.72)' }} />
         <div style={{ position: 'absolute', left: 4, right: 4, top: '38%', borderTop: '1px solid rgba(159,118,84,0.24)' }} />
+        {kind === 'crib' && (
+          <div style={{ position: 'absolute', left: 3, right: 3, bottom: 3, top: '52%', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, opacity: 0.42 }}>
+            {Array.from({ length: 6 }).map((_, index) => <span key={index} style={{ borderLeft: '1px solid #9f7654' }} />)}
+          </div>
+        )}
       </div>
     );
   }
 
-  if (kind === 'seating') {
+  if (kind === 'sofa') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, opacity: 0.42 }}>
-        <span style={{ borderRadius: 4, background: '#1f6b5b' }} />
-        <span style={{ borderRadius: 4, background: '#1f6b5b' }} />
-        <span style={{ borderRadius: 4, background: '#1f6b5b' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '24%', borderRadius: 5, background: 'rgba(31,107,91,0.34)' }} />
+        <div style={{ position: 'absolute', left: 0, top: '18%', bottom: 0, width: '14%', borderRadius: 5, background: 'rgba(31,107,91,0.3)' }} />
+        <div style={{ position: 'absolute', right: 0, top: '18%', bottom: 0, width: '14%', borderRadius: 5, background: 'rgba(31,107,91,0.3)' }} />
+        <div style={{ position: 'absolute', left: '18%', right: '18%', top: '36%', bottom: '8%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 }}>
+          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
+          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
+          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
+        </div>
       </div>
     );
   }
 
-  if (kind === 'table') {
-    return <div aria-hidden="true" style={{ position: 'absolute', inset: '22% 18%', borderRadius: 999, border: '1px solid rgba(184,95,54,0.34)', background: 'rgba(255,252,247,0.42)' }} />;
+  if (kind === 'sectional') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
+        <div style={{ position: 'absolute', left: 0, right: '18%', top: 0, height: '32%', borderRadius: 5, background: 'rgba(31,107,91,0.34)' }} />
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '24%', borderRadius: 5, background: 'rgba(31,107,91,0.28)' }} />
+        <div style={{ position: 'absolute', left: '28%', right: '14%', top: '42%', bottom: '10%', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 3 }}>
+          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
+          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (kind === 'chair') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
+        <div style={{ position: 'absolute', left: '12%', right: '12%', top: 0, height: '28%', borderRadius: 5, background: 'rgba(31,107,91,0.34)' }} />
+        <div style={{ position: 'absolute', inset: '32% 18% 8%', borderRadius: 999, background: 'rgba(31,107,91,0.22)' }} />
+      </div>
+    );
+  }
+
+  if (kind === 'dining_table' || kind === 'coffee_table' || kind === 'side_table') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: kind === 'side_table' ? '18%' : '22% 18%', borderRadius: kind === 'dining_table' ? 999 : 7, border: '1px solid rgba(184,95,54,0.34)', background: 'rgba(255,252,247,0.42)' }}>
+        <span style={{ position: 'absolute', left: 5, top: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
+        <span style={{ position: 'absolute', right: 5, top: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
+        <span style={{ position: 'absolute', left: 5, bottom: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
+        <span style={{ position: 'absolute', right: 5, bottom: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
+      </div>
+    );
   }
 
   if (kind === 'desk') {
@@ -2138,12 +2268,26 @@ function FurnitureGlyph({ kind }: { kind: FurnitureKind }) {
     );
   }
 
-  if (kind === 'storage') {
+  if (kind === 'dresser') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, opacity: 0.34 }}>
-        <span style={{ borderLeft: '1px solid #7d7467' }} />
-        <span style={{ borderLeft: '1px solid #7d7467' }} />
-        <span style={{ borderLeft: '1px solid #7d7467' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateRows: 'repeat(4, 1fr)', gap: 2, opacity: 0.46 }}>
+        {Array.from({ length: 4 }).map((_, index) => <span key={index} style={{ borderTop: '1px solid #7d7467' }} />)}
+      </div>
+    );
+  }
+
+  if (kind === 'bookcase' || kind === 'storage') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, opacity: 0.38 }}>
+        {Array.from({ length: 4 }).map((_, index) => <span key={index} style={{ borderLeft: '1px solid #7d7467' }} />)}
+      </div>
+    );
+  }
+
+  if (kind === 'tv_stand') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderTop: '4px solid rgba(125,116,103,0.38)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, paddingTop: 6 }}>
+        {Array.from({ length: 3 }).map((_, index) => <span key={index} style={{ border: '1px solid rgba(125,116,103,0.28)', borderRadius: 3 }} />)}
       </div>
     );
   }
@@ -2162,6 +2306,7 @@ function PlacedItem({
   floorPlan,
   selected,
   onSelect,
+  onStartDrag,
 }: {
   item: RoomItem;
   x: number;
@@ -2171,18 +2316,19 @@ function PlacedItem({
   floorPlan: HomeFloorPlan;
   selected: boolean;
   onSelect: () => void;
+  onStartDrag: (event: PointerEvent<HTMLButtonElement>) => void;
 }) {
-  const style = furnitureStyleForItem(item);
+  const profile = furnitureProfileForItem(item);
   return (
     <button
       data-layout-control="true"
-      draggable
-      onDragStart={event => event.dataTransfer.setData('text/plain', String(item.id))}
+      type="button"
+      onPointerDown={onStartDrag}
       onClick={event => {
         event.stopPropagation();
         onSelect();
       }}
-      title={`${item.itemName} · ${formatFt(width)} x ${formatFt(depth)}`}
+      title={`${item.itemName} · ${profile.label} · ${formatFt(width)} x ${formatFt(depth)}`}
       style={{
         position: 'absolute',
         left: `${(x / floorPlan.widthFt) * 100}%`,
@@ -2191,21 +2337,22 @@ function PlacedItem({
         height: `${(depth / floorPlan.depthFt) * 100}%`,
         minWidth: 52,
         minHeight: 34,
-        borderRadius: style.borderRadius,
-        border: selected ? '2px solid #1f6b5b' : `1px solid ${style.border}`,
-        background: style.background,
+        borderRadius: profile.borderRadius,
+        border: selected ? '2px solid #1f6b5b' : `1px solid ${profile.border}`,
+        background: profile.background,
         color: 'var(--color-foreground)',
         padding: 6,
         textAlign: 'left',
         overflow: 'hidden',
         boxShadow: selected ? '0 0 0 3px rgba(31,107,91,0.18), var(--shadow-sm)' : 'var(--shadow-sm)',
         cursor: 'grab',
+        touchAction: 'none',
         transform: `rotate(${item.rotationDeg ?? 0}deg)`,
         transformOrigin: 'center',
         zIndex: selected ? 4 : 3,
       }}
     >
-      <FurnitureGlyph kind={style.kind} />
+      <FurnitureGlyph profile={profile} />
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, minWidth: 0 }}>
         <div style={{ fontSize: 11, fontWeight: 800, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.itemName}</div>
         <MoveDiagonal size={11} color="var(--color-secondary)" />
