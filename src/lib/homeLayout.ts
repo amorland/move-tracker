@@ -269,8 +269,15 @@ function estimateWidthIn(item: RoomItem) {
   if (type === 'desk' || type === 'dresser') return 60;
   if (type === 'bookcase') return 48;
   if (type === 'chair') return 32;
+  if (type === 'patio_chair') return 32;
+  if (type === 'bench') return 48;
+  if (type === 'ottoman') return 28;
   if (type === 'rug') return 96;
   if (type === 'lamp' || type === 'plant') return 18;
+  if (type === 'outdoor_table') return 48;
+  if (type === 'grill') return 48;
+  if (type === 'mirror') return 36;
+  if (type === 'appliance') return 36;
   if (type === 'tv_stand') return 60;
   if (type === 'storage') return 48;
 
@@ -300,8 +307,15 @@ function estimateDepthIn(item: RoomItem) {
   if (type === 'desk' || type === 'dresser') return 28;
   if (type === 'bookcase') return 16;
   if (type === 'chair') return 32;
+  if (type === 'patio_chair') return 32;
+  if (type === 'bench') return 18;
+  if (type === 'ottoman') return 24;
   if (type === 'rug') return 60;
   if (type === 'lamp' || type === 'plant') return 18;
+  if (type === 'outdoor_table') return 36;
+  if (type === 'grill') return 24;
+  if (type === 'mirror') return 4;
+  if (type === 'appliance') return 30;
   if (type === 'tv_stand') return 18;
   if (type === 'storage') return 24;
 

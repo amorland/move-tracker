@@ -7,6 +7,8 @@ describe('furniture helpers', () => {
     expect(inferFurnitureType('Walnut media console')).toBe('tv_stand');
     expect(inferFurnitureType('Nursery crib')).toBe('crib');
     expect(inferFurnitureType('Office bookshelves')).toBe('bookcase');
+    expect(inferFurnitureType('Porch patio chair')).toBe('patio_chair');
+    expect(inferFurnitureType('Weber grill')).toBe('grill');
   });
 
   it('preserves stored furniture types before falling back to inference', () => {

@@ -99,6 +99,7 @@ export default function HomeLayoutPage() {
   const [floorPlans, setFloorPlans] = useState<HomeFloorPlan[]>([]);
   const [activeFloorName, setActiveFloorName] = useState<string | null>(null);
   const [overlayVisible, setOverlayVisible] = useState(true);
+  const [roomLabelsVisible, setRoomLabelsVisible] = useState(true);
   const [overlayOpacity, setOverlayOpacity] = useState(0.42);
   const [overlayFit, setOverlayFit] = useState<OverlayFit>('contain');
   const [roomEditMode, setRoomEditMode] = useState(false);
@@ -319,6 +320,46 @@ export default function HomeLayoutPage() {
     return { ok: true };
   };
 
+  const createLayoutRoom = async (name: string): Promise<SaveResult> => {
+    if (!activeFloor) return { ok: false, message: 'Select a floor before adding a room.' };
+    const roomName = name.trim();
+    if (!roomName) return { ok: false, message: 'Enter a room name.' };
+
+    const rect = newRoomRectForFloor(activeFloor, activeFloorRooms.length);
+    const shapePoints = rectToPoints(rect);
+    const label = averagePoint(shapePoints);
+    const res = await fetch('/api/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: roomName,
+        floor: activeFloor.name,
+        floorPlanId: activeFloor.id > 0 ? activeFloor.id : null,
+        notes: null,
+        planXFt: rect.x,
+        planYFt: rect.y,
+        planWidthFt: rect.width,
+        planDepthFt: rect.depth,
+        labelXFt: label.x,
+        labelYFt: label.y,
+        shapePoints,
+        geometrySource: 'custom',
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Create failed with HTTP ${res.status}` };
+    }
+
+    const saved: Room = await res.json();
+    setRooms(current => [...current, saved]);
+    setEditingRoomId(saved.id);
+    setRoomDraft(makeRoomGeometryDraft(saved));
+    setRoomEditMode(true);
+    return { ok: true };
+  };
+
   const runLayoutAutomation = async (mode: LayoutAutomationMode): Promise<SaveResult> => {
     const requiresSavedFloor = mode === 'floorRooms' || mode === 'architecture' || mode === 'architectureReset';
     if (requiresSavedFloor && (!activeFloor || activeFloor.id < 0)) {
@@ -446,11 +487,13 @@ export default function HomeLayoutPage() {
           <LayoutToolbar
             floorPlan={activeFloor}
             overlayVisible={overlayVisible}
+            roomLabelsVisible={roomLabelsVisible}
             snapToGrid={snapToGrid}
             roomEditMode={roomEditMode}
             busy={automationBusy}
             message={automationMessage}
             onToggleOverlay={() => setOverlayVisible(value => !value)}
+            onToggleRoomLabels={() => setRoomLabelsVisible(value => !value)}
             onSnapChange={setSnapToGrid}
             onToggleRoomEdit={toggleRoomEditMode}
             onSyncItems={() => runLayoutAutomation('items')}
@@ -467,6 +510,7 @@ export default function HomeLayoutPage() {
               rooms={rooms}
               items={items}
               overlayVisible={overlayVisible}
+              roomLabelsVisible={roomLabelsVisible}
               overlayOpacity={overlayOpacity}
               overlayFit={overlayFit}
               roomEditMode={roomEditMode}
@@ -510,6 +554,7 @@ export default function HomeLayoutPage() {
                 onToggleEditMode={toggleRoomEditMode}
                 onSelectRoom={selectRoomForEditing}
                 onDraftChange={setRoomDraft}
+                onCreateRoom={createLayoutRoom}
                 onSave={saveRoomGeometry}
                 onResetSuggested={resetRoomToSuggestedOutline}
                 onResetFloorSuggested={resetFloorToSuggestedOutlines}
@@ -571,11 +616,13 @@ export default function HomeLayoutPage() {
 function LayoutToolbar({
   floorPlan,
   overlayVisible,
+  roomLabelsVisible,
   snapToGrid,
   roomEditMode,
   busy,
   message,
   onToggleOverlay,
+  onToggleRoomLabels,
   onSnapChange,
   onToggleRoomEdit,
   onSyncItems,
@@ -587,11 +634,13 @@ function LayoutToolbar({
 }: {
   floorPlan: HomeFloorPlan;
   overlayVisible: boolean;
+  roomLabelsVisible: boolean;
   snapToGrid: boolean;
   roomEditMode: boolean;
   busy: LayoutAutomationMode | null;
   message: string | null;
   onToggleOverlay: () => void;
+  onToggleRoomLabels: () => void;
   onSnapChange: (value: boolean) => void;
   onToggleRoomEdit: () => void;
   onSyncItems: () => Promise<SaveResult>;
@@ -629,6 +678,10 @@ function LayoutToolbar({
           <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleOverlay}>
             {overlayVisible ? <EyeOff size={14} /> : <Eye size={14} />}
             {overlayVisible ? 'Hide Blueprint' : 'Show Blueprint'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleRoomLabels}>
+            {roomLabelsVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+            {roomLabelsVisible ? 'Hide Names' : 'Show Names'}
           </button>
           <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
             <input type="checkbox" checked={snapToGrid} onChange={event => onSnapChange(event.target.checked)} style={{ width: 14, height: 14 }} />
@@ -843,6 +896,7 @@ function RoomGeometryControls({
   onToggleEditMode,
   onSelectRoom,
   onDraftChange,
+  onCreateRoom,
   onSave,
   onResetSuggested,
   onResetFloorSuggested,
@@ -855,12 +909,14 @@ function RoomGeometryControls({
   onToggleEditMode: () => void;
   onSelectRoom: (roomId: number | null) => void;
   onDraftChange: (draft: RoomGeometryDraft | null) => void;
+  onCreateRoom: (name: string) => Promise<SaveResult>;
   onSave: (draft: RoomGeometryDraft) => Promise<SaveResult>;
   onResetSuggested: (roomId: number) => Promise<SaveResult>;
   onResetFloorSuggested: () => Promise<SaveResult>;
 }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [newRoomName, setNewRoomName] = useState('');
   const selectedRoom = floorRooms.find(room => room.id === editingRoomId) ?? null;
   const editorPoints = selectedRoom && roomDraft ? roomEditorPoints(selectedRoom, roomDraft) : [];
   const selectedSource = selectedRoom ? roomGeometryStatus(selectedRoom) : null;
@@ -945,6 +1001,21 @@ function RoomGeometryControls({
     setSaveMessage(result.message);
   };
 
+  const createRoom = async () => {
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = await onCreateRoom(newRoomName);
+    if (result.ok) {
+      setNewRoomName('');
+      setSaveState('saved');
+      setSaveMessage('Room added. Drag or resize it into place, then save if needed.');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+      return;
+    }
+    setSaveState('error');
+    setSaveMessage(result.message);
+  };
+
   return (
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -959,7 +1030,7 @@ function RoomGeometryControls({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleEditMode} disabled={floorRooms.length === 0}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleEditMode}>
               <MousePointer2 size={14} />
               {editMode ? 'Finish Editing' : 'Edit Rooms'}
             </button>
@@ -978,12 +1049,33 @@ function RoomGeometryControls({
           </div>
         </div>
 
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) auto', gap: 10, alignItems: 'end' }}>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>New room</span>
+            <input
+              value={newRoomName}
+              onChange={event => setNewRoomName(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void createRoom();
+                }
+              }}
+              placeholder="e.g. Porch"
+            />
+          </label>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={createRoom} disabled={saveState === 'saving'}>
+            <Plus size={14} /> Add Room
+          </button>
+        </div>
+
         {editMode && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.4fr) repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
               <label style={{ display: 'block' }}>
                 <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Room</span>
                 <select value={editingRoomId ?? ''} onChange={event => onSelectRoom(event.target.value ? Number(event.target.value) : null)}>
+                  <option value="">Select room</option>
                   {floorRooms.map(room => (
                     <option key={room.id} value={room.id}>{room.name} - {roomGeometryStatus(room).label}</option>
                   ))}
@@ -1508,6 +1600,7 @@ function MeasuredFloorPlan({
   items,
   architecturalElements,
   overlayVisible,
+  roomLabelsVisible,
   overlayOpacity,
   overlayFit,
   roomEditMode,
@@ -1530,6 +1623,7 @@ function MeasuredFloorPlan({
   items: RoomItem[];
   architecturalElements: ArchitecturalElement[];
   overlayVisible: boolean;
+  roomLabelsVisible: boolean;
   overlayOpacity: number;
   overlayFit: OverlayFit;
   roomEditMode: boolean;
@@ -1832,7 +1926,7 @@ function MeasuredFloorPlan({
               );
             })}
           </svg>
-          {roomShapes.map(({ room, label, selected }) => {
+          {roomLabelsVisible && roomShapes.map(({ room, label, selected }) => {
             const status = roomGeometryStatus(room);
             return (
               <button
@@ -2228,6 +2322,21 @@ function rectToPoints(rect: PlanRect): PlanPoint[] {
   ];
 }
 
+function newRoomRectForFloor(floorPlan: HomeFloorPlan, roomCount: number): PlanRect {
+  const width = roundToQuarter(Math.min(10, Math.max(6, floorPlan.widthFt * 0.18)));
+  const depth = roundToQuarter(Math.min(8, Math.max(5, floorPlan.depthFt * 0.14)));
+  const gap = 1;
+  const columns = Math.max(1, Math.floor(Math.max(1, floorPlan.widthFt - gap) / (width + gap)));
+  const column = roomCount % columns;
+  const row = Math.floor(roomCount / columns);
+  return {
+    x: roundToQuarter(clamp(gap + column * (width + gap), 0, Math.max(0, floorPlan.widthFt - width))),
+    y: roundToQuarter(clamp(floorPlan.depthFt - depth - gap - row * (depth + gap), 0, Math.max(0, floorPlan.depthFt - depth))),
+    width,
+    depth,
+  };
+}
+
 function pointsToSvg(points: PlanPoint[], floorPlan: HomeFloorPlan) {
   return points
     .map(point => `${(point.x / floorPlan.widthFt) * 100},${(point.y / floorPlan.depthFt) * 100}`)
@@ -2362,13 +2471,16 @@ function furnitureProfileForItem(item: RoomItem): FurnitureProfile {
 function furnitureProfileForType(type: FurnitureType, item: RoomItem): FurnitureProfile {
   if (type === 'crib' || type === 'bed') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(244,232,215,0.96)', '#9f7654', 7);
   if (type === 'sectional' || type === 'sofa') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(226,243,235,0.96)', '#1f6b5b', 10);
-  if (type === 'chair') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(226,243,235,0.96)', '#1f6b5b', 999);
-  if (type === 'dining_table' || type === 'coffee_table' || type === 'side_table') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(246,224,205,0.96)', '#b85f36', type === 'dining_table' ? 999 : 8);
+  if (type === 'chair' || type === 'patio_chair' || type === 'bench' || type === 'ottoman') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(226,243,235,0.96)', '#1f6b5b', type === 'chair' || type === 'patio_chair' ? 999 : 8);
+  if (type === 'dining_table' || type === 'outdoor_table' || type === 'coffee_table' || type === 'side_table') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(246,224,205,0.96)', '#b85f36', type === 'dining_table' || type === 'outdoor_table' ? 999 : 8);
   if (type === 'desk') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(231,237,241,0.96)', '#55758b', 6);
   if (type === 'dresser' || type === 'bookcase' || type === 'tv_stand' || type === 'storage') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(239,233,221,0.96)', '#7d7467', 5);
   if (type === 'rug') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(255,252,247,0.78)', '#b99b68', 8);
   if (type === 'lamp') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(250,239,202,0.96)', '#b99b68', 999);
   if (type === 'plant') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(226,243,235,0.96)', '#4f8a60', 999);
+  if (type === 'grill') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(232,234,231,0.96)', '#5f625b', 8);
+  if (type === 'mirror') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(231,237,241,0.96)', '#55758b', 999);
+  if (type === 'appliance') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(231,237,241,0.96)', '#55758b', 6);
   return furnitureProfile(
     'box',
     furnitureTypeLabel(type),
@@ -2386,11 +2498,12 @@ function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
   const kind = profile.kind;
   if (kind === 'bed' || kind === 'crib') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(159,118,84,0.26)', borderRadius: 5 }}>
-        <div style={{ position: 'absolute', top: 3, left: 4, right: 4, height: '24%', borderRadius: 4, background: 'rgba(255,252,247,0.72)' }} />
-        <div style={{ position: 'absolute', left: 4, right: 4, top: '38%', borderTop: '1px solid rgba(159,118,84,0.24)' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(159,118,84,0.42)', borderRadius: 6, background: 'rgba(255,252,247,0.18)' }}>
+        <div style={{ position: 'absolute', top: 4, left: 5, width: '40%', height: '22%', borderRadius: 4, background: 'rgba(255,252,247,0.82)', border: '1px solid rgba(159,118,84,0.18)' }} />
+        <div style={{ position: 'absolute', top: 4, right: 5, width: '40%', height: '22%', borderRadius: 4, background: 'rgba(255,252,247,0.82)', border: '1px solid rgba(159,118,84,0.18)' }} />
+        <div style={{ position: 'absolute', left: 5, right: 5, top: '36%', bottom: 5, borderRadius: 5, background: 'repeating-linear-gradient(90deg, rgba(159,118,84,0.08) 0 1px, transparent 1px 8px)' }} />
         {kind === 'crib' && (
-          <div style={{ position: 'absolute', left: 3, right: 3, bottom: 3, top: '52%', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 2, opacity: 0.42 }}>
+          <div style={{ position: 'absolute', left: 3, right: 3, bottom: 3, top: '42%', display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, opacity: 0.58 }}>
             {Array.from({ length: 6 }).map((_, index) => <span key={index} style={{ borderLeft: '1px solid #9f7654' }} />)}
           </div>
         )}
@@ -2401,13 +2514,11 @@ function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
   if (kind === 'sofa') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
-        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '24%', borderRadius: 5, background: 'rgba(31,107,91,0.34)' }} />
-        <div style={{ position: 'absolute', left: 0, top: '18%', bottom: 0, width: '14%', borderRadius: 5, background: 'rgba(31,107,91,0.3)' }} />
-        <div style={{ position: 'absolute', right: 0, top: '18%', bottom: 0, width: '14%', borderRadius: 5, background: 'rgba(31,107,91,0.3)' }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '26%', borderRadius: 6, background: 'rgba(31,107,91,0.48)' }} />
+        <div style={{ position: 'absolute', left: 0, top: '18%', bottom: 0, width: '15%', borderRadius: 6, background: 'rgba(31,107,91,0.4)' }} />
+        <div style={{ position: 'absolute', right: 0, top: '18%', bottom: 0, width: '15%', borderRadius: 6, background: 'rgba(31,107,91,0.4)' }} />
         <div style={{ position: 'absolute', left: '18%', right: '18%', top: '36%', bottom: '8%', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3 }}>
-          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
-          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
-          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
+          {Array.from({ length: 3 }).map((_, index) => <span key={index} style={{ borderRadius: 5, background: 'rgba(31,107,91,0.28)', border: '1px solid rgba(31,107,91,0.16)' }} />)}
         </div>
       </div>
     );
@@ -2416,69 +2527,111 @@ function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
   if (kind === 'sectional') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
-        <div style={{ position: 'absolute', left: 0, right: '18%', top: 0, height: '32%', borderRadius: 5, background: 'rgba(31,107,91,0.34)' }} />
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '24%', borderRadius: 5, background: 'rgba(31,107,91,0.28)' }} />
-        <div style={{ position: 'absolute', left: '28%', right: '14%', top: '42%', bottom: '10%', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 3 }}>
-          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
-          <span style={{ borderRadius: 4, background: 'rgba(31,107,91,0.22)' }} />
+        <div style={{ position: 'absolute', left: 0, right: '15%', top: 0, height: '34%', borderRadius: 6, background: 'rgba(31,107,91,0.48)' }} />
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '28%', borderRadius: 6, background: 'rgba(31,107,91,0.4)' }} />
+        <div style={{ position: 'absolute', left: '33%', right: '10%', top: '44%', bottom: '8%', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 3 }}>
+          {Array.from({ length: 2 }).map((_, index) => <span key={index} style={{ borderRadius: 5, background: 'rgba(31,107,91,0.28)', border: '1px solid rgba(31,107,91,0.16)' }} />)}
         </div>
       </div>
     );
   }
 
-  if (kind === 'chair') {
+  if (kind === 'chair' || kind === 'patio_chair') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
-        <div style={{ position: 'absolute', left: '12%', right: '12%', top: 0, height: '28%', borderRadius: 5, background: 'rgba(31,107,91,0.34)' }} />
-        <div style={{ position: 'absolute', inset: '32% 18% 8%', borderRadius: 999, background: 'rgba(31,107,91,0.22)' }} />
+        <div style={{ position: 'absolute', left: '14%', right: '14%', top: 0, height: '26%', borderRadius: 5, background: 'rgba(31,107,91,0.45)' }} />
+        <div style={{ position: 'absolute', inset: '30% 18% 12%', borderRadius: kind === 'patio_chair' ? 6 : 999, background: 'rgba(31,107,91,0.28)', border: '1px solid rgba(31,107,91,0.2)' }} />
+        <div style={{ position: 'absolute', left: 0, top: '38%', bottom: '18%', width: '14%', borderRadius: 999, background: 'rgba(31,107,91,0.26)' }} />
+        <div style={{ position: 'absolute', right: 0, top: '38%', bottom: '18%', width: '14%', borderRadius: 999, background: 'rgba(31,107,91,0.26)' }} />
       </div>
     );
   }
 
-  if (kind === 'dining_table' || kind === 'coffee_table' || kind === 'side_table') {
+  if (kind === 'bench') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: kind === 'side_table' ? '18%' : '22% 18%', borderRadius: kind === 'dining_table' ? 999 : 7, border: '1px solid rgba(184,95,54,0.34)', background: 'rgba(255,252,247,0.42)' }}>
-        <span style={{ position: 'absolute', left: 5, top: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
-        <span style={{ position: 'absolute', right: 5, top: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
-        <span style={{ position: 'absolute', left: 5, bottom: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
-        <span style={{ position: 'absolute', right: 5, bottom: 5, width: 4, height: 4, borderRadius: 999, background: 'rgba(184,95,54,0.32)' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: '18%', height: '24%', borderRadius: 5, background: 'rgba(31,107,91,0.42)' }} />
+        <div style={{ position: 'absolute', left: '6%', right: '6%', bottom: '18%', height: '26%', borderRadius: 5, background: 'rgba(31,107,91,0.28)' }} />
+        <span style={{ position: 'absolute', left: '18%', bottom: 2, height: '24%', borderLeft: '2px solid rgba(31,107,91,0.34)' }} />
+        <span style={{ position: 'absolute', right: '18%', bottom: 2, height: '24%', borderLeft: '2px solid rgba(31,107,91,0.34)' }} />
+      </div>
+    );
+  }
+
+  if (kind === 'ottoman') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: '18%', borderRadius: 999, background: 'rgba(31,107,91,0.28)', border: '1px solid rgba(31,107,91,0.26)', boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.22)' }} />
+    );
+  }
+
+  if (kind === 'dining_table' || kind === 'outdoor_table' || kind === 'coffee_table' || kind === 'side_table') {
+    return (
+      <div aria-hidden="true" style={{ position: 'absolute', inset: kind === 'side_table' ? '18%' : '22% 18%', borderRadius: kind === 'dining_table' || kind === 'outdoor_table' ? 999 : 7, border: '1px solid rgba(184,95,54,0.48)', background: 'rgba(255,252,247,0.56)' }}>
+        <span style={{ position: 'absolute', left: 5, top: 5, width: 5, height: 5, borderRadius: 999, background: 'rgba(184,95,54,0.38)' }} />
+        <span style={{ position: 'absolute', right: 5, top: 5, width: 5, height: 5, borderRadius: 999, background: 'rgba(184,95,54,0.38)' }} />
+        <span style={{ position: 'absolute', left: 5, bottom: 5, width: 5, height: 5, borderRadius: 999, background: 'rgba(184,95,54,0.38)' }} />
+        <span style={{ position: 'absolute', right: 5, bottom: 5, width: 5, height: 5, borderRadius: 999, background: 'rgba(184,95,54,0.38)' }} />
+        {(kind === 'dining_table' || kind === 'outdoor_table') && (
+          <>
+            <span style={{ position: 'absolute', left: '46%', top: -8, width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
+            <span style={{ position: 'absolute', left: '46%', bottom: -8, width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
+            <span style={{ position: 'absolute', left: -8, top: '42%', width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
+            <span style={{ position: 'absolute', right: -8, top: '42%', width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
+          </>
+        )}
       </div>
     );
   }
 
   if (kind === 'desk') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderTop: '4px solid rgba(85,117,139,0.32)', borderLeft: '1px solid rgba(85,117,139,0.24)', borderRight: '1px solid rgba(85,117,139,0.24)' }} />
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '30%', borderRadius: 4, background: 'rgba(85,117,139,0.34)' }} />
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: '12%', width: '22%', borderRadius: 4, borderLeft: '2px solid rgba(85,117,139,0.34)' }} />
+        <div style={{ position: 'absolute', right: 0, top: 0, bottom: '12%', width: '22%', borderRadius: 4, borderRight: '2px solid rgba(85,117,139,0.34)' }} />
+        <div style={{ position: 'absolute', left: '38%', right: '38%', bottom: 0, height: '34%', borderRadius: 999, border: '1px solid rgba(85,117,139,0.32)' }} />
+      </div>
     );
   }
 
   if (kind === 'dresser') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateRows: 'repeat(4, 1fr)', gap: 2, opacity: 0.46 }}>
-        {Array.from({ length: 4 }).map((_, index) => <span key={index} style={{ borderTop: '1px solid #7d7467' }} />)}
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateRows: 'repeat(4, 1fr)', gap: 2 }}>
+        {Array.from({ length: 4 }).map((_, index) => <span key={index} style={{ borderTop: '1px solid rgba(125,116,103,0.52)', position: 'relative' }}><span style={{ position: 'absolute', left: '48%', top: 2, width: 4, height: 3, borderRadius: 999, background: 'rgba(125,116,103,0.42)' }} /></span>)}
       </div>
     );
   }
 
   if (kind === 'bookcase' || kind === 'storage') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, opacity: 0.38 }}>
-        {Array.from({ length: 4 }).map((_, index) => <span key={index} style={{ borderLeft: '1px solid #7d7467' }} />)}
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateRows: 'repeat(4, 1fr)', gap: 2 }}>
+        {Array.from({ length: 4 }).map((_, index) => (
+          <span key={index} style={{ borderTop: '1px solid rgba(125,116,103,0.46)', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2 }}>
+            {Array.from({ length: 4 }).map((__, subIndex) => <span key={subIndex} style={{ background: 'rgba(125,116,103,0.16)', borderRadius: 2 }} />)}
+          </span>
+        ))}
       </div>
     );
   }
 
   if (kind === 'tv_stand') {
     return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderTop: '4px solid rgba(125,116,103,0.38)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, paddingTop: 6 }}>
-        {Array.from({ length: 3 }).map((_, index) => <span key={index} style={{ border: '1px solid rgba(125,116,103,0.28)', borderRadius: 3 }} />)}
+      <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
+        <div style={{ position: 'absolute', left: '14%', right: '14%', top: 0, height: '26%', borderRadius: 3, border: '1px solid rgba(125,116,103,0.42)', background: 'rgba(125,116,103,0.16)' }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: '48%', borderTop: '3px solid rgba(125,116,103,0.42)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, paddingTop: 5 }}>
+          {Array.from({ length: 3 }).map((_, index) => <span key={index} style={{ border: '1px solid rgba(125,116,103,0.3)', borderRadius: 3 }} />)}
+        </div>
       </div>
     );
   }
 
-  if (kind === 'rug') return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 6, border: '1px dashed rgba(185,155,104,0.64)' }} />;
-  if (kind === 'lamp' || kind === 'plant') return <div aria-hidden="true" style={{ position: 'absolute', inset: '28%', borderRadius: 999, background: kind === 'plant' ? 'rgba(79,138,96,0.34)' : 'rgba(185,155,104,0.34)' }} />;
-  return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 4, border: '1px solid rgba(92,86,72,0.18)' }} />;
+  if (kind === 'rug') return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 8, border: '1px dashed rgba(185,155,104,0.78)', background: 'repeating-linear-gradient(45deg, rgba(185,155,104,0.14) 0 2px, transparent 2px 7px)' }} />;
+  if (kind === 'lamp') return <div aria-hidden="true" style={{ position: 'absolute', inset: '20%', borderRadius: 999, border: '1px solid rgba(185,155,104,0.48)' }}><span style={{ position: 'absolute', inset: '28%', borderRadius: 999, background: 'rgba(185,155,104,0.42)' }} /></div>;
+  if (kind === 'plant') return <div aria-hidden="true" style={{ position: 'absolute', inset: '18%', borderRadius: 999, border: '1px solid rgba(79,138,96,0.36)' }}><span style={{ position: 'absolute', left: '18%', top: '38%', width: '64%', height: '24%', borderRadius: '50%', background: 'rgba(79,138,96,0.36)', transform: 'rotate(35deg)' }} /><span style={{ position: 'absolute', left: '18%', top: '38%', width: '64%', height: '24%', borderRadius: '50%', background: 'rgba(79,138,96,0.36)', transform: 'rotate(-35deg)' }} /></div>;
+  if (kind === 'grill') return <div aria-hidden="true" style={{ position: 'absolute', inset: 6, borderRadius: 8, border: '1px solid rgba(95,98,91,0.54)', background: 'rgba(255,255,255,0.24)' }}><span style={{ position: 'absolute', left: 4, right: 4, top: '40%', borderTop: '2px solid rgba(95,98,91,0.42)' }} /><span style={{ position: 'absolute', left: '20%', top: '16%', width: 5, height: 5, borderRadius: 999, background: 'rgba(95,98,91,0.38)' }} /><span style={{ position: 'absolute', right: '20%', top: '16%', width: 5, height: 5, borderRadius: 999, background: 'rgba(95,98,91,0.38)' }} /></div>;
+  if (kind === 'mirror') return <div aria-hidden="true" style={{ position: 'absolute', inset: '12%', borderRadius: 999, border: '1px solid rgba(85,117,139,0.48)', background: 'linear-gradient(135deg, rgba(255,255,255,0.72), rgba(85,117,139,0.14))' }} />;
+  if (kind === 'appliance') return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 5, border: '1px solid rgba(85,117,139,0.42)', background: 'rgba(255,255,255,0.24)' }}><span style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, borderLeft: '1px solid rgba(85,117,139,0.28)' }} /><span style={{ position: 'absolute', left: '56%', top: '22%', height: '26%', borderLeft: '2px solid rgba(85,117,139,0.38)' }} /></div>;
+  return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 5, border: '1px solid rgba(92,86,72,0.28)', background: 'repeating-linear-gradient(135deg, rgba(92,86,72,0.08) 0 2px, transparent 2px 7px)' }} />;
 }
 
 function PlacedItem({

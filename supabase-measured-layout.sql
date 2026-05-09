@@ -54,7 +54,11 @@ ALTER TABLE room_items ADD CONSTRAINT room_items_furniture_type_check
     'sofa',
     'sectional',
     'chair',
+    'patio_chair',
+    'bench',
+    'ottoman',
     'dining_table',
+    'outdoor_table',
     'coffee_table',
     'side_table',
     'desk',
@@ -65,6 +69,9 @@ ALTER TABLE room_items ADD CONSTRAINT room_items_furniture_type_check
     'rug',
     'lamp',
     'plant',
+    'grill',
+    'mirror',
+    'appliance',
     'box'
   ));
 

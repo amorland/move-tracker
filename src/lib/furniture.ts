@@ -6,7 +6,11 @@ export const FURNITURE_TYPE_OPTIONS: { value: FurnitureType; label: string }[] =
   { value: 'sofa', label: 'Sofa' },
   { value: 'sectional', label: 'Sectional' },
   { value: 'chair', label: 'Chair' },
+  { value: 'patio_chair', label: 'Patio Chair' },
+  { value: 'bench', label: 'Bench' },
+  { value: 'ottoman', label: 'Ottoman' },
   { value: 'dining_table', label: 'Dining Table' },
+  { value: 'outdoor_table', label: 'Outdoor Table' },
   { value: 'coffee_table', label: 'Coffee Table' },
   { value: 'side_table', label: 'Side Table' },
   { value: 'desk', label: 'Desk' },
@@ -17,6 +21,9 @@ export const FURNITURE_TYPE_OPTIONS: { value: FurnitureType; label: string }[] =
   { value: 'rug', label: 'Rug' },
   { value: 'lamp', label: 'Lamp' },
   { value: 'plant', label: 'Plant' },
+  { value: 'grill', label: 'Grill' },
+  { value: 'mirror', label: 'Mirror' },
+  { value: 'appliance', label: 'Appliance' },
   { value: 'box', label: 'General Item' },
 ];
 
@@ -40,8 +47,12 @@ export function inferFurnitureType(itemName?: string | null): FurnitureType {
   if (label.includes('crib')) return 'crib';
   if (label.includes('sectional')) return 'sectional';
   if (label.includes('sofa') || label.includes('couch') || label.includes('loveseat')) return 'sofa';
+  if (label.includes('patio chair') || label.includes('outdoor chair') || label.includes('adirondack')) return 'patio_chair';
+  if (label.includes('bench')) return 'bench';
+  if (label.includes('ottoman') || label.includes('pouf')) return 'ottoman';
   if (label.includes('recliner') || label.includes('chair') || label.includes('glider') || label.includes('stool')) return 'chair';
   if (label.includes('mattress') || label.includes('bed frame') || /\bbed\b/.test(label) || label.includes('headboard')) return 'bed';
+  if (label.includes('patio table') || label.includes('outdoor table')) return 'outdoor_table';
   if (label.includes('coffee table')) return 'coffee_table';
   if (label.includes('side table') || label.includes('end table') || label.includes('nightstand')) return 'side_table';
   if (label.includes('dining') || label.includes('kitchen table') || label.includes('table set')) return 'dining_table';
@@ -53,6 +64,9 @@ export function inferFurnitureType(itemName?: string | null): FurnitureType {
   if (label.includes('rug') || label.includes('runner')) return 'rug';
   if (label.includes('lamp') || label.includes('lighting')) return 'lamp';
   if (label.includes('plant') || label.includes('planter')) return 'plant';
+  if (label.includes('grill') || label.includes('barbecue') || label.includes('bbq')) return 'grill';
+  if (label.includes('mirror')) return 'mirror';
+  if (label.includes('fridge') || label.includes('refrigerator') || label.includes('freezer') || label.includes('washer') || label.includes('dryer')) return 'appliance';
   if (label.includes('table')) return 'dining_table';
 
   return 'box';

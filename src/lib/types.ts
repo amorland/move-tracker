@@ -57,7 +57,11 @@ export type FurnitureType =
   | 'sofa'
   | 'sectional'
   | 'chair'
+  | 'patio_chair'
+  | 'bench'
+  | 'ottoman'
   | 'dining_table'
+  | 'outdoor_table'
   | 'coffee_table'
   | 'side_table'
   | 'desk'
@@ -68,6 +72,9 @@ export type FurnitureType =
   | 'rug'
   | 'lamp'
   | 'plant'
+  | 'grill'
+  | 'mirror'
+  | 'appliance'
   | 'box';
 
 export interface Belonging {
