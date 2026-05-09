@@ -862,6 +862,7 @@ function RoomGeometryControls({
   const selectedRoom = floorRooms.find(room => room.id === editingRoomId) ?? null;
   const editorPoints = selectedRoom && roomDraft ? roomEditorPoints(selectedRoom, roomDraft) : [];
   const selectedSource = selectedRoom ? roomGeometryStatus(selectedRoom) : null;
+  const hasUnsavedRoomChanges = selectedRoom && roomDraft ? roomDraftHasChanges(selectedRoom, roomDraft) : false;
 
   const updateDraft = (next: Partial<RoomGeometryDraft>) => {
     if (!roomDraft) return;
@@ -961,9 +962,16 @@ function RoomGeometryControls({
               {editMode ? 'Finish Editing' : 'Edit Rooms'}
             </button>
             {editMode && (
+              <>
+                {hasUnsavedRoomChanges && (
+                  <span className="badge badge-neutral" style={{ alignSelf: 'center', color: '#9a5a2f', borderColor: 'rgba(154,90,47,0.44)' }}>
+                    Unsaved outline
+                  </span>
+                )}
               <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!roomDraft || saveState === 'saving'}>
                 <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Room'}
               </button>
+              </>
             )}
           </div>
         </div>
@@ -1086,6 +1094,7 @@ function ArchitecturalElementControls({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const canPersist = floorPlan.id > 0;
+  const hasUnsavedElementChanges = selectedElement ? architecturalDraftHasChanges(selectedElement, draft) : false;
 
   useEffect(() => {
     void Promise.resolve().then(() => {
@@ -1165,6 +1174,11 @@ function ArchitecturalElementControls({
             {selectedElement && (
               <span className="badge badge-neutral" style={{ alignSelf: 'center' }}>
                 {selectedElement.source === 'recommended' ? 'Recommended detail' : 'Manual detail'}
+              </span>
+            )}
+            {hasUnsavedElementChanges && (
+              <span className="badge badge-neutral" style={{ alignSelf: 'center', color: '#9a5a2f', borderColor: 'rgba(154,90,47,0.44)' }}>
+                Unsaved detail
               </span>
             )}
             {selectedElement && (
@@ -1268,6 +1282,13 @@ function SelectedItemControls({
   });
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const hasUnsavedItemChanges = Boolean(item && (
+    !nullableNumbersMatch(draft.widthFt, footprint ? roundToQuarter(footprint.widthFt) : null) ||
+    !nullableNumbersMatch(draft.depthFt, footprint ? roundToQuarter(footprint.depthFt) : null) ||
+    !nullableNumbersMatch(draft.rotationDeg ?? 0, item.rotationDeg ?? 0) ||
+    !nullableNumbersMatch(draft.planXFt, initialPlacement?.planXFt ?? null) ||
+    !nullableNumbersMatch(draft.planYFt, initialPlacement?.planYFt ?? null)
+  ));
 
   const save = async (nextDraft = draft, successMessage = 'Item layout saved.') => {
     if (!item || nextDraft.widthFt === null || nextDraft.depthFt === null) return;
@@ -1335,6 +1356,9 @@ function SelectedItemControls({
               <span className="badge badge-neutral">{room?.name ?? 'No room'}</span>
               <span className="badge badge-neutral">{floorPlan?.label ?? 'No floor'}</span>
               {profile && <span className="badge badge-neutral">{profile.label}</span>}
+              {hasUnsavedItemChanges && (
+                <span className="badge badge-neutral" style={{ color: '#9a5a2f', borderColor: 'rgba(154,90,47,0.44)' }}>Unsaved</span>
+              )}
               <button type="button" className="btn btn-secondary btn-sm" onClick={onClear}>Clear</button>
               <button type="button" className="btn btn-primary btn-sm" onClick={() => save()} disabled={saveState === 'saving' || draft.widthFt === null || draft.depthFt === null}>
                 <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Item'}
@@ -2096,6 +2120,27 @@ function displayLabelPointForRoom(room: Room, draft: RoomGeometryDraft | null) {
   return planLabelPointForRoom(room);
 }
 
+function roomDraftHasChanges(room: Room, draft: RoomGeometryDraft) {
+  const basePoints = normaliseDraftPoints(room.shapePoints) ?? planPointsForRoom(room);
+  const draftPoints = normaliseDraftPoints(draft.shapePoints) ?? basePoints;
+  return !pointsMatch(basePoints, draftPoints) ||
+    !nullableNumbersMatch(room.labelXFt, draft.labelXFt) ||
+    !nullableNumbersMatch(room.labelYFt, draft.labelYFt);
+}
+
+function pointsMatch(first: PlanPoint[], second: PlanPoint[]) {
+  if (first.length !== second.length) return false;
+  return first.every((point, index) =>
+    nullableNumbersMatch(point.x, second[index].x) &&
+    nullableNumbersMatch(point.y, second[index].y)
+  );
+}
+
+function nullableNumbersMatch(first: number | null | undefined, second: number | null | undefined) {
+  if (first === null || first === undefined || second === null || second === undefined) return first === second;
+  return Math.abs(first - second) < 0.01;
+}
+
 function roomGeometryStatus(room: Room) {
   if (room.geometrySource === 'recommended') {
     return {
@@ -2749,6 +2794,18 @@ function architecturalDraftToUpdate(draft: ArchitecturalElementDraft): Architect
     rotationDeg: normaliseRotation(draft.rotationDeg),
     notes: draft.notes.trim() || null,
   };
+}
+
+function architecturalDraftHasChanges(element: ArchitecturalElement, draft: ArchitecturalElementDraft) {
+  return element.roomId !== draft.roomId ||
+    element.elementType !== draft.elementType ||
+    element.label !== draft.label ||
+    !nullableNumbersMatch(element.xFt, draft.xFt) ||
+    !nullableNumbersMatch(element.yFt, draft.yFt) ||
+    !nullableNumbersMatch(element.widthFt, draft.widthFt) ||
+    !nullableNumbersMatch(element.depthFt, draft.depthFt) ||
+    !nullableNumbersMatch(element.rotationDeg, normaliseRotation(draft.rotationDeg)) ||
+    (element.notes ?? '') !== draft.notes.trim();
 }
 
 function defaultArchitecturalElementDimensions(type: ArchitecturalElementType) {
