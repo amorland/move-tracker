@@ -1,5 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Belonging, BelongingAction, HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
+import type {
+  ArchitecturalElement,
+  ArchitecturalElementSource,
+  ArchitecturalElementType,
+  Belonging,
+  BelongingAction,
+  HomeFloorPlan,
+  PlanPoint,
+  Room,
+  RoomGeometrySource,
+  RoomItem,
+} from '@/lib/types';
 
 export type LayoutSyncStats = {
   created: number;
@@ -15,12 +26,24 @@ export type RoomSeedStats = {
   updated: number;
   skipped: number;
   missing: number;
+  custom: number;
+  recommended: number;
   errors: string[];
 };
 
 type RoomGeometrySeedOptions = {
   overwrite?: boolean;
   roomId?: number | null;
+  floorPlanId?: number | null;
+};
+
+export type ArchitecturalSeedStats = {
+  created: number;
+  updated: number;
+  removed: number;
+  skipped: number;
+  missing: number;
+  errors: string[];
 };
 
 type LayoutSyncOptions = {
@@ -31,6 +54,7 @@ type LayoutContext = {
   rooms: Room[];
   floorPlans: HomeFloorPlan[];
   roomItems: RoomItem[];
+  architecturalElements: ArchitecturalElement[];
 };
 
 type PlacementPlan = {
@@ -46,6 +70,20 @@ type RoomGeometrySeed = {
   floorName: string;
   shapePoints: PlanPoint[];
   label: PlanPoint;
+};
+
+type ArchitecturalElementSeed = {
+  sourceKey: string;
+  floorName: string;
+  roomName?: string;
+  elementType: ArchitecturalElementType;
+  label: string;
+  xFt: number;
+  yFt: number;
+  widthFt: number;
+  depthFt: number;
+  rotationDeg?: number;
+  sortIndex: number;
 };
 
 const EMPTY_STATS: LayoutSyncStats = {
@@ -164,6 +202,16 @@ export const SUGGESTED_ROOM_GEOMETRIES: Record<string, RoomGeometrySeed> = {
     ],
     label: { x: 41, y: 15.5 },
   },
+  Office: {
+    floorName: 'Main Floor',
+    shapePoints: [
+      { x: 34, y: 9 },
+      { x: 48, y: 9 },
+      { x: 48, y: 22 },
+      { x: 34, y: 22 },
+    ],
+    label: { x: 41, y: 15.5 },
+  },
   'Master Bedroom': {
     floorName: 'Second Floor',
     shapePoints: [
@@ -204,6 +252,16 @@ export const SUGGESTED_ROOM_GEOMETRIES: Record<string, RoomGeometrySeed> = {
     ],
     label: { x: 28, y: 39 },
   },
+  'Third Bathroom': {
+    floorName: 'Third Floor',
+    shapePoints: [
+      { x: 31, y: 5 },
+      { x: 43, y: 5 },
+      { x: 43, y: 17 },
+      { x: 31, y: 17 },
+    ],
+    label: { x: 37, y: 11 },
+  },
   'Third Bedroom': {
     floorName: 'Third Floor',
     shapePoints: [
@@ -224,7 +282,68 @@ export const SUGGESTED_ROOM_GEOMETRIES: Record<string, RoomGeometrySeed> = {
     ],
     label: { x: 23.5, y: 38 },
   },
+  Garage: {
+    floorName: 'Exterior',
+    shapePoints: [
+      { x: 5, y: 8 },
+      { x: 29, y: 8 },
+      { x: 29, y: 32 },
+      { x: 5, y: 32 },
+    ],
+    label: { x: 17, y: 20 },
+  },
+  'Outdoor / Yard': {
+    floorName: 'Exterior',
+    shapePoints: [
+      { x: 32, y: 8 },
+      { x: 74, y: 8 },
+      { x: 74, y: 54 },
+      { x: 32, y: 54 },
+    ],
+    label: { x: 53, y: 31 },
+  },
+  'Basement / Yoga Room': {
+    floorName: 'Basement',
+    shapePoints: [
+      { x: 4, y: 6 },
+      { x: 40, y: 6 },
+      { x: 40, y: 34 },
+      { x: 4, y: 34 },
+    ],
+    label: { x: 22, y: 20 },
+  },
 };
+
+const RECOMMENDED_ARCHITECTURAL_ELEMENTS: ArchitecturalElementSeed[] = [
+  { sourceKey: 'main-front-entry-door', floorName: 'Main Floor', roomName: 'Foyer', elementType: 'door', label: 'Front Entry Door', xFt: 8.25, yFt: 45.5, widthFt: 3.25, depthFt: 0.25, rotationDeg: 0, sortIndex: 10 },
+  { sourceKey: 'main-foyer-stairs', floorName: 'Main Floor', roomName: 'Foyer', elementType: 'stairs', label: 'Main Stair', xFt: 7.25, yFt: 24, widthFt: 6.25, depthFt: 10, rotationDeg: 0, sortIndex: 20 },
+  { sourceKey: 'main-living-front-windows', floorName: 'Main Floor', roomName: 'Living Room', elementType: 'window', label: 'Living Room Front Windows', xFt: 16, yFt: 45.7, widthFt: 12, depthFt: 0.2, rotationDeg: 0, sortIndex: 30 },
+  { sourceKey: 'main-living-side-window', floorName: 'Main Floor', roomName: 'Living Room', elementType: 'window', label: 'Living Room Side Window', xFt: 34.75, yFt: 37, widthFt: 0.2, depthFt: 5, rotationDeg: 0, sortIndex: 40 },
+  { sourceKey: 'main-dining-window', floorName: 'Main Floor', roomName: 'Dining Room', elementType: 'window', label: 'Dining Room Window', xFt: 34.75, yFt: 25.5, widthFt: 0.2, depthFt: 5.5, rotationDeg: 0, sortIndex: 50 },
+  { sourceKey: 'main-kitchen-counter', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'counter', label: 'Kitchen Counter Run', xFt: 20, yFt: 7.5, widthFt: 13, depthFt: 2.25, rotationDeg: 0, sortIndex: 60 },
+  { sourceKey: 'main-kitchen-sink', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'sink', label: 'Kitchen Sink', xFt: 26, yFt: 8.25, widthFt: 2.5, depthFt: 1.5, rotationDeg: 0, sortIndex: 70 },
+  { sourceKey: 'main-kitchen-range', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'appliance', label: 'Range', xFt: 31, yFt: 12, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 80 },
+  { sourceKey: 'main-kitchen-fridge', floorName: 'Main Floor', roomName: 'Kitchen', elementType: 'appliance', label: 'Refrigerator', xFt: 19.5, yFt: 17.5, widthFt: 3, depthFt: 2.5, rotationDeg: 0, sortIndex: 90 },
+  { sourceKey: 'main-mudroom-door', floorName: 'Main Floor', roomName: 'Mud Room', elementType: 'door', label: 'Mud Room Exterior Door', xFt: 7.5, yFt: 8.5, widthFt: 0.25, depthFt: 3, rotationDeg: 0, sortIndex: 100 },
+  { sourceKey: 'main-half-bath-toilet', floorName: 'Main Floor', roomName: 'Half Bath', elementType: 'toilet', label: 'Half Bath Toilet', xFt: 8.25, yFt: 19, widthFt: 2.25, depthFt: 2.5, rotationDeg: 0, sortIndex: 110 },
+  { sourceKey: 'main-half-bath-sink', floorName: 'Main Floor', roomName: 'Half Bath', elementType: 'sink', label: 'Half Bath Sink', xFt: 12.5, yFt: 18.5, widthFt: 2.25, depthFt: 1.5, rotationDeg: 0, sortIndex: 120 },
+  { sourceKey: 'second-stair-opening', floorName: 'Second Floor', elementType: 'stairs', label: 'Second Floor Stair', xFt: 7.5, yFt: 22, widthFt: 6.5, depthFt: 9.5, rotationDeg: 0, sortIndex: 200 },
+  { sourceKey: 'second-master-bed-windows', floorName: 'Second Floor', roomName: 'Master Bedroom', elementType: 'window', label: 'Primary Bedroom Rear Windows', xFt: 12, yFt: 4.1, widthFt: 12, depthFt: 0.2, rotationDeg: 0, sortIndex: 210 },
+  { sourceKey: 'second-master-bath-shower', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'shower', label: 'Primary Shower', xFt: 33, yFt: 8, widthFt: 4, depthFt: 4, rotationDeg: 0, sortIndex: 220 },
+  { sourceKey: 'second-master-bath-tub', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'tub', label: 'Primary Tub', xFt: 42, yFt: 8, widthFt: 5, depthFt: 2.5, rotationDeg: 0, sortIndex: 230 },
+  { sourceKey: 'second-master-bath-vanity', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'sink', label: 'Primary Vanity', xFt: 40, yFt: 17, widthFt: 6, depthFt: 2, rotationDeg: 0, sortIndex: 240 },
+  { sourceKey: 'second-master-bath-toilet', floorName: 'Second Floor', roomName: 'Master Bathroom', elementType: 'toilet', label: 'Primary Toilet', xFt: 33, yFt: 16.5, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 250 },
+  { sourceKey: 'second-hall-bath-tub', floorName: 'Second Floor', roomName: 'Second Bathroom', elementType: 'tub', label: 'Hall Bath Tub', xFt: 25, yFt: 24.5, widthFt: 5, depthFt: 2.5, rotationDeg: 0, sortIndex: 260 },
+  { sourceKey: 'second-hall-bath-vanity', floorName: 'Second Floor', roomName: 'Second Bathroom', elementType: 'sink', label: 'Hall Bath Vanity', xFt: 32.5, yFt: 24.5, widthFt: 3, depthFt: 2, rotationDeg: 0, sortIndex: 270 },
+  { sourceKey: 'second-hall-bath-toilet', floorName: 'Second Floor', roomName: 'Second Bathroom', elementType: 'toilet', label: 'Hall Bath Toilet', xFt: 33, yFt: 28, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 280 },
+  { sourceKey: 'second-bedroom-window', floorName: 'Second Floor', roomName: 'Second Bedroom', elementType: 'window', label: 'Second Bedroom Window', xFt: 24, yFt: 45.7, widthFt: 7, depthFt: 0.2, rotationDeg: 0, sortIndex: 290 },
+  { sourceKey: 'third-stair-opening', floorName: 'Third Floor', elementType: 'stairs', label: 'Third Floor Stair', xFt: 7.5, yFt: 22, widthFt: 6.5, depthFt: 9.5, rotationDeg: 0, sortIndex: 300 },
+  { sourceKey: 'third-bedroom-window', floorName: 'Third Floor', roomName: 'Third Bedroom', elementType: 'window', label: 'Third Bedroom Window', xFt: 18, yFt: 5.1, widthFt: 8, depthFt: 0.2, rotationDeg: 0, sortIndex: 310 },
+  { sourceKey: 'third-fourth-bedroom-window', floorName: 'Third Floor', roomName: 'Fourth Bedroom', elementType: 'window', label: 'Fourth Bedroom Window', xFt: 18, yFt: 45.7, widthFt: 8, depthFt: 0.2, rotationDeg: 0, sortIndex: 320 },
+  { sourceKey: 'third-bath-vanity', floorName: 'Third Floor', roomName: 'Third Bathroom', elementType: 'sink', label: 'Third Floor Bath Vanity', xFt: 34, yFt: 5.75, widthFt: 4, depthFt: 2, rotationDeg: 0, sortIndex: 330 },
+  { sourceKey: 'third-bath-toilet', floorName: 'Third Floor', roomName: 'Third Bathroom', elementType: 'toilet', label: 'Third Floor Bath Toilet', xFt: 40, yFt: 7, widthFt: 2.5, depthFt: 2.5, rotationDeg: 0, sortIndex: 340 },
+  { sourceKey: 'third-attic-access', floorName: 'Third Floor', elementType: 'opening', label: 'Attic Access', xFt: 35, yFt: 24, widthFt: 4, depthFt: 3, rotationDeg: 0, sortIndex: 350 },
+];
 
 export async function syncBelongingLayoutItem(
   supabase: SupabaseClient,
@@ -324,13 +443,21 @@ export async function applySuggestedRoomGeometries(
   options: RoomGeometrySeedOptions = {},
 ): Promise<RoomSeedStats> {
   const overwrite = Boolean(options.overwrite);
-  const stats: RoomSeedStats = { updated: 0, skipped: 0, missing: 0, errors: [] };
+  const stats: RoomSeedStats = { updated: 0, skipped: 0, missing: 0, custom: 0, recommended: 0, errors: [] };
   const context = await loadLayoutContext(supabase);
   if (context.errors.length > 0) return { ...stats, errors: context.errors };
 
-  const roomsToSeed = options.roomId
+  const targetFloor = options.floorPlanId
+    ? context.value.floorPlans.find(floor => floor.id === options.floorPlanId) ?? null
+    : null;
+  const candidateRooms = options.roomId
     ? context.value.rooms.filter(room => room.id === options.roomId)
-    : context.value.rooms.filter(room => suggestedSeedForRoom(room));
+    : context.value.rooms.filter(room => {
+      if (!targetFloor) return true;
+      const roomFloor = resolveFloorPlan(room, context.value.floorPlans);
+      return roomFloor?.id === targetFloor.id;
+    });
+  const roomsToSeed = candidateRooms.filter(room => suggestedSeedForRoom(room));
 
   if (roomsToSeed.length === 0) {
     stats.missing += 1;
@@ -348,8 +475,14 @@ export async function applySuggestedRoomGeometries(
       continue;
     }
 
-    const alreadyOutlined = Array.isArray(room.shapePoints) && room.shapePoints.length >= 3;
-    if (alreadyOutlined && !overwrite) {
+    if (hasCustomGeometry(room) && !overwrite) {
+      stats.custom += 1;
+      stats.skipped += 1;
+      continue;
+    }
+
+    if (room.geometrySource === 'recommended' && !overwrite) {
+      stats.recommended += 1;
       stats.skipped += 1;
       continue;
     }
@@ -368,15 +501,134 @@ export async function applySuggestedRoomGeometries(
         label_x_ft: seed.label.x,
         label_y_ft: seed.label.y,
         shape_points: seed.shapePoints,
+        geometry_source: 'recommended',
       })
       .eq('id', room.id);
+
+    if (error && isMissingGeometrySourceColumnError(error)) {
+      const retry = await supabase
+        .from('rooms')
+        .update(stripRoomGeometrySource({
+          floor: seed.floorName,
+          floor_plan_id: floorPlan?.id ?? room.floorPlanId,
+          plan_x_ft: bounds.x,
+          plan_y_ft: bounds.y,
+          plan_width_ft: bounds.width,
+          plan_depth_ft: bounds.depth,
+          label_x_ft: seed.label.x,
+          label_y_ft: seed.label.y,
+          shape_points: seed.shapePoints,
+          geometry_source: 'recommended',
+        }))
+        .eq('id', room.id);
+      if (retry.error) {
+        stats.errors.push(retry.error.message);
+        continue;
+      }
+    } else if (error) {
+      stats.errors.push(error.message);
+      continue;
+    }
+
+    stats.recommended += 1;
+    stats.updated += 1;
+  }
+
+  return stats;
+}
+
+export async function syncRecommendedArchitecturalElements(
+  supabase: SupabaseClient,
+  options: { floorPlanId?: number | null; resetFloor?: boolean } = {},
+): Promise<ArchitecturalSeedStats> {
+  const stats: ArchitecturalSeedStats = { created: 0, updated: 0, removed: 0, skipped: 0, missing: 0, errors: [] };
+  const context = await loadLayoutContext(supabase);
+  if (context.errors.length > 0) return { ...stats, errors: context.errors };
+
+  const targetFloor = options.floorPlanId
+    ? context.value.floorPlans.find(floor => floor.id === options.floorPlanId) ?? null
+    : null;
+  const seeds = RECOMMENDED_ARCHITECTURAL_ELEMENTS.filter(seed => !targetFloor || seed.floorName === targetFloor.name);
+
+  if (seeds.length === 0) {
+    stats.missing += 1;
+    return stats;
+  }
+
+  if (options.resetFloor && targetFloor) {
+    const recommendedIds = context.value.architecturalElements
+      .filter(element => element.floorPlanId === targetFloor.id && element.source === 'recommended')
+      .map(element => element.id);
+
+    if (recommendedIds.length > 0) {
+      const { error } = await supabase
+        .from('architectural_elements')
+        .delete()
+        .in('id', recommendedIds);
+
+      if (error) {
+        stats.errors.push(error.message);
+        return stats;
+      }
+      stats.removed += recommendedIds.length;
+      context.value.architecturalElements = context.value.architecturalElements.filter(element => !recommendedIds.includes(element.id));
+    }
+  }
+
+  for (const seed of seeds) {
+    const floorPlan = context.value.floorPlans.find(floor => floor.name === seed.floorName) ?? null;
+    if (!floorPlan) {
+      stats.missing += 1;
+      continue;
+    }
+    const room = seed.roomName
+      ? context.value.rooms.find(entry => normaliseName(entry.name) === normaliseName(seed.roomName ?? '') && resolveFloorPlan(entry, context.value.floorPlans)?.id === floorPlan.id) ?? null
+      : null;
+    const existing = context.value.architecturalElements.find(element => element.sourceKey === seed.sourceKey) ?? null;
+    const payload = {
+      floor_plan_id: floorPlan.id,
+      room_id: room?.id ?? null,
+      element_type: seed.elementType,
+      label: seed.label,
+      x_ft: seed.xFt,
+      y_ft: seed.yFt,
+      width_ft: seed.widthFt,
+      depth_ft: seed.depthFt,
+      rotation_deg: seed.rotationDeg ?? 0,
+      source: 'recommended',
+      source_key: seed.sourceKey,
+      notes: 'Recommended from the current blueprint interpretation. Adjust as needed.',
+      sort_index: seed.sortIndex,
+    };
+
+    if (existing) {
+      if (!options.resetFloor) {
+        stats.skipped += 1;
+        continue;
+      }
+      const { error } = await supabase
+        .from('architectural_elements')
+        .update(payload)
+        .eq('id', existing.id);
+
+      if (error) {
+        stats.errors.push(error.message);
+        continue;
+      }
+      stats.updated += 1;
+      continue;
+    }
+
+    const { error } = await supabase
+      .from('architectural_elements')
+      .insert([payload]);
 
     if (error) {
       stats.errors.push(error.message);
       continue;
     }
 
-    stats.updated += 1;
+    stats.created += 1;
   }
 
   return stats;
@@ -483,16 +735,20 @@ async function syncOneBelonging(
 }
 
 async function loadLayoutContext(supabase: SupabaseClient): Promise<{ value: LayoutContext; errors: string[] }> {
-  const [roomsResult, floorPlansResult, roomItemsResult] = await Promise.all([
+  const [roomsResult, floorPlansResult, roomItemsResult, architecturalElementsResult] = await Promise.all([
     supabase.from('rooms').select('*').order('sort_index', { ascending: true }),
     supabase.from('home_floor_plans').select('*').order('sort_index', { ascending: true }),
     supabase.from('room_items').select('*').order('sort_index', { ascending: true }),
+    supabase.from('architectural_elements').select('*').order('sort_index', { ascending: true }),
   ]);
 
   const errors = [
     roomsResult.error?.message,
     floorPlansResult.error?.message,
     roomItemsResult.error?.message,
+    architecturalElementsResult.error && !isMissingArchitecturalElementsTableError(architecturalElementsResult.error)
+      ? architecturalElementsResult.error.message
+      : null,
   ].filter((message): message is string => Boolean(message));
 
   return {
@@ -501,6 +757,9 @@ async function loadLayoutContext(supabase: SupabaseClient): Promise<{ value: Lay
       rooms: (roomsResult.data ?? []).map(row => normaliseRoom(row as Record<string, unknown>)),
       floorPlans: (floorPlansResult.data ?? []).map(row => normaliseFloorPlan(row as Record<string, unknown>)),
       roomItems: (roomItemsResult.data ?? []).map(row => normaliseRoomItem(row as Record<string, unknown>)),
+      architecturalElements: architecturalElementsResult.error
+        ? []
+        : (architecturalElementsResult.data ?? []).map(row => normaliseArchitecturalElement(row as Record<string, unknown>)),
     },
   };
 }
@@ -682,6 +941,12 @@ function suggestedSeedForRoom(room: Room) {
     .find(([roomName]) => normaliseName(roomName) === normaliseName(room.name))?.[1] ?? null;
 }
 
+function hasCustomGeometry(room: Room) {
+  if (room.geometrySource === 'custom') return true;
+  if (room.geometrySource === 'recommended') return false;
+  return Array.isArray(room.shapePoints) && room.shapePoints.length >= 3;
+}
+
 function centroid(points: PlanPoint[]) {
   const sum = points.reduce((acc, point) => ({ x: acc.x + point.x, y: acc.y + point.y }), { x: 0, y: 0 });
   return {
@@ -734,6 +999,7 @@ function normaliseRoom(row: Record<string, unknown>): Room {
     labelYFt: nullableNumber(row.label_y_ft ?? row.labelYFt),
     ceilingHeightFt: nullableNumber(row.ceiling_height_ft ?? row.ceilingHeightFt),
     shapePoints: normaliseShapePoints(row.shape_points ?? row.shapePoints),
+    geometrySource: normaliseRoomGeometrySource(row.geometry_source ?? row.geometrySource),
     sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
   };
 }
@@ -784,6 +1050,25 @@ function normaliseRoomItem(row: Record<string, unknown>): RoomItem {
   };
 }
 
+function normaliseArchitecturalElement(row: Record<string, unknown>): ArchitecturalElement {
+  return {
+    id: Number(row.id),
+    floorPlanId: nullableNumber(row.floor_plan_id ?? row.floorPlanId) ?? 0,
+    roomId: nullableNumber(row.room_id ?? row.roomId),
+    elementType: normaliseArchitecturalElementType(row.element_type ?? row.elementType),
+    label: String(row.label ?? 'Fixture'),
+    xFt: nullableNumber(row.x_ft ?? row.xFt) ?? 0,
+    yFt: nullableNumber(row.y_ft ?? row.yFt) ?? 0,
+    widthFt: nullableNumber(row.width_ft ?? row.widthFt) ?? 1,
+    depthFt: nullableNumber(row.depth_ft ?? row.depthFt) ?? 1,
+    rotationDeg: nullableNumber(row.rotation_deg ?? row.rotationDeg) ?? 0,
+    source: normaliseArchitecturalElementSource(row.source),
+    sourceKey: nullableString(row.source_key ?? row.sourceKey),
+    notes: nullableString(row.notes),
+    sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
+  };
+}
+
 function normaliseBelongingAction(value: unknown): BelongingAction {
   const action = String(value ?? 'Bring');
   return action === 'Sell' || action === 'Donate' || action === 'Trash' ? action : 'Bring';
@@ -792,6 +1077,37 @@ function normaliseBelongingAction(value: unknown): BelongingAction {
 function normaliseRoomItemStatus(value: unknown): RoomItem['status'] {
   const status = String(value ?? 'planned');
   return status === 'placed' || status === 'undecided' ? status : 'planned';
+}
+
+function normaliseRoomGeometrySource(value: unknown): RoomGeometrySource {
+  const source = String(value ?? 'unknown');
+  if (source === 'recommended' || source === 'custom') return source;
+  return 'unknown';
+}
+
+function normaliseArchitecturalElementSource(value: unknown): ArchitecturalElementSource {
+  return String(value ?? 'manual') === 'recommended' ? 'recommended' : 'manual';
+}
+
+function normaliseArchitecturalElementType(value: unknown): ArchitecturalElementType {
+  const type = String(value ?? 'fixture');
+  if (
+    type === 'door' ||
+    type === 'window' ||
+    type === 'opening' ||
+    type === 'stairs' ||
+    type === 'counter' ||
+    type === 'cabinet' ||
+    type === 'sink' ||
+    type === 'toilet' ||
+    type === 'shower' ||
+    type === 'tub' ||
+    type === 'appliance' ||
+    type === 'fixture'
+  ) {
+    return type;
+  }
+  return 'fixture';
 }
 
 function normaliseShapePoints(value: unknown) {
@@ -833,6 +1149,20 @@ function nullableString(value: unknown) {
   if (value === null || value === undefined) return null;
   const text = String(value);
   return text.length > 0 ? text : null;
+}
+
+function isMissingGeometrySourceColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /geometry_source/i.test(error.message ?? '');
+}
+
+function isMissingArchitecturalElementsTableError(error: { code?: string; message?: string }) {
+  return error.code === '42P01' || /architectural_elements/i.test(error.message ?? '') && /does not exist|not found/i.test(error.message ?? '');
+}
+
+function stripRoomGeometrySource(update: Record<string, unknown>) {
+  const legacyUpdate = { ...update };
+  delete legacyUpdate.geometry_source;
+  return legacyUpdate;
 }
 
 function safeJsonParse(value: string) {

@@ -1,4 +1,5 @@
 import { getSupabaseServer } from '@/lib/supabase';
+import type { Room, RoomGeometrySource } from '@/lib/types';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
     label_y_ft: body.labelYFt ?? null,
     ceiling_height_ft: body.ceilingHeightFt ?? null,
     shape_points: normaliseShapePoints(body.shapePoints),
+    geometry_source: normaliseRoomGeometrySource(body.geometrySource ?? (body.shapePoints ? 'custom' : 'unknown')),
     sort_index: (last?.sort_index ?? -1) + 1,
   };
 
@@ -77,6 +79,7 @@ export async function PATCH(request: Request) {
   if ('labelYFt' in rest) update.label_y_ft = rest.labelYFt;
   if ('ceilingHeightFt' in rest) update.ceiling_height_ft = rest.ceilingHeightFt;
   if ('shapePoints' in rest) update.shape_points = normaliseShapePoints(rest.shapePoints);
+  if ('geometrySource' in rest) update.geometry_source = normaliseRoomGeometrySource(rest.geometrySource);
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
 
   let { data, error } = await supabase
@@ -112,12 +115,12 @@ export async function DELETE(request: Request) {
   return NextResponse.json({ success: true });
 }
 
-function normalise(row: Record<string, unknown>) {
+function normalise(row: Record<string, unknown>): Room {
   return {
-    id: row.id,
-    name: row.name,
-    floor: row.floor ?? null,
-    notes: row.notes ?? null,
+    id: Number(row.id),
+    name: String(row.name ?? 'Unnamed Room'),
+    floor: nullableString(row.floor),
+    notes: nullableString(row.notes),
     floorPlanId: nullableNumber(row.floor_plan_id ?? row.floorPlanId),
     planXFt: nullableNumber(row.plan_x_ft ?? row.planXFt),
     planYFt: nullableNumber(row.plan_y_ft ?? row.planYFt),
@@ -127,7 +130,8 @@ function normalise(row: Record<string, unknown>) {
     labelYFt: nullableNumber(row.label_y_ft ?? row.labelYFt),
     ceilingHeightFt: nullableNumber(row.ceiling_height_ft ?? row.ceilingHeightFt),
     shapePoints: normaliseShapePoints(row.shape_points ?? row.shapePoints),
-    sortIndex: row.sort_index ?? row.sortIndex ?? 0,
+    geometrySource: normaliseRoomGeometrySource(row.geometry_source ?? row.geometrySource),
+    sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
   };
 }
 
@@ -137,8 +141,14 @@ function nullableNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function nullableString(value: unknown) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+}
+
 function isMissingMeasuredColumnError(error: { code?: string; message?: string }) {
-  return error.code === '42703' || error.code === 'PGRST204' || /plan_|label_|floor_plan_id|shape_points|ceiling_height_ft/i.test(error.message ?? '');
+  return error.code === '42703' || error.code === 'PGRST204' || /plan_|label_|floor_plan_id|shape_points|ceiling_height_ft|geometry_source/i.test(error.message ?? '');
 }
 
 function stripMeasuredRoomFields(update: Record<string, unknown>) {
@@ -152,7 +162,14 @@ function stripMeasuredRoomFields(update: Record<string, unknown>) {
   delete legacyUpdate.label_y_ft;
   delete legacyUpdate.ceiling_height_ft;
   delete legacyUpdate.shape_points;
+  delete legacyUpdate.geometry_source;
   return legacyUpdate;
+}
+
+function normaliseRoomGeometrySource(value: unknown): RoomGeometrySource {
+  const source = String(value ?? 'unknown');
+  if (source === 'recommended' || source === 'custom') return source;
+  return 'unknown';
 }
 
 function normaliseShapePoints(value: unknown) {

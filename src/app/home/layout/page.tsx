@@ -27,7 +27,8 @@ type RoomGeometryDraft = {
 type GeometryDragTarget =
   | { type: 'point'; index: number }
   | { type: 'label' }
-  | { type: 'room'; start: PlanPoint; points: PlanPoint[] };
+  | { type: 'room'; start: PlanPoint; points: PlanPoint[] }
+  | { type: 'architecturalElement'; element: ArchitecturalElement; start: PlanPoint; xFt: number; yFt: number };
 type RoomItemLayoutUpdate = {
   widthIn?: number | null;
   depthIn?: number | null;
@@ -45,6 +46,8 @@ type ArchitecturalElementUpdate = {
   widthFt?: number;
   depthFt?: number;
   rotationDeg?: number;
+  source?: ArchitecturalElement['source'];
+  sourceKey?: string | null;
   notes?: string | null;
 };
 type ArchitecturalElementDraft = {
@@ -59,7 +62,7 @@ type ArchitecturalElementDraft = {
   rotationDeg: number;
   notes: string;
 };
-type LayoutAutomationMode = 'items' | 'rooms' | 'reflow';
+type LayoutAutomationMode = 'items' | 'rooms' | 'floorRooms' | 'reflow' | 'architecture' | 'architectureReset';
 type LayoutAutomationStats = {
   layout?: {
     created?: number;
@@ -70,6 +73,15 @@ type LayoutAutomationStats = {
   };
   roomSeeds?: {
     updated?: number;
+    skipped?: number;
+    missing?: number;
+    custom?: number;
+    recommended?: number;
+  } | null;
+  architectural?: {
+    created?: number;
+    updated?: number;
+    removed?: number;
     skipped?: number;
     missing?: number;
   } | null;
@@ -277,6 +289,7 @@ export default function HomeLayoutPage() {
         labelXFt: draft.labelXFt,
         labelYFt: draft.labelYFt,
         shapePoints: normaliseDraftPoints(draft.shapePoints),
+        geometrySource: 'custom',
       }),
     });
 
@@ -292,16 +305,27 @@ export default function HomeLayoutPage() {
   };
 
   const runLayoutAutomation = async (mode: LayoutAutomationMode): Promise<SaveResult> => {
+    const requiresSavedFloor = mode === 'floorRooms' || mode === 'architecture' || mode === 'architectureReset';
+    if (requiresSavedFloor && (!activeFloor || activeFloor.id < 0)) {
+      const message = 'Save this floor plan before running floor-specific automation.';
+      setAutomationMessage(message);
+      return { ok: false, message };
+    }
+
     setAutomationBusy(mode);
     setAutomationMessage(null);
     try {
+      const floorPlanId = activeFloor && activeFloor.id > 0 ? activeFloor.id : undefined;
       const res = await fetch('/api/home-layout-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          includeRoomSeeds: mode === 'rooms',
-          overwriteRoomSeeds: false,
+          includeRoomSeeds: mode === 'rooms' || mode === 'floorRooms',
+          overwriteRoomSeeds: mode === 'floorRooms',
+          floorPlanId,
           reflowItems: mode === 'reflow',
+          includeArchitecturalSeeds: mode === 'architecture' || mode === 'architectureReset',
+          resetArchitecturalFloor: mode === 'architectureReset',
         }),
       });
       const body = await res.json().catch(() => null) as LayoutAutomationStats | null;
@@ -341,6 +365,15 @@ export default function HomeLayoutPage() {
     const resetRoom = next.rooms.find(room => room.id === roomId);
     if (resetRoom) setRoomDraft(makeRoomGeometryDraft(resetRoom));
     return { ok: true };
+  };
+
+  const resetFloorToSuggestedOutlines = async (): Promise<SaveResult> => {
+    const result = await runLayoutAutomation('floorRooms');
+    if (result.ok && editingRoomId) {
+      const room = rooms.find(entry => entry.id === editingRoomId);
+      if (room) setRoomDraft(makeRoomGeometryDraft(room));
+    }
+    return result;
   };
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading layout...</div>;
@@ -412,6 +445,9 @@ export default function HomeLayoutPage() {
             onSyncItems={() => runLayoutAutomation('items')}
             onReflowItems={() => runLayoutAutomation('reflow')}
             onSeedRooms={() => runLayoutAutomation('rooms')}
+            onResetFloorRooms={resetFloorToSuggestedOutlines}
+            onSeedArchitecture={() => runLayoutAutomation('architecture')}
+            onResetArchitecture={() => runLayoutAutomation('architectureReset')}
           />
           <RoomGeometryControls
             floorPlan={activeFloor}
@@ -424,6 +460,7 @@ export default function HomeLayoutPage() {
             onDraftChange={setRoomDraft}
             onSave={saveRoomGeometry}
             onResetSuggested={resetRoomToSuggestedOutline}
+            onResetFloorSuggested={resetFloorToSuggestedOutlines}
           />
           <ArchitecturalElementControls
             key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}` : `new-${activeFloor.id}`}
@@ -469,6 +506,7 @@ export default function HomeLayoutPage() {
               setSelectedElementId(elementId);
               setSelectedItemId(null);
             }}
+            onMoveArchitecturalElement={saveArchitecturalElement}
             snapToGrid={snapToGrid}
             onMoveItem={moveItem}
           />
@@ -681,12 +719,18 @@ function LayoutAutomationControls({
   onSyncItems,
   onReflowItems,
   onSeedRooms,
+  onResetFloorRooms,
+  onSeedArchitecture,
+  onResetArchitecture,
 }: {
   busy: LayoutAutomationMode | null;
   message: string | null;
   onSyncItems: () => Promise<SaveResult>;
   onReflowItems: () => Promise<SaveResult>;
   onSeedRooms: () => Promise<SaveResult>;
+  onResetFloorRooms: () => Promise<SaveResult>;
+  onSeedArchitecture: () => Promise<SaveResult>;
+  onResetArchitecture: () => Promise<SaveResult>;
 }) {
   return (
     <div className="card" style={{ marginBottom: 18 }}>
@@ -715,6 +759,15 @@ function LayoutAutomationControls({
           <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedRooms} disabled={busy !== null}>
             <Ruler size={14} /> {busy === 'rooms' ? 'Applying...' : 'Apply Suggested Outlines'}
           </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetFloorRooms} disabled={busy !== null}>
+            <RotateCcw size={14} /> {busy === 'floorRooms' ? 'Resetting...' : 'Reset Floor Rooms'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedArchitecture} disabled={busy !== null}>
+            <Grid3X3 size={14} /> {busy === 'architecture' ? 'Adding...' : 'Add Recommended Details'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetArchitecture} disabled={busy !== null}>
+            <RotateCcw size={14} /> {busy === 'architectureReset' ? 'Resetting...' : 'Reset Floor Details'}
+          </button>
         </div>
       </div>
     </div>
@@ -732,6 +785,7 @@ function RoomGeometryControls({
   onDraftChange,
   onSave,
   onResetSuggested,
+  onResetFloorSuggested,
 }: {
   floorPlan: HomeFloorPlan;
   floorRooms: Room[];
@@ -743,11 +797,13 @@ function RoomGeometryControls({
   onDraftChange: (draft: RoomGeometryDraft | null) => void;
   onSave: (draft: RoomGeometryDraft) => Promise<SaveResult>;
   onResetSuggested: (roomId: number) => Promise<SaveResult>;
+  onResetFloorSuggested: () => Promise<SaveResult>;
 }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const selectedRoom = floorRooms.find(room => room.id === editingRoomId) ?? null;
   const editorPoints = selectedRoom && roomDraft ? roomEditorPoints(selectedRoom, roomDraft) : [];
+  const selectedSource = selectedRoom ? roomGeometryStatus(selectedRoom) : null;
 
   const updateDraft = (next: Partial<RoomGeometryDraft>) => {
     if (!roomDraft) return;
@@ -814,6 +870,20 @@ function RoomGeometryControls({
     setSaveMessage(result.message);
   };
 
+  const resetFloorSuggested = async () => {
+    setSaveState('saving');
+    setSaveMessage(null);
+    const result = await onResetFloorSuggested();
+    if (result.ok) {
+      setSaveState('saved');
+      setSaveMessage('Floor reset to recommended outlines.');
+      window.setTimeout(() => setSaveState('idle'), 1800);
+      return;
+    }
+    setSaveState('error');
+    setSaveMessage(result.message);
+  };
+
   return (
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -847,7 +917,7 @@ function RoomGeometryControls({
                 <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Room</span>
                 <select value={editingRoomId ?? ''} onChange={event => onSelectRoom(event.target.value ? Number(event.target.value) : null)}>
                   {floorRooms.map(room => (
-                    <option key={room.id} value={room.id}>{room.name}</option>
+                    <option key={room.id} value={room.id}>{room.name} - {roomGeometryStatus(room).label}</option>
                   ))}
                 </select>
               </label>
@@ -874,6 +944,9 @@ function RoomGeometryControls({
                 <button type="button" className="btn btn-secondary btn-sm" onClick={resetSuggested} disabled={!selectedRoom || saveState === 'saving'}>
                   <RotateCcw size={14} /> Reset to Suggested
                 </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={resetFloorSuggested} disabled={saveState === 'saving'}>
+                  <RotateCcw size={14} /> Reset Floor
+                </button>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={addPoint} disabled={!selectedRoom}>
                   <Plus size={14} /> Add Point
                 </button>
@@ -885,7 +958,14 @@ function RoomGeometryControls({
 
             {selectedRoom && roomDraft && (
               <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
-                <div className="section-label" style={{ fontSize: 10, marginBottom: 10 }}>Polygon points</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                  <div className="section-label" style={{ fontSize: 10 }}>Polygon points</div>
+                  {selectedSource && (
+                    <span className="badge badge-neutral" style={{ borderColor: selectedSource.color, color: selectedSource.color }}>
+                      {selectedSource.label}
+                    </span>
+                  )}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
                   {editorPoints.map((point, index) => (
                     <div key={`${selectedRoom.id}-${index}`} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr', gap: 8, alignItems: 'end' }}>
@@ -1330,6 +1410,7 @@ function MeasuredFloorPlan({
   selectedElementId,
   onSelectItem,
   onSelectArchitecturalElement,
+  onMoveArchitecturalElement,
   snapToGrid,
   onMoveItem,
 }: {
@@ -1350,11 +1431,13 @@ function MeasuredFloorPlan({
   selectedElementId: number | null;
   onSelectItem: (itemId: number) => void;
   onSelectArchitecturalElement: (elementId: number) => void;
+  onMoveArchitecturalElement: (elementId: number, update: ArchitecturalElementUpdate) => Promise<SaveResult>;
   snapToGrid: boolean;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [dragTarget, setDragTarget] = useState<GeometryDragTarget | null>(null);
+  const [architecturalDragPreview, setArchitecturalDragPreview] = useState<{ elementId: number; xFt: number; yFt: number } | null>(null);
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
   const roomShapes = floorRooms.map(room => ({
     room,
@@ -1370,6 +1453,10 @@ function MeasuredFloorPlan({
     return item.floorPlanId === null && item.roomId !== null && floorRooms.some(room => room.id === item.roomId);
   });
   const floorArchitecturalElements = architecturalElements.filter(element => element.floorPlanId === floorPlan.id);
+  const displayedArchitecturalElements = floorArchitecturalElements.map(element => {
+    if (architecturalDragPreview?.elementId !== element.id) return element;
+    return { ...element, xFt: architecturalDragPreview.xFt, yFt: architecturalDragPreview.yFt };
+  });
   const gridLinesX = gridLines(floorPlan.widthFt);
   const gridLinesY = gridLines(floorPlan.depthFt);
   const overlaySrc = toBlueprintImageSrc(floorPlan.blueprintImagePath);
@@ -1390,9 +1477,25 @@ function MeasuredFloorPlan({
   };
 
   const updateDraftFromPointer = (event: PointerEvent<HTMLElement>) => {
-    if (!roomEditMode || !roomDraft || !dragTarget) return;
+    if (!dragTarget) return;
     const point = pointFromPointer(event);
     if (!point) return;
+
+    if (dragTarget.type === 'architecturalElement') {
+      const dx = point.x - dragTarget.start.x;
+      const dy = point.y - dragTarget.start.y;
+      const next = clampArchitecturalElementPosition(
+        snapPlanValue(dragTarget.xFt + dx, snapToGrid),
+        snapPlanValue(dragTarget.yFt + dy, snapToGrid),
+        dragTarget.element.widthFt,
+        dragTarget.element.depthFt,
+        floorPlan,
+      );
+      setArchitecturalDragPreview({ elementId: dragTarget.element.id, xFt: next.xFt, yFt: next.yFt });
+      return;
+    }
+
+    if (!roomEditMode || !roomDraft) return;
     const roundedPoint = roundPlanPoint(point);
 
     if (dragTarget.type === 'label') {
@@ -1415,6 +1518,20 @@ function MeasuredFloorPlan({
     const points = roomEditorPoints(selectedRoom, roomDraft);
     const nextPoints = points.map((entry, index) => index === dragTarget.index ? roundedPoint : entry);
     onRoomDraftChange({ ...roomDraft, shapePoints: nextPoints });
+  };
+
+  const finishPointerDrag = async () => {
+    const target = dragTarget;
+    const preview = architecturalDragPreview;
+    setDragTarget(null);
+    setArchitecturalDragPreview(null);
+
+    if (target?.type !== 'architecturalElement' || preview?.elementId !== target.element.id) return;
+    await onMoveArchitecturalElement(target.element.id, {
+      xFt: preview.xFt,
+      yFt: preview.yFt,
+      floorPlanId: floorPlan.id,
+    });
   };
 
   return (
@@ -1455,8 +1572,11 @@ function MeasuredFloorPlan({
             onMoveItem(item, floorPlan.id, target?.room.id ?? null, planXFt, planYFt);
           }}
           onPointerMove={updateDraftFromPointer}
-          onPointerUp={() => setDragTarget(null)}
-          onPointerCancel={() => setDragTarget(null)}
+          onPointerUp={() => { void finishPointerDrag(); }}
+          onPointerCancel={() => {
+            setDragTarget(null);
+            setArchitecturalDragPreview(null);
+          }}
           style={{
             position: 'relative',
             width: '100%',
@@ -1520,78 +1640,85 @@ function MeasuredFloorPlan({
             preserveAspectRatio="none"
             style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: roomEditMode ? 'auto' : 'none' }}
           >
-            {roomShapes.map(({ room, points, selected }) => (
-              <polygon
-                key={room.id}
-                points={pointsToSvg(points, floorPlan)}
-                fill={selected ? 'rgba(31,107,91,0.14)' : 'rgba(255,255,255,0.12)'}
-                stroke={selected ? '#1f6b5b' : 'rgba(92,86,72,0.54)'}
-                strokeWidth={selected ? 0.55 : 0.32}
-                vectorEffect="non-scaling-stroke"
-                style={{ cursor: roomEditMode && selected ? 'move' : roomEditMode ? 'pointer' : 'default' }}
-                onPointerDown={event => {
-                  if (!roomEditMode) return;
-                  event.preventDefault();
-                  event.stopPropagation();
+            {roomShapes.map(({ room, points, selected }) => {
+              const outline = roomOutlineStyle(room, selected);
+              return (
+                <polygon
+                  key={room.id}
+                  points={pointsToSvg(points, floorPlan)}
+                  fill={outline.fill}
+                  stroke={outline.stroke}
+                  strokeWidth={outline.strokeWidth}
+                  vectorEffect="non-scaling-stroke"
+                  style={{ cursor: roomEditMode && selected ? 'move' : roomEditMode ? 'pointer' : 'default' }}
+                  onPointerDown={event => {
+                    if (!roomEditMode) return;
+                    event.preventDefault();
+                    event.stopPropagation();
 
-                  if (!selected) {
-                    onSelectRoom(room.id);
-                    return;
-                  }
+                    if (!selected) {
+                      onSelectRoom(room.id);
+                      return;
+                    }
 
-                  if (!roomDraft || roomDraft.roomId !== room.id) return;
-                  const start = pointFromPointer(event);
-                  if (!start) return;
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  setDragTarget({ type: 'room', start, points });
-                }}
+                    if (!roomDraft || roomDraft.roomId !== room.id) return;
+                    const start = pointFromPointer(event);
+                    if (!start) return;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    setDragTarget({ type: 'room', start, points });
+                  }}
+                  onClick={event => {
+                    if (!roomEditMode) return;
+                    event.stopPropagation();
+                    if (!selected) onSelectRoom(room.id);
+                  }}
+                />
+              );
+            })}
+          </svg>
+          {roomShapes.map(({ room, label, selected }) => {
+            const status = roomGeometryStatus(room);
+            return (
+              <button
+                key={`label-${room.id}`}
+                type="button"
+                data-layout-control="true"
+                aria-label={`Select ${room.name}`}
                 onClick={event => {
                   if (!roomEditMode) return;
                   event.stopPropagation();
                   if (!selected) onSelectRoom(room.id);
                 }}
-              />
-            ))}
-          </svg>
-          {roomShapes.map(({ room, label, selected }) => (
-            <button
-              key={`label-${room.id}`}
-              type="button"
-              data-layout-control="true"
-              aria-label={`Select ${room.name}`}
-              onClick={event => {
-                if (!roomEditMode) return;
-                event.stopPropagation();
-                if (!selected) onSelectRoom(room.id);
-              }}
-              disabled={!roomEditMode}
-              style={{
-                position: 'absolute',
-                left: `${(label.x / floorPlan.widthFt) * 100}%`,
-                top: `${(label.y / floorPlan.depthFt) * 100}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 3,
-                maxWidth: 142,
-                border: selected ? '1px solid #1f6b5b' : '1px solid rgba(92,86,72,0.22)',
-                borderRadius: 999,
-                background: selected ? 'rgba(226,243,235,0.96)' : 'rgba(255,252,247,0.88)',
-                color: 'var(--color-foreground)',
-                padding: '4px 8px',
-                fontSize: 10,
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: 0,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                pointerEvents: roomEditMode ? 'auto' : 'none',
-                cursor: roomEditMode ? 'pointer' : 'default',
-                boxShadow: selected ? '0 2px 8px rgba(31,107,91,0.18)' : '0 1px 4px rgba(28,25,23,0.08)',
-              }}
-            >
-              {room.name}
-            </button>
-          ))}
+                disabled={!roomEditMode}
+                title={`${room.name} - ${status.label}`}
+                style={{
+                  position: 'absolute',
+                  left: `${(label.x / floorPlan.widthFt) * 100}%`,
+                  top: `${(label.y / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 3,
+                  maxWidth: 142,
+                  border: selected ? '1px solid #1f6b5b' : `1px solid ${status.border}`,
+                  borderRadius: 999,
+                  background: selected ? 'rgba(226,243,235,0.96)' : status.background,
+                  color: 'var(--color-foreground)',
+                  padding: '4px 8px',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  pointerEvents: roomEditMode ? 'auto' : 'none',
+                  cursor: roomEditMode ? 'pointer' : 'default',
+                  boxShadow: selected ? '0 2px 8px rgba(31,107,91,0.18)' : '0 1px 4px rgba(28,25,23,0.08)',
+                }}
+              >
+                {room.name}
+              </button>
+            );
+          })}
           {roomEditMode && roomDraft && editingRoom && editingPoints.map((point, index) => (
             <button
               key={`handle-${roomDraft.roomId}-${index}`}
@@ -1653,13 +1780,22 @@ function MeasuredFloorPlan({
               <MousePointer2 size={12} color="#1f6b5b" />
             </button>
           )}
-          {floorArchitecturalElements.map(element => (
+          {displayedArchitecturalElements.map(element => (
             <ArchitecturalElementMarker
               key={element.id}
               element={element}
               floorPlan={floorPlan}
               selected={element.id === selectedElementId}
               onSelect={() => onSelectArchitecturalElement(element.id)}
+              onStartDrag={event => {
+                const start = pointFromPointer(event);
+                if (!start) return;
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                onSelectArchitecturalElement(element.id);
+                setDragTarget({ type: 'architecturalElement', element, start, xFt: element.xFt, yFt: element.yFt });
+              }}
             />
           ))}
           {floorItems.map((item, index) => {
@@ -1793,6 +1929,66 @@ function displayLabelPointForRoom(room: Room, draft: RoomGeometryDraft | null) {
   }
 
   return planLabelPointForRoom(room);
+}
+
+function roomGeometryStatus(room: Room) {
+  if (room.geometrySource === 'recommended') {
+    return {
+      label: 'Recommended',
+      color: '#1f6b5b',
+      border: 'rgba(31,107,91,0.44)',
+      background: 'rgba(226,243,235,0.9)',
+    };
+  }
+
+  if (room.geometrySource === 'custom') {
+    return {
+      label: 'Custom',
+      color: '#9a5a2f',
+      border: 'rgba(154,90,47,0.5)',
+      background: 'rgba(246,224,205,0.9)',
+    };
+  }
+
+  return {
+    label: 'Unknown',
+    color: 'var(--color-secondary)',
+    border: 'rgba(92,86,72,0.28)',
+    background: 'rgba(255,252,247,0.88)',
+  };
+}
+
+function roomOutlineStyle(room: Room, selected: boolean) {
+  const status = roomGeometryStatus(room);
+  if (selected) {
+    return {
+      fill: 'rgba(31,107,91,0.14)',
+      stroke: '#1f6b5b',
+      strokeWidth: 0.55,
+    };
+  }
+
+  if (room.geometrySource === 'recommended') {
+    return {
+      fill: 'rgba(226,243,235,0.13)',
+      stroke: 'rgba(31,107,91,0.52)',
+      strokeWidth: 0.34,
+    };
+  }
+
+  if (room.geometrySource === 'custom') {
+    return {
+      fill: 'rgba(246,224,205,0.13)',
+      stroke: 'rgba(154,90,47,0.58)',
+      strokeWidth: 0.36,
+    };
+  }
+
+  return {
+    fill: 'rgba(255,255,255,0.12)',
+    stroke: status.border,
+    strokeWidth: 0.32,
+  };
 }
 
 function rectToPoints(rect: PlanRect): PlanPoint[] {
@@ -2021,17 +2217,20 @@ function ArchitecturalElementMarker({
   floorPlan,
   selected,
   onSelect,
+  onStartDrag,
 }: {
   element: ArchitecturalElement;
   floorPlan: HomeFloorPlan;
   selected: boolean;
   onSelect: () => void;
+  onStartDrag: (event: PointerEvent<HTMLButtonElement>) => void;
 }) {
   const style = architecturalElementStyle(element.elementType);
   return (
     <button
       type="button"
       data-layout-control="true"
+      onPointerDown={onStartDrag}
       onClick={event => {
         event.stopPropagation();
         onSelect();
@@ -2052,7 +2251,7 @@ function ArchitecturalElementMarker({
         padding: 3,
         overflow: 'hidden',
         boxShadow: selected ? '0 0 0 3px rgba(31,107,91,0.18), var(--shadow-sm)' : 'var(--shadow-sm)',
-        cursor: 'pointer',
+        cursor: 'grab',
         transform: `rotate(${element.rotationDeg}deg)`,
         transformOrigin: 'center',
         zIndex: selected ? 7 : 4,
@@ -2261,9 +2460,14 @@ function nullableNumber(value: string) {
 }
 
 function formatAutomationMessage(mode: LayoutAutomationMode, body: LayoutAutomationStats | null) {
-  if (mode === 'rooms') {
+  if (mode === 'rooms' || mode === 'floorRooms') {
     const seeds = body?.roomSeeds;
-    return `Outlines updated ${seeds?.updated ?? 0}; skipped ${seeds?.skipped ?? 0}.`;
+    return `Outlines updated ${seeds?.updated ?? 0}; skipped ${seeds?.skipped ?? 0}; custom preserved ${seeds?.custom ?? 0}.`;
+  }
+
+  if (mode === 'architecture' || mode === 'architectureReset') {
+    const architectural = body?.architectural;
+    return `Details added ${architectural?.created ?? 0}; updated ${architectural?.updated ?? 0}; removed ${architectural?.removed ?? 0}.`;
   }
 
   const layout = body?.layout;

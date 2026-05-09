@@ -1,5 +1,5 @@
 import { getSupabaseServer } from '@/lib/supabase';
-import type { ArchitecturalElement, ArchitecturalElementType } from '@/lib/types';
+import type { ArchitecturalElement, ArchitecturalElementSource, ArchitecturalElementType } from '@/lib/types';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -49,15 +49,27 @@ export async function POST(request: Request) {
     width_ft: body.widthFt ?? defaults.widthFt,
     depth_ft: body.depthFt ?? defaults.depthFt,
     rotation_deg: body.rotationDeg ?? 0,
+    source: normaliseElementSource(body.source),
+    source_key: nullableString(body.sourceKey),
     notes: body.notes || null,
     sort_index: body.sortIndex ?? (last?.sort_index ?? -1) + 1,
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('architectural_elements')
     .insert([insert])
     .select()
     .single();
+
+  if (error && isMissingSourceColumnError(error)) {
+    const retry = await supabase
+      .from('architectural_elements')
+      .insert([stripArchitecturalSourceFields(insert)])
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -78,15 +90,28 @@ export async function PATCH(request: Request) {
   if ('widthFt' in rest) update.width_ft = rest.widthFt;
   if ('depthFt' in rest) update.depth_ft = rest.depthFt;
   if ('rotationDeg' in rest) update.rotation_deg = rest.rotationDeg;
+  if ('source' in rest) update.source = normaliseElementSource(rest.source);
+  if ('sourceKey' in rest) update.source_key = nullableString(rest.sourceKey);
   if ('notes' in rest) update.notes = rest.notes;
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('architectural_elements')
     .update(update)
     .eq('id', id)
     .select()
     .single();
+
+  if (error && isMissingSourceColumnError(error)) {
+    const retry = await supabase
+      .from('architectural_elements')
+      .update(stripArchitecturalSourceFields(update))
+      .eq('id', id)
+      .select()
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -114,6 +139,8 @@ function normalise(row: Record<string, unknown>): ArchitecturalElement {
     widthFt: nullableNumber(row.width_ft ?? row.widthFt) ?? 1,
     depthFt: nullableNumber(row.depth_ft ?? row.depthFt) ?? 0.25,
     rotationDeg: nullableNumber(row.rotation_deg ?? row.rotationDeg) ?? 0,
+    source: normaliseElementSource(row.source),
+    sourceKey: nullableString(row.source_key ?? row.sourceKey),
     notes: nullableString(row.notes),
     sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
   };
@@ -138,6 +165,10 @@ function normaliseElementType(value: unknown): ArchitecturalElementType {
     return type;
   }
   return 'fixture';
+}
+
+function normaliseElementSource(value: unknown): ArchitecturalElementSource {
+  return String(value ?? 'manual') === 'recommended' ? 'recommended' : 'manual';
 }
 
 function defaultLabelForType(type: ArchitecturalElementType) {
@@ -170,4 +201,15 @@ function nullableString(value: unknown) {
 
 function isMissingTableError(error: { code?: string; message?: string }) {
   return error.code === '42P01' || /architectural_elements/i.test(error.message ?? '') && /does not exist|not found/i.test(error.message ?? '');
+}
+
+function isMissingSourceColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /source_key|source/i.test(error.message ?? '');
+}
+
+function stripArchitecturalSourceFields(update: Record<string, unknown>) {
+  const legacyUpdate = { ...update };
+  delete legacyUpdate.source;
+  delete legacyUpdate.source_key;
+  return legacyUpdate;
 }

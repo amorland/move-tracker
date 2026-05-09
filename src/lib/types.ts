@@ -9,6 +9,8 @@ export type LinkedEntityType = 'move_task' | 'planning_task' | 'event' | 'timeli
 export type PlanningTaskSection = 'purchase' | 'loan' | 'home_setup' | 'updates';
 export type DriveLoadoutType = 'adult' | 'child' | 'pet' | 'gear' | 'vehicle_addon';
 export type ArchitecturalElementType = 'door' | 'window' | 'opening' | 'stairs' | 'counter' | 'cabinet' | 'sink' | 'toilet' | 'shower' | 'tub' | 'appliance' | 'fixture';
+export type ArchitecturalElementSource = 'recommended' | 'manual';
+export type RoomGeometrySource = 'recommended' | 'custom' | 'unknown';
 
 export interface MoveSettings {
   id: number;
@@ -182,6 +184,7 @@ export interface Room {
   labelYFt: number | null;
   ceilingHeightFt: number | null;
   shapePoints: PlanPoint[] | null;
+  geometrySource: RoomGeometrySource;
   sortIndex: number;
 }
 
@@ -219,6 +222,8 @@ export interface ArchitecturalElement {
   widthFt: number;
   depthFt: number;
   rotationDeg: number;
+  source: ArchitecturalElementSource;
+  sourceKey: string | null;
   notes: string | null;
   sortIndex: number;
 }
