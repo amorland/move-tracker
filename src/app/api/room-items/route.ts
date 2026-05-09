@@ -1,4 +1,5 @@
 import { getSupabaseServer } from '@/lib/supabase';
+import { normaliseFurnitureType } from '@/lib/furniture';
 import { NextResponse } from 'next/server';
 
 export async function GET(request: Request) {
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
     floor_plan_id: body.floorPlanId ?? null,
     belonging_id: body.belongingId || null,
     item_name: body.itemName || 'New Item',
+    furniture_type: normaliseFurnitureType(body.furnitureType ?? body.furniture_type, body.itemName || 'New Item'),
     item_source: body.itemSource || 'planned_purchase',
     status: body.status || 'planned',
     dimensions: body.dimensions || null,
@@ -81,6 +83,7 @@ export async function PATCH(request: Request) {
   if ('floorPlanId' in rest) update.floor_plan_id = rest.floorPlanId;
   if ('belongingId' in rest) update.belonging_id = rest.belongingId;
   if ('itemName' in rest) update.item_name = rest.itemName;
+  if ('furnitureType' in rest) update.furniture_type = normaliseFurnitureType(rest.furnitureType, rest.itemName);
   if ('itemSource' in rest) update.item_source = rest.itemSource;
   if ('status' in rest) update.status = rest.status;
   if ('dimensions' in rest) update.dimensions = rest.dimensions;
@@ -136,6 +139,7 @@ function normalise(row: Record<string, unknown>) {
     floorPlanId: row.floor_plan_id ?? row.floorPlanId ?? null,
     belongingId: row.belonging_id ?? row.belongingId ?? null,
     itemName: row.item_name ?? row.itemName,
+    furnitureType: normaliseFurnitureType(row.furniture_type ?? row.furnitureType, String(row.item_name ?? row.itemName ?? '')),
     itemSource: row.item_source ?? row.itemSource ?? 'planned_purchase',
     status: row.status ?? 'planned',
     dimensions: row.dimensions ?? null,
@@ -161,12 +165,13 @@ function nullableNumber(value: unknown) {
 }
 
 function isMissingMeasuredColumnError(error: { code?: string; message?: string }) {
-  return error.code === '42703' || error.code === 'PGRST204' || /floor_plan_id|width_in|depth_in|height_in|plan_|rotation_deg/i.test(error.message ?? '');
+  return error.code === '42703' || error.code === 'PGRST204' || /floor_plan_id|furniture_type|width_in|depth_in|height_in|plan_|rotation_deg/i.test(error.message ?? '');
 }
 
 function stripMeasuredItemFields(update: Record<string, unknown>) {
   const legacyUpdate = { ...update };
   delete legacyUpdate.floor_plan_id;
+  delete legacyUpdate.furniture_type;
   delete legacyUpdate.width_in;
   delete legacyUpdate.depth_in;
   delete legacyUpdate.height_in;

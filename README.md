@@ -30,7 +30,7 @@ The UI uses a minimal, cozy planning aesthetic: warm paper background (`#f7f3ed`
 | **House Tasks** | `/home/tasks` | Redirects to the consolidated Tasks view filtered to house-planning areas |
 | **House Documents** | `/home/documents` | Central list of saved document links with category filters and attachment counts |
 | **Rooms** | `/home/rooms` | Room-by-room planning for existing brought items and planned purchases |
-| **Visual Layout** | `/home/layout` | Blueprint overlay planner with measured floor canvases, editable room outlines, labels, and precise draggable/rotatable room items |
+| **Visual Layout** | `/home/layout` | Blueprint overlay planner with measured floor canvases, editable room outlines, labels, and typed draggable/rotatable furniture shapes |
 | **Projects** | `/home/projects` | Future home improvement and renovation planning |
 
 ## Core Concepts
@@ -184,6 +184,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-blueprint-overlays.sql](supabase-blueprint-overlays.sql) — updates existing measured floor plans to 50x50 canvases and bundled blueprint overlay asset paths
 - [supabase-floor-item-placement.sql](supabase-floor-item-placement.sql) — links room items directly to floor plans so items can be placed anywhere on a measured floor canvas
 - [supabase-room-geometry.sql](supabase-room-geometry.sql) — adds room label coordinates and polygon room outlines for blueprint-aligned planning
+- [supabase-room-item-furniture-types.sql](supabase-room-item-furniture-types.sql) — adds stored furniture shape types to room items and backfills existing records from item names
 - [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on the app tables
 
 ## Running Locally
@@ -290,6 +291,7 @@ src/
 6. To allow blocked task tracking, run `supabase-task-blocked-status.sql` after `supabase-home-planning.sql`.
 7. To enable the measured home layout planner and blueprint overlays on an existing database, run `supabase-measured-layout.sql`, then `supabase-blueprint-overlays.sql`.
 8. To allow room items to be placed anywhere on a measured floor canvas, run `supabase-floor-item-placement.sql`.
+9. To classify existing room items into furniture shapes for the visual planner, run `supabase-room-item-furniture-types.sql`.
 
 ## Current Limitations
 

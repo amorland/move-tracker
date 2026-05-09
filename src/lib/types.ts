@@ -51,6 +51,24 @@ export interface Task {
 
 export type BelongingAction = 'Bring' | 'Sell' | 'Donate' | 'Trash';
 export type BelongingStatus = 'unresolved' | 'resolved';
+export type FurnitureType =
+  | 'bed'
+  | 'crib'
+  | 'sofa'
+  | 'sectional'
+  | 'chair'
+  | 'dining_table'
+  | 'coffee_table'
+  | 'side_table'
+  | 'desk'
+  | 'dresser'
+  | 'bookcase'
+  | 'tv_stand'
+  | 'storage'
+  | 'rug'
+  | 'lamp'
+  | 'plant'
+  | 'box';
 
 export interface Belonging {
   id: number;
@@ -194,6 +212,7 @@ export interface RoomItem {
   floorPlanId: number | null;
   belongingId: number | null;
   itemName: string;
+  furnitureType: FurnitureType | null;
   itemSource: 'existing_belonging' | 'planned_purchase';
   status: 'planned' | 'placed' | 'undecided';
   dimensions: string | null;

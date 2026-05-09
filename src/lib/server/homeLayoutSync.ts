@@ -11,6 +11,7 @@ import type {
   RoomGeometrySource,
   RoomItem,
 } from '@/lib/types';
+import { inferFurnitureType, normaliseFurnitureType } from '@/lib/furniture';
 
 export type LayoutSyncStats = {
   created: number;
@@ -698,6 +699,7 @@ async function syncOneBelonging(
     floor_plan_id: placement.floorPlan?.id ?? null,
     belonging_id: belonging.id,
     item_name: belonging.itemName,
+    furniture_type: existing?.furnitureType ?? inferFurnitureType(belonging.itemName),
     item_source: 'existing_belonging',
     status: placement.room ? 'placed' : 'undecided',
     width_in: existing?.widthIn ?? placement.widthIn,
@@ -705,14 +707,11 @@ async function syncOneBelonging(
   };
 
   if (existing) {
-    const { error } = await supabase
-      .from('room_items')
-      .update({
-        ...sharedPayload,
-        plan_x_ft: shouldKeepPosition ? existing.planXFt : placement.planXFt,
-        plan_y_ft: shouldKeepPosition ? existing.planYFt : placement.planYFt,
-      })
-      .eq('id', existing.id);
+    const { error } = await updateRoomItemWithFallback(supabase, existing.id, {
+      ...sharedPayload,
+      plan_x_ft: shouldKeepPosition ? existing.planXFt : placement.planXFt,
+      plan_y_ft: shouldKeepPosition ? existing.planYFt : placement.planYFt,
+    });
 
     if (error) {
       stats.errors.push(error.message);
@@ -723,22 +722,20 @@ async function syncOneBelonging(
     return;
   }
 
-  const { error } = await supabase
-    .from('room_items')
-    .insert([{
-      ...sharedPayload,
-      dimensions: null,
-      notes: `Imported from Stuff room: ${belonging.room}`,
-      layout_x: null,
-      layout_y: null,
-      layout_w: null,
-      layout_h: null,
-      height_in: null,
-      plan_x_ft: placement.planXFt,
-      plan_y_ft: placement.planYFt,
-      rotation_deg: 0,
-      sort_index: context.roomItems.length + stats.created,
-    }]);
+  const { error } = await insertRoomItemWithFallback(supabase, {
+    ...sharedPayload,
+    dimensions: null,
+    notes: `Imported from Stuff room: ${belonging.room}`,
+    layout_x: null,
+    layout_y: null,
+    layout_w: null,
+    layout_h: null,
+    height_in: null,
+    plan_x_ft: placement.planXFt,
+    plan_y_ft: placement.planYFt,
+    rotation_deg: 0,
+    sort_index: context.roomItems.length + stats.created,
+  });
 
   if (error) {
     stats.errors.push(error.message);
@@ -1046,6 +1043,7 @@ function normaliseRoomItem(row: Record<string, unknown>): RoomItem {
     floorPlanId: nullableNumber(row.floor_plan_id ?? row.floorPlanId),
     belongingId: nullableNumber(row.belonging_id ?? row.belongingId),
     itemName: String(row.item_name ?? row.itemName ?? 'New Item'),
+    furnitureType: normaliseFurnitureType(row.furniture_type ?? row.furnitureType, String(row.item_name ?? row.itemName ?? 'New Item')),
     itemSource: String(row.item_source ?? row.itemSource) === 'existing_belonging' ? 'existing_belonging' : 'planned_purchase',
     status: normaliseRoomItemStatus(row.status),
     dimensions: nullableString(row.dimensions),
@@ -1181,6 +1179,42 @@ function isMissingArchitecturalElementsTableError(error: { code?: string; messag
 function stripRoomGeometrySource(update: Record<string, unknown>) {
   const legacyUpdate = { ...update };
   delete legacyUpdate.geometry_source;
+  return legacyUpdate;
+}
+
+async function updateRoomItemWithFallback(supabase: SupabaseClient, id: number, update: Record<string, unknown>) {
+  const result = await supabase
+    .from('room_items')
+    .update(update)
+    .eq('id', id);
+
+  if (!result.error || !isMissingFurnitureTypeColumnError(result.error)) return result;
+
+  return supabase
+    .from('room_items')
+    .update(stripRoomItemFurnitureType(update))
+    .eq('id', id);
+}
+
+async function insertRoomItemWithFallback(supabase: SupabaseClient, insert: Record<string, unknown>) {
+  const result = await supabase
+    .from('room_items')
+    .insert([insert]);
+
+  if (!result.error || !isMissingFurnitureTypeColumnError(result.error)) return result;
+
+  return supabase
+    .from('room_items')
+    .insert([stripRoomItemFurnitureType(insert)]);
+}
+
+function isMissingFurnitureTypeColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /furniture_type/i.test(error.message ?? '');
+}
+
+function stripRoomItemFurnitureType(update: Record<string, unknown>) {
+  const legacyUpdate = { ...update };
+  delete legacyUpdate.furniture_type;
   return legacyUpdate;
 }
 

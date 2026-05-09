@@ -11,7 +11,8 @@ import {
   planRectForRoom,
   PlanRect,
 } from '@/lib/homeLayout';
-import { ArchitecturalElement, ArchitecturalElementType, HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
+import { FURNITURE_TYPE_OPTIONS, furnitureTypeLabel, normaliseFurnitureType } from '@/lib/furniture';
+import { ArchitecturalElement, ArchitecturalElementType, FurnitureType, HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
 import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +33,7 @@ type GeometryDragTarget =
   | { type: 'item'; item: RoomItem; start: PlanPoint; xFt: number; yFt: number; widthFt: number; depthFt: number }
   | { type: 'architecturalElement'; element: ArchitecturalElement; start: PlanPoint; xFt: number; yFt: number };
 type RoomItemLayoutUpdate = {
+  furnitureType?: FurnitureType;
   widthIn?: number | null;
   depthIn?: number | null;
   rotationDeg?: number | null;
@@ -490,7 +492,7 @@ export default function HomeLayoutPage() {
             />
             <div className="layout-inspector-stack">
               <SelectedItemControls
-                key={selectedItem ? `${selectedItem.id}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
+                key={selectedItem ? `${selectedItem.id}-${selectedItem.furnitureType ?? 'type'}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
                 item={selectedItem}
                 room={selectedItemRoom}
                 floorPlan={selectedItemFloor}
@@ -1271,18 +1273,21 @@ function SelectedItemControls({
   onClear: () => void;
 }) {
   const footprint = item ? itemFootprint(item) : null;
-  const profile = item ? furnitureProfileForItem(item) : null;
   const initialPlacement = item && footprint && floorPlan ? itemPlacementForControls(item, room, floorPlan, footprint) : null;
+  const initialFurnitureType: FurnitureType = item ? normaliseFurnitureType(item.furnitureType, item.itemName) : 'box';
   const [draft, setDraft] = useState({
+    furnitureType: initialFurnitureType,
     widthFt: footprint ? roundToQuarter(footprint.widthFt) : null,
     depthFt: footprint ? roundToQuarter(footprint.depthFt) : null,
     rotationDeg: item?.rotationDeg ?? 0,
     planXFt: initialPlacement?.planXFt ?? null,
     planYFt: initialPlacement?.planYFt ?? null,
   });
+  const profile = item ? furnitureProfileForType(draft.furnitureType, item) : null;
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const hasUnsavedItemChanges = Boolean(item && (
+    draft.furnitureType !== initialFurnitureType ||
     !nullableNumbersMatch(draft.widthFt, footprint ? roundToQuarter(footprint.widthFt) : null) ||
     !nullableNumbersMatch(draft.depthFt, footprint ? roundToQuarter(footprint.depthFt) : null) ||
     !nullableNumbersMatch(draft.rotationDeg ?? 0, item.rotationDeg ?? 0) ||
@@ -1295,6 +1300,7 @@ function SelectedItemControls({
     setSaveState('saving');
     setSaveMessage(null);
     const result = await onSave(item.id, {
+      furnitureType: nextDraft.furnitureType,
       widthIn: ftToIn(nextDraft.widthFt),
       depthIn: ftToIn(nextDraft.depthFt),
       rotationDeg: normaliseRotation(nextDraft.rotationDeg ?? 0),
@@ -1370,6 +1376,17 @@ function SelectedItemControls({
         {item && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+              <label style={{ display: 'block' }}>
+                <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Shape</span>
+                <select
+                  value={draft.furnitureType}
+                  onChange={event => setDraft(current => ({ ...current, furnitureType: event.target.value as FurnitureType }))}
+                >
+                  {FURNITURE_TYPE_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
               <GeometryNumberField
                 label="Width ft"
                 value={draft.widthFt}
@@ -2329,27 +2346,8 @@ function normaliseRotation(value: number) {
   return ((Math.round(value) % 360) + 360) % 360;
 }
 
-type FurnitureKind =
-  | 'bed'
-  | 'crib'
-  | 'sofa'
-  | 'sectional'
-  | 'chair'
-  | 'dining_table'
-  | 'coffee_table'
-  | 'side_table'
-  | 'desk'
-  | 'dresser'
-  | 'bookcase'
-  | 'tv_stand'
-  | 'storage'
-  | 'rug'
-  | 'lamp'
-  | 'plant'
-  | 'box';
-
 type FurnitureProfile = {
-  kind: FurnitureKind;
+  kind: FurnitureType;
   label: string;
   background: string;
   border: string;
@@ -2357,34 +2355,29 @@ type FurnitureProfile = {
 };
 
 function furnitureProfileForItem(item: RoomItem): FurnitureProfile {
-  const label = item.itemName.toLowerCase();
-  if (label.includes('crib')) return furnitureProfile('crib', 'Crib', 'rgba(244,232,215,0.96)', '#9f7654', 7);
-  if (label.includes('bed') || label.includes('mattress')) return furnitureProfile('bed', 'Bed', 'rgba(244,232,215,0.96)', '#9f7654', 7);
-  if (label.includes('sectional')) return furnitureProfile('sectional', 'Sectional', 'rgba(226,243,235,0.96)', '#1f6b5b', 10);
-  if (label.includes('sofa') || label.includes('couch') || label.includes('loveseat')) return furnitureProfile('sofa', 'Sofa', 'rgba(226,243,235,0.96)', '#1f6b5b', 10);
-  if (label.includes('chair') || label.includes('recliner')) return furnitureProfile('chair', 'Chair', 'rgba(226,243,235,0.96)', '#1f6b5b', 999);
-  if (label.includes('dining')) return furnitureProfile('dining_table', 'Dining Table', 'rgba(246,224,205,0.96)', '#b85f36', 999);
-  if (label.includes('coffee table')) return furnitureProfile('coffee_table', 'Coffee Table', 'rgba(246,224,205,0.96)', '#b85f36', 8);
-  if (label.includes('side table') || label.includes('end table') || label.includes('nightstand')) return furnitureProfile('side_table', 'Side Table', 'rgba(246,224,205,0.96)', '#b85f36', 8);
-  if (label.includes('table')) return furnitureProfile('dining_table', 'Table', 'rgba(246,224,205,0.96)', '#b85f36', 999);
-  if (label.includes('desk')) return furnitureProfile('desk', 'Desk', 'rgba(231,237,241,0.96)', '#55758b', 6);
-  if (label.includes('dresser') || label.includes('drawer')) return furnitureProfile('dresser', 'Dresser', 'rgba(239,233,221,0.96)', '#7d7467', 5);
-  if (label.includes('bookcase') || label.includes('bookshelf') || label.includes('shelf')) return furnitureProfile('bookcase', 'Bookcase', 'rgba(239,233,221,0.96)', '#7d7467', 5);
-  if (label.includes('tv stand') || label.includes('media console') || label.includes('console')) return furnitureProfile('tv_stand', 'TV Stand', 'rgba(239,233,221,0.96)', '#7d7467', 5);
-  if (label.includes('cabinet') || label.includes('storage')) return furnitureProfile('storage', 'Storage', 'rgba(239,233,221,0.96)', '#7d7467', 5);
-  if (label.includes('rug')) return furnitureProfile('rug', 'Rug', 'rgba(255,252,247,0.78)', '#b99b68', 8);
-  if (label.includes('lamp')) return furnitureProfile('lamp', 'Lamp', 'rgba(250,239,202,0.96)', '#b99b68', 999);
-  if (label.includes('plant')) return furnitureProfile('plant', 'Plant', 'rgba(226,243,235,0.96)', '#4f8a60', 999);
+  return furnitureProfileForType(normaliseFurnitureType(item.furnitureType, item.itemName), item);
+}
+
+function furnitureProfileForType(type: FurnitureType, item: RoomItem): FurnitureProfile {
+  if (type === 'crib' || type === 'bed') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(244,232,215,0.96)', '#9f7654', 7);
+  if (type === 'sectional' || type === 'sofa') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(226,243,235,0.96)', '#1f6b5b', 10);
+  if (type === 'chair') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(226,243,235,0.96)', '#1f6b5b', 999);
+  if (type === 'dining_table' || type === 'coffee_table' || type === 'side_table') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(246,224,205,0.96)', '#b85f36', type === 'dining_table' ? 999 : 8);
+  if (type === 'desk') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(231,237,241,0.96)', '#55758b', 6);
+  if (type === 'dresser' || type === 'bookcase' || type === 'tv_stand' || type === 'storage') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(239,233,221,0.96)', '#7d7467', 5);
+  if (type === 'rug') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(255,252,247,0.78)', '#b99b68', 8);
+  if (type === 'lamp') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(250,239,202,0.96)', '#b99b68', 999);
+  if (type === 'plant') return furnitureProfile(type, furnitureTypeLabel(type), 'rgba(226,243,235,0.96)', '#4f8a60', 999);
   return furnitureProfile(
     'box',
-    'General Item',
+    furnitureTypeLabel(type),
     item.itemSource === 'existing_belonging' ? 'rgba(246,224,205,0.96)' : 'rgba(226,243,235,0.96)',
     item.itemSource === 'existing_belonging' ? 'var(--color-accent)' : '#1f6b5b',
     6,
   );
 }
 
-function furnitureProfile(kind: FurnitureKind, label: string, background: string, border: string, borderRadius: number): FurnitureProfile {
+function furnitureProfile(kind: FurnitureType, label: string, background: string, border: string, borderRadius: number): FurnitureProfile {
   return { kind, label, background, border, borderRadius };
 }
 

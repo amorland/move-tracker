@@ -18,6 +18,7 @@ const mockRoomItem = {
   floor_plan_id: 3,
   belonging_id: 2,
   item_name: 'Sectional Sofa',
+  furniture_type: 'sectional',
   item_source: 'existing_belonging',
   status: 'planned',
   dimensions: null,
@@ -37,6 +38,7 @@ describe('GET /api/room-items', () => {
     const res = await GET(new Request('http://localhost/api/room-items'));
     const body = await res.json();
     expect(body[0].itemName).toBe('Sectional Sofa');
+    expect(body[0].furnitureType).toBe('sectional');
     expect(body[0].floorPlanId).toBe(3);
   });
 });

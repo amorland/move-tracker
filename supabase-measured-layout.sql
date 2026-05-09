@@ -41,10 +41,32 @@ ALTER TABLE rooms ADD COLUMN IF NOT EXISTS shape_points JSONB;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS width_in NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS depth_in NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS height_in NUMERIC;
+ALTER TABLE room_items ADD COLUMN IF NOT EXISTS furniture_type TEXT;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS floor_plan_id BIGINT REFERENCES home_floor_plans(id) ON DELETE SET NULL;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS plan_x_ft NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS plan_y_ft NUMERIC;
 ALTER TABLE room_items ADD COLUMN IF NOT EXISTS rotation_deg NUMERIC;
+ALTER TABLE room_items DROP CONSTRAINT IF EXISTS room_items_furniture_type_check;
+ALTER TABLE room_items ADD CONSTRAINT room_items_furniture_type_check
+  CHECK (furniture_type IS NULL OR furniture_type IN (
+    'bed',
+    'crib',
+    'sofa',
+    'sectional',
+    'chair',
+    'dining_table',
+    'coffee_table',
+    'side_table',
+    'desk',
+    'dresser',
+    'bookcase',
+    'tv_stand',
+    'storage',
+    'rug',
+    'lamp',
+    'plant',
+    'box'
+  ));
 
 CREATE INDEX IF NOT EXISTS idx_home_floor_plans_sort ON home_floor_plans(sort_index, level);
 CREATE INDEX IF NOT EXISTS idx_rooms_floor_plan ON rooms(floor_plan_id);

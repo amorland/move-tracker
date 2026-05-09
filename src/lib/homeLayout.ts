@@ -1,3 +1,4 @@
+import { normaliseFurnitureType } from '@/lib/furniture';
 import { HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
 
 export type PlanRect = {
@@ -252,6 +253,27 @@ function parseDimensions(dimensions?: string | null) {
 }
 
 function estimateWidthIn(item: RoomItem) {
+  const type = normaliseFurnitureType(item.furnitureType, item.itemName);
+  if (type === 'sectional') return 120;
+  if (type === 'sofa') return 84;
+  if (type === 'bed') {
+    const label = item.itemName.toLowerCase();
+    if (label.includes('king')) return 80;
+    if (label.includes('queen')) return 60;
+    return 76;
+  }
+  if (type === 'crib') return 54;
+  if (type === 'dining_table') return 72;
+  if (type === 'coffee_table') return 48;
+  if (type === 'side_table') return 24;
+  if (type === 'desk' || type === 'dresser') return 60;
+  if (type === 'bookcase') return 48;
+  if (type === 'chair') return 32;
+  if (type === 'rug') return 96;
+  if (type === 'lamp' || type === 'plant') return 18;
+  if (type === 'tv_stand') return 60;
+  if (type === 'storage') return 48;
+
   const label = item.itemName.toLowerCase();
   if (label.includes('sectional')) return 120;
   if (label.includes('sofa') || label.includes('couch')) return 84;
@@ -267,6 +289,22 @@ function estimateWidthIn(item: RoomItem) {
 }
 
 function estimateDepthIn(item: RoomItem) {
+  const type = normaliseFurnitureType(item.furnitureType, item.itemName);
+  if (type === 'sectional') return 84;
+  if (type === 'sofa') return 38;
+  if (type === 'bed') return 80;
+  if (type === 'crib') return 30;
+  if (type === 'dining_table') return 42;
+  if (type === 'coffee_table') return 28;
+  if (type === 'side_table') return 24;
+  if (type === 'desk' || type === 'dresser') return 28;
+  if (type === 'bookcase') return 16;
+  if (type === 'chair') return 32;
+  if (type === 'rug') return 60;
+  if (type === 'lamp' || type === 'plant') return 18;
+  if (type === 'tv_stand') return 18;
+  if (type === 'storage') return 24;
+
   const label = item.itemName.toLowerCase();
   if (label.includes('sectional')) return 84;
   if (label.includes('sofa') || label.includes('couch')) return 38;

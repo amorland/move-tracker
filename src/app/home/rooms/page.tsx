@@ -1,6 +1,7 @@
 'use client';
 
 import HomeSubnav from '@/components/HomeSubnav';
+import { FURNITURE_TYPE_OPTIONS, furnitureTypeLabel, inferFurnitureType, normaliseFurnitureType } from '@/lib/furniture';
 import { Belonging, Room, RoomItem } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
 import { Box, Pencil, Plus, Trash2, X } from 'lucide-react';
@@ -193,6 +194,7 @@ export default function HomeRoomsPage() {
                       <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--color-secondary)' }}>{item.itemName}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
                         <span className="section-label" style={{ margin: 0 }}>{item.status}</span>
+                        <span className="section-label" style={{ margin: 0 }}>{furnitureTypeLabel(item.furnitureType)}</span>
                         {item.dimensions && <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>{item.dimensions}</span>}
                       </div>
                     </div>
@@ -319,6 +321,7 @@ function RoomItemModal({
       ...editing,
       belongingId,
       itemName: belonging?.itemName ?? '',
+      furnitureType: inferFurnitureType(belonging?.itemName),
     });
   };
 
@@ -329,6 +332,7 @@ function RoomItemModal({
         itemSource,
         belongingId: selectedBelonging?.id ?? belongings[0]?.id ?? null,
         itemName: selectedBelonging?.itemName ?? belongings[0]?.itemName ?? '',
+        furnitureType: inferFurnitureType(selectedBelonging?.itemName ?? belongings[0]?.itemName),
       });
       return;
     }
@@ -337,6 +341,7 @@ function RoomItemModal({
       itemSource,
       belongingId: null,
       itemName: editing.itemSource === 'existing_belonging' ? '' : editing.itemName,
+      furnitureType: normaliseFurnitureType(editing.furnitureType, editing.itemName),
     });
   };
 
@@ -416,9 +421,20 @@ function RoomItemModal({
           ) : (
             <div>
               <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Item Name</label>
-              <input value={editing.itemName || ''} onChange={e => setEditing({ ...editing, itemName: e.target.value })} />
+              <input value={editing.itemName || ''} onChange={e => setEditing({ ...editing, itemName: e.target.value, furnitureType: inferFurnitureType(e.target.value) })} />
             </div>
           )}
+          <div>
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Shape</label>
+            <select
+              value={normaliseFurnitureType(editing.furnitureType, editing.itemName)}
+              onChange={e => setEditing({ ...editing, furnitureType: e.target.value as RoomItem['furnitureType'] })}
+            >
+              {FURNITURE_TYPE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Status</label>
