@@ -441,20 +441,16 @@ export default function HomeLayoutPage() {
 
       {activeFloor && (
         <>
-          <BlueprintOverlayControls
-            key={activeFloor.id}
+          <LayoutToolbar
             floorPlan={activeFloor}
             overlayVisible={overlayVisible}
-            overlayOpacity={overlayOpacity}
-            overlayFit={overlayFit}
-            onToggleOverlay={() => setOverlayVisible(value => !value)}
-            onOpacityChange={setOverlayOpacity}
-            onFitChange={setOverlayFit}
-            onSave={saveFloorPlan}
-          />
-          <LayoutAutomationControls
+            snapToGrid={snapToGrid}
+            roomEditMode={roomEditMode}
             busy={automationBusy}
             message={automationMessage}
+            onToggleOverlay={() => setOverlayVisible(value => !value)}
+            onSnapChange={setSnapToGrid}
+            onToggleRoomEdit={toggleRoomEditMode}
             onSyncItems={() => runLayoutAutomation('items')}
             onReflowItems={() => runLayoutAutomation('reflow')}
             onSeedRooms={() => runLayoutAutomation('rooms')}
@@ -462,68 +458,83 @@ export default function HomeLayoutPage() {
             onSeedArchitecture={() => runLayoutAutomation('architecture')}
             onResetArchitecture={() => runLayoutAutomation('architectureReset')}
           />
-          <RoomGeometryControls
-            floorPlan={activeFloor}
-            floorRooms={activeFloorRooms}
-            editMode={roomEditMode}
-            editingRoomId={editingRoomId}
-            roomDraft={roomDraft}
-            onToggleEditMode={toggleRoomEditMode}
-            onSelectRoom={selectRoomForEditing}
-            onDraftChange={setRoomDraft}
-            onSave={saveRoomGeometry}
-            onResetSuggested={resetRoomToSuggestedOutline}
-            onResetFloorSuggested={resetFloorToSuggestedOutlines}
-          />
-          <ArchitecturalElementControls
-            key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}` : `new-${activeFloor.id}`}
-            floorPlan={activeFloor}
-            floorRooms={activeFloorRooms}
-            selectedElement={selectedElement?.floorPlanId === activeFloor.id ? selectedElement : null}
-            onCreate={createArchitecturalElement}
-            onSave={saveArchitecturalElement}
-            onDelete={deleteArchitecturalElement}
-            onClear={() => setSelectedElementId(null)}
-          />
-          <SelectedItemControls
-            key={selectedItem ? `${selectedItem.id}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
-            item={selectedItem}
-            room={selectedItemRoom}
-            floorPlan={selectedItemFloor}
-            snapToGrid={snapToGrid}
-            onSave={saveItemLayout}
-            onSnapChange={setSnapToGrid}
-            onClear={() => setSelectedItemId(null)}
-          />
-          <MeasuredFloorPlan
-            floorPlan={activeFloor}
-            floorPlans={measuredFloors}
-            rooms={rooms}
-            items={items}
-            overlayVisible={overlayVisible}
-            overlayOpacity={overlayOpacity}
-            overlayFit={overlayFit}
-            roomEditMode={roomEditMode}
-            editingRoomId={editingRoomId}
-            roomDraft={roomDraft}
-            onSelectRoom={selectRoomForEditing}
-            onRoomDraftChange={setRoomDraft}
-            selectedItemId={selectedItemId}
-            selectedElementId={selectedElementId}
-            onSelectItem={itemId => {
-              setSelectedItemId(itemId);
-              setSelectedElementId(null);
-            }}
-            architecturalElements={activeFloorElements}
-            onSelectArchitecturalElement={elementId => {
-              setSelectedElementId(elementId);
-              setSelectedItemId(null);
-            }}
-            onMoveArchitecturalElement={saveArchitecturalElement}
-            snapToGrid={snapToGrid}
-            onMoveItem={moveItem}
-            statusMessage={layoutMessage}
-          />
+          <div className="layout-workspace-grid">
+            <MeasuredFloorPlan
+              floorPlan={activeFloor}
+              floorPlans={measuredFloors}
+              rooms={rooms}
+              items={items}
+              overlayVisible={overlayVisible}
+              overlayOpacity={overlayOpacity}
+              overlayFit={overlayFit}
+              roomEditMode={roomEditMode}
+              editingRoomId={editingRoomId}
+              roomDraft={roomDraft}
+              onSelectRoom={selectRoomForEditing}
+              onRoomDraftChange={setRoomDraft}
+              selectedItemId={selectedItemId}
+              selectedElementId={selectedElementId}
+              onSelectItem={itemId => {
+                setSelectedItemId(itemId);
+                setSelectedElementId(null);
+              }}
+              architecturalElements={activeFloorElements}
+              onSelectArchitecturalElement={elementId => {
+                setSelectedElementId(elementId);
+                setSelectedItemId(null);
+              }}
+              onMoveArchitecturalElement={saveArchitecturalElement}
+              snapToGrid={snapToGrid}
+              onMoveItem={moveItem}
+              statusMessage={layoutMessage}
+            />
+            <div className="layout-inspector-stack">
+              <SelectedItemControls
+                key={selectedItem ? `${selectedItem.id}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
+                item={selectedItem}
+                room={selectedItemRoom}
+                floorPlan={selectedItemFloor}
+                snapToGrid={snapToGrid}
+                onSave={saveItemLayout}
+                onSnapChange={setSnapToGrid}
+                onClear={() => setSelectedItemId(null)}
+              />
+              <RoomGeometryControls
+                floorPlan={activeFloor}
+                floorRooms={activeFloorRooms}
+                editMode={roomEditMode}
+                editingRoomId={editingRoomId}
+                roomDraft={roomDraft}
+                onToggleEditMode={toggleRoomEditMode}
+                onSelectRoom={selectRoomForEditing}
+                onDraftChange={setRoomDraft}
+                onSave={saveRoomGeometry}
+                onResetSuggested={resetRoomToSuggestedOutline}
+                onResetFloorSuggested={resetFloorToSuggestedOutlines}
+              />
+              <ArchitecturalElementControls
+                key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}` : `new-${activeFloor.id}`}
+                floorPlan={activeFloor}
+                floorRooms={activeFloorRooms}
+                selectedElement={selectedElement?.floorPlanId === activeFloor.id ? selectedElement : null}
+                onCreate={createArchitecturalElement}
+                onSave={saveArchitecturalElement}
+                onDelete={deleteArchitecturalElement}
+                onClear={() => setSelectedElementId(null)}
+              />
+              <BlueprintOverlayControls
+                key={activeFloor.id}
+                floorPlan={activeFloor}
+                overlayVisible={overlayVisible}
+                overlayOpacity={overlayOpacity}
+                overlayFit={overlayFit}
+                onToggleOverlay={() => setOverlayVisible(value => !value)}
+                onOpacityChange={setOverlayOpacity}
+                onFitChange={setOverlayFit}
+                onSave={saveFloorPlan}
+              />
+            </div>
+          </div>
         </>
       )}
 
@@ -549,6 +560,100 @@ export default function HomeLayoutPage() {
               ))}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LayoutToolbar({
+  floorPlan,
+  overlayVisible,
+  snapToGrid,
+  roomEditMode,
+  busy,
+  message,
+  onToggleOverlay,
+  onSnapChange,
+  onToggleRoomEdit,
+  onSyncItems,
+  onReflowItems,
+  onSeedRooms,
+  onResetFloorRooms,
+  onSeedArchitecture,
+  onResetArchitecture,
+}: {
+  floorPlan: HomeFloorPlan;
+  overlayVisible: boolean;
+  snapToGrid: boolean;
+  roomEditMode: boolean;
+  busy: LayoutAutomationMode | null;
+  message: string | null;
+  onToggleOverlay: () => void;
+  onSnapChange: (value: boolean) => void;
+  onToggleRoomEdit: () => void;
+  onSyncItems: () => Promise<SaveResult>;
+  onReflowItems: () => Promise<SaveResult>;
+  onSeedRooms: () => Promise<SaveResult>;
+  onResetFloorRooms: () => Promise<SaveResult>;
+  onSeedArchitecture: () => Promise<SaveResult>;
+  onResetArchitecture: () => Promise<SaveResult>;
+}) {
+  return (
+    <div
+      className="card layout-toolbar"
+      style={{
+        marginBottom: 18,
+        boxShadow: '0 10px 30px rgba(28,25,23,0.08)',
+      }}
+    >
+      <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <Ruler size={17} color="var(--color-accent-dark)" />
+          <div style={{ minWidth: 0 }}>
+            <div className="section-label" style={{ marginBottom: 4 }}>Layout workspace</div>
+            <div style={{ fontSize: 12, color: 'var(--color-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {floorPlan.label} · {floorPlan.widthFt} ft x {floorPlan.depthFt} ft
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {message && (
+            <span style={{ fontSize: 12, color: message.toLowerCase().includes('failed') ? '#b91c1c' : 'var(--color-secondary)', fontWeight: 800 }}>
+              {message}
+            </span>
+          )}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleOverlay}>
+            {overlayVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+            {overlayVisible ? 'Hide Blueprint' : 'Show Blueprint'}
+          </button>
+          <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
+            <input type="checkbox" checked={snapToGrid} onChange={event => onSnapChange(event.target.checked)} style={{ width: 14, height: 14 }} />
+            Snap
+          </label>
+          <button type="button" className={`btn btn-${roomEditMode ? 'primary' : 'secondary'} btn-sm`} onClick={onToggleRoomEdit}>
+            <Edit3 size={14} />
+            {roomEditMode ? 'Finish Rooms' : 'Edit Rooms'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={busy !== null}>
+            <RotateCw size={14} /> {busy === 'items' ? 'Syncing...' : 'Sync Items'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onReflowItems} disabled={busy !== null}>
+            <MoveDiagonal size={14} /> {busy === 'reflow' ? 'Reflowing...' : 'Reflow'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedRooms} disabled={busy !== null}>
+            <Ruler size={14} /> {busy === 'rooms' ? 'Applying...' : 'Suggested Rooms'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetFloorRooms} disabled={busy !== null}>
+            <RotateCcw size={14} /> {busy === 'floorRooms' ? 'Resetting...' : 'Reset Rooms'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedArchitecture} disabled={busy !== null}>
+            <Grid3X3 size={14} /> {busy === 'architecture' ? 'Adding...' : 'Add Details'}
+          </button>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetArchitecture} disabled={busy !== null}>
+            <RotateCcw size={14} /> {busy === 'architectureReset' ? 'Resetting...' : 'Reset Details'}
+          </button>
         </div>
       </div>
     </div>
@@ -721,67 +826,6 @@ function BlueprintOverlayControls({
               {saveMessage}
             </span>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LayoutAutomationControls({
-  busy,
-  message,
-  onSyncItems,
-  onReflowItems,
-  onSeedRooms,
-  onResetFloorRooms,
-  onSeedArchitecture,
-  onResetArchitecture,
-}: {
-  busy: LayoutAutomationMode | null;
-  message: string | null;
-  onSyncItems: () => Promise<SaveResult>;
-  onReflowItems: () => Promise<SaveResult>;
-  onSeedRooms: () => Promise<SaveResult>;
-  onResetFloorRooms: () => Promise<SaveResult>;
-  onSeedArchitecture: () => Promise<SaveResult>;
-  onResetArchitecture: () => Promise<SaveResult>;
-}) {
-  return (
-    <div className="card" style={{ marginBottom: 18 }}>
-      <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Package size={17} color="var(--color-accent-dark)" />
-          <div>
-            <div className="section-label" style={{ marginBottom: 4 }}>Layout automation</div>
-            <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
-              Bring items and blueprint room outlines can be synced into this planner.
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {message && (
-            <span style={{ fontSize: 12, color: message.toLowerCase().includes('failed') ? '#b91c1c' : 'var(--color-secondary)', fontWeight: 700 }}>
-              {message}
-            </span>
-          )}
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={busy !== null}>
-            <RotateCw size={14} /> {busy === 'items' ? 'Syncing...' : 'Sync Bring Items'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onReflowItems} disabled={busy !== null}>
-            <MoveDiagonal size={14} /> {busy === 'reflow' ? 'Reflowing...' : 'Reflow Bring Items'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedRooms} disabled={busy !== null}>
-            <Ruler size={14} /> {busy === 'rooms' ? 'Applying...' : 'Apply Suggested Outlines'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetFloorRooms} disabled={busy !== null}>
-            <RotateCcw size={14} /> {busy === 'floorRooms' ? 'Resetting...' : 'Reset Floor Rooms'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedArchitecture} disabled={busy !== null}>
-            <Grid3X3 size={14} /> {busy === 'architecture' ? 'Adding...' : 'Add Recommended Details'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetArchitecture} disabled={busy !== null}>
-            <RotateCcw size={14} /> {busy === 'architectureReset' ? 'Resetting...' : 'Reset Floor Details'}
-          </button>
         </div>
       </div>
     </div>

@@ -487,6 +487,43 @@ h2 { font-size: 12px; font-weight: 800; color: var(--color-foreground); text-tra
   .overview-grid { grid-template-columns: 1fr; gap: 20px; }
 }
 
+.layout-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.layout-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  gap: 18px;
+  align-items: start;
+}
+
+.layout-inspector-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 86px;
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+
+@media (max-width: 1040px) {
+  .layout-toolbar,
+  .layout-inspector-stack {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .layout-workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ─── Map grid ───────────────────────────── */
 .map-grid { display: grid; grid-template-columns: 1fr 360px; height: 640px; }
 .map-side-panel { overflow-y: auto; }
