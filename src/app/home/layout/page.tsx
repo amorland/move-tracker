@@ -1853,22 +1853,24 @@ function MeasuredFloorPlan({
                   top: `${(label.y / floorPlan.depthFt) * 100}%`,
                   transform: 'translate(-50%, -50%)',
                   zIndex: 3,
-                  maxWidth: 142,
-                  border: selected ? '1px solid #1f6b5b' : `1px solid ${status.border}`,
+                  maxWidth: 96,
+                  border: selected ? '1px solid rgba(31,107,91,0.42)' : `1px solid ${status.border}`,
                   borderRadius: 999,
-                  background: selected ? 'rgba(226,243,235,0.96)' : status.background,
-                  color: 'var(--color-foreground)',
-                  padding: '4px 8px',
-                  fontSize: 10,
-                  fontWeight: 800,
+                  background: selected ? 'rgba(226,243,235,0.74)' : status.background,
+                  color: selected ? 'rgba(28,25,23,0.78)' : 'rgba(28,25,23,0.58)',
+                  padding: '2px 6px',
+                  fontSize: 8,
+                  fontWeight: 700,
                   textTransform: 'uppercase',
                   letterSpacing: 0,
+                  lineHeight: 1.1,
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
+                  opacity: selected ? 0.86 : 0.68,
                   pointerEvents: roomEditMode ? 'auto' : 'none',
                   cursor: roomEditMode ? 'pointer' : 'default',
-                  boxShadow: selected ? '0 2px 8px rgba(31,107,91,0.18)' : '0 1px 4px rgba(28,25,23,0.08)',
+                  boxShadow: selected ? '0 2px 6px rgba(31,107,91,0.12)' : '0 1px 3px rgba(28,25,23,0.05)',
                 }}
               >
                 {room.name}
@@ -2163,8 +2165,8 @@ function roomGeometryStatus(room: Room) {
     return {
       label: 'Recommended',
       color: '#1f6b5b',
-      border: 'rgba(31,107,91,0.44)',
-      background: 'rgba(226,243,235,0.9)',
+      border: 'rgba(31,107,91,0.28)',
+      background: 'rgba(226,243,235,0.56)',
     };
   }
 
@@ -2172,49 +2174,48 @@ function roomGeometryStatus(room: Room) {
     return {
       label: 'Custom',
       color: '#9a5a2f',
-      border: 'rgba(154,90,47,0.5)',
-      background: 'rgba(246,224,205,0.9)',
+      border: 'rgba(154,90,47,0.32)',
+      background: 'rgba(246,224,205,0.56)',
     };
   }
 
   return {
     label: 'Unknown',
     color: 'var(--color-secondary)',
-    border: 'rgba(92,86,72,0.28)',
-    background: 'rgba(255,252,247,0.88)',
+    border: 'rgba(92,86,72,0.22)',
+    background: 'rgba(255,252,247,0.5)',
   };
 }
 
 function roomOutlineStyle(room: Room, selected: boolean) {
-  const status = roomGeometryStatus(room);
   if (selected) {
     return {
-      fill: 'rgba(31,107,91,0.14)',
+      fill: 'rgba(31,107,91,0.24)',
       stroke: '#1f6b5b',
-      strokeWidth: 0.55,
+      strokeWidth: 0.68,
     };
   }
 
   if (room.geometrySource === 'recommended') {
     return {
-      fill: 'rgba(226,243,235,0.13)',
-      stroke: 'rgba(31,107,91,0.52)',
-      strokeWidth: 0.34,
+      fill: 'rgba(226,243,235,0.24)',
+      stroke: 'rgba(31,107,91,0.74)',
+      strokeWidth: 0.48,
     };
   }
 
   if (room.geometrySource === 'custom') {
     return {
-      fill: 'rgba(246,224,205,0.13)',
-      stroke: 'rgba(154,90,47,0.58)',
-      strokeWidth: 0.36,
+      fill: 'rgba(246,224,205,0.24)',
+      stroke: 'rgba(154,90,47,0.78)',
+      strokeWidth: 0.5,
     };
   }
 
   return {
-    fill: 'rgba(255,255,255,0.12)',
-    stroke: status.border,
-    strokeWidth: 0.32,
+    fill: 'rgba(255,252,247,0.2)',
+    stroke: 'rgba(92,86,72,0.58)',
+    strokeWidth: 0.42,
   };
 }
 
