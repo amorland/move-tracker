@@ -70,32 +70,6 @@ export type ArchitecturalElementDraft = {
   notes: string;
 };
 
-export type LayoutAutomationMode = 'items' | 'rooms' | 'floorRooms' | 'reflow' | 'architecture' | 'architectureReset';
-export type LayoutAutomationStats = {
-  layout?: {
-    created?: number;
-    updated?: number;
-    removed?: number;
-    deduped?: number;
-    unmatched?: number;
-  };
-  roomSeeds?: {
-    updated?: number;
-    skipped?: number;
-    missing?: number;
-    custom?: number;
-    recommended?: number;
-  } | null;
-  architectural?: {
-    created?: number;
-    updated?: number;
-    removed?: number;
-    skipped?: number;
-    missing?: number;
-  } | null;
-  error?: string;
-};
-
 export const ARCHITECTURAL_ELEMENT_TYPES: ArchitecturalElementType[] = [
   'door',
   'window',
@@ -575,22 +549,6 @@ export function architecturalElementStyle(type: ArchitecturalElementType) {
     return { minWidth: 32, minHeight: 28, borderRadius: 5, border: '1px solid #356c89', background: 'rgba(230,237,242,0.86)', color: '#356c89' };
   }
   return { minWidth: 30, minHeight: 30, borderRadius: 5, border: '1px solid var(--color-border-strong)', background: 'rgba(255,252,247,0.86)', color: 'var(--color-secondary)' };
-}
-
-export function formatAutomationMessage(mode: LayoutAutomationMode, body: LayoutAutomationStats | null) {
-  if (mode === 'rooms' || mode === 'floorRooms') {
-    const seeds = body?.roomSeeds;
-    return `Outlines updated ${seeds?.updated ?? 0}; skipped ${seeds?.skipped ?? 0}; custom preserved ${seeds?.custom ?? 0}.`;
-  }
-
-  if (mode === 'architecture' || mode === 'architectureReset') {
-    const architectural = body?.architectural;
-    return `Details added ${architectural?.created ?? 0}; updated ${architectural?.updated ?? 0}; removed ${architectural?.removed ?? 0}.`;
-  }
-
-  const layout = body?.layout;
-  if (mode === 'reflow') return `Items reflowed ${layout?.updated ?? 0}; created ${layout?.created ?? 0}.`;
-  return `Items created ${layout?.created ?? 0}; updated ${layout?.updated ?? 0}; removed ${layout?.removed ?? 0}.`;
 }
 
 export function toBlueprintImageSrc(value?: string | null) {

@@ -1,48 +1,26 @@
-import { applySuggestedRoomGeometries, syncBringItemsToLayout, syncRecommendedArchitecturalElements } from '@/lib/server/homeLayoutSync';
+import { syncBringItemsToLayout } from '@/lib/server/homeLayoutSync';
 import { getSupabaseServer } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
-export async function POST(request: Request) {
+/**
+ * POST /api/home-layout-sync
+ *
+ * Promotes all eligible "Bring" belongings into unplaced room_items rows.
+ * Items are created without coordinates — the user drags them onto the
+ * walls-authoritative layout once it's defined.
+ *
+ * The previous body knobs (includeRoomSeeds, overwriteRoomSeeds,
+ * roomId, includeArchitecturalSeeds, resetArchitecturalFloor) are gone —
+ * polygon-based room seeding and recommended-architectural-element seeding
+ * were retired in Phase 4 when walls became authoritative.
+ */
+export async function POST() {
   const supabase = await getSupabaseServer();
-  const body = await request.json().catch(() => ({})) as {
-    includeRoomSeeds?: boolean;
-    overwriteRoomSeeds?: boolean;
-    roomId?: number;
-    floorPlanId?: number;
-    reflowItems?: boolean;
-    includeArchitecturalSeeds?: boolean;
-    resetArchitecturalFloor?: boolean;
-  };
+  const layout = await syncBringItemsToLayout(supabase);
 
-  const floorPlanId = Number.isFinite(Number(body.floorPlanId)) ? Number(body.floorPlanId) : null;
-  const layout = await syncBringItemsToLayout(supabase, { reflowExisting: Boolean(body.reflowItems) });
-  const roomSeeds = body.includeRoomSeeds
-    ? await applySuggestedRoomGeometries(supabase, {
-      overwrite: Boolean(body.overwriteRoomSeeds),
-      roomId: Number.isFinite(Number(body.roomId)) ? Number(body.roomId) : null,
-      floorPlanId,
-    })
-    : null;
-  const architectural = body.includeArchitecturalSeeds
-    ? await syncRecommendedArchitecturalElements(supabase, {
-      floorPlanId,
-      resetFloor: Boolean(body.resetArchitecturalFloor),
-    })
-    : null;
-
-  const errors = [
-    ...layout.errors,
-    ...(roomSeeds?.errors ?? []),
-    ...(architectural?.errors ?? []),
-  ];
-
-  if (errors.length > 0) {
-    return NextResponse.json({ error: errors.join('; '), layout, roomSeeds, architectural }, { status: 500 });
+  if (layout.errors.length > 0) {
+    return NextResponse.json({ error: layout.errors.join('; '), layout }, { status: 500 });
   }
 
-  if (body.roomId && roomSeeds && roomSeeds.updated === 0) {
-    return NextResponse.json({ error: 'No suggested outline is available for this room.', layout, roomSeeds, architectural }, { status: 404 });
-  }
-
-  return NextResponse.json({ layout, roomSeeds, architectural });
+  return NextResponse.json({ layout });
 }

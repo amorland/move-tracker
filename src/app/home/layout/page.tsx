@@ -9,7 +9,7 @@ import {
 } from '@/lib/homeLayout';
 import { FURNITURE_TYPE_OPTIONS, normaliseFurnitureType } from '@/lib/furniture';
 import { ArchitecturalElement, ArchitecturalElementType, FurnitureType, HomeFloorPlan, PlanPoint, Room, RoomItem, Wall } from '@/lib/types';
-import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MeasuredFloorPlan } from './MeasuredFloorPlan';
@@ -19,8 +19,6 @@ import {
   ARCHITECTURAL_ELEMENT_TYPES,
   ArchitecturalElementDraft,
   ArchitecturalElementUpdate,
-  LayoutAutomationMode,
-  LayoutAutomationStats,
   OverlayFit,
   RoomGeometryDraft,
   RoomItemLayoutUpdate,
@@ -32,7 +30,6 @@ import {
   clampArchitecturalElementPosition,
   clampItemPosition,
   defaultArchitecturalElementDimensions,
-  formatAutomationMessage,
   formatFt,
   formatNumberInput,
   ftToIn,
@@ -77,8 +74,8 @@ export default function HomeLayoutPage() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<number | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(true);
-  const [automationBusy, setAutomationBusy] = useState<LayoutAutomationMode | null>(null);
-  const [automationMessage, setAutomationMessage] = useState<string | null>(null);
+  const [syncingItems, setSyncingItems] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [layoutMessage, setLayoutMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -377,76 +374,28 @@ export default function HomeLayoutPage() {
     return { ok: true };
   };
 
-  const runLayoutAutomation = async (mode: LayoutAutomationMode): Promise<SaveResult> => {
-    const requiresSavedFloor = mode === 'floorRooms' || mode === 'architecture' || mode === 'architectureReset';
-    if (requiresSavedFloor && (!activeFloor || activeFloor.id < 0)) {
-      const message = 'Save this floor plan before running floor-specific automation.';
-      setAutomationMessage(message);
-      return { ok: false, message };
-    }
-
-    setAutomationBusy(mode);
-    setAutomationMessage(null);
+  const syncItemsFromBelongings = async (): Promise<SaveResult> => {
+    setSyncingItems(true);
+    setStatusMessage(null);
     try {
-      const floorPlanId = activeFloor && activeFloor.id > 0 ? activeFloor.id : undefined;
-      const res = await fetch('/api/home-layout-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          includeRoomSeeds: mode === 'rooms' || mode === 'floorRooms',
-          overwriteRoomSeeds: mode === 'floorRooms',
-          floorPlanId,
-          reflowItems: mode === 'reflow',
-          includeArchitecturalSeeds: mode === 'architecture' || mode === 'architectureReset',
-          resetArchitecturalFloor: mode === 'architectureReset',
-        }),
-      });
-      const body = await res.json().catch(() => null) as LayoutAutomationStats | null;
-
+      const res = await fetch('/api/home-layout-sync', { method: 'POST' });
+      const body = await res.json().catch(() => null) as { error?: string; layout?: { created?: number; updated?: number; removed?: number } } | null;
       if (!res.ok) {
         const message = body?.error || `Layout sync failed with HTTP ${res.status}`;
-        setAutomationMessage(message);
+        setStatusMessage(message);
         return { ok: false, message };
       }
-
-      setAutomationMessage(formatAutomationMessage(mode, body));
+      const stats = body?.layout;
+      setStatusMessage(`Items created ${stats?.created ?? 0}; updated ${stats?.updated ?? 0}; removed ${stats?.removed ?? 0}.`);
       await fetchAll();
       return { ok: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Layout sync failed.';
-      setAutomationBusy(null);
-      setAutomationMessage(message);
+      setStatusMessage(message);
       return { ok: false, message };
     } finally {
-      setAutomationBusy(null);
+      setSyncingItems(false);
     }
-  };
-
-  const resetRoomToSuggestedOutline = async (roomId: number): Promise<SaveResult> => {
-    const res = await fetch('/api/home-layout-sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ includeRoomSeeds: true, overwriteRoomSeeds: true, roomId }),
-    });
-    const body = await res.json().catch(() => null) as LayoutAutomationStats | null;
-
-    if (!res.ok) {
-      return { ok: false, message: body?.error || `Reset failed with HTTP ${res.status}` };
-    }
-
-    const next = await fetchAll();
-    const resetRoom = next.rooms.find(room => room.id === roomId);
-    if (resetRoom) setRoomDraft(makeRoomGeometryDraft(resetRoom));
-    return { ok: true };
-  };
-
-  const resetFloorToSuggestedOutlines = async (): Promise<SaveResult> => {
-    const result = await runLayoutAutomation('floorRooms');
-    if (result.ok && editingRoomId) {
-      const room = rooms.find(entry => entry.id === editingRoomId);
-      if (room) setRoomDraft(makeRoomGeometryDraft(room));
-    }
-    return result;
   };
 
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading layout...</div>;
@@ -519,8 +468,8 @@ export default function HomeLayoutPage() {
                 setWallTraceStart(null);
               }
             }}
-            busy={automationBusy}
-            message={automationMessage}
+            syncingItems={syncingItems}
+            message={statusMessage}
             onToggleOverlay={() => setOverlayVisible(value => !value)}
             onToggleRoomLabels={() => setRoomLabelsVisible(value => !value)}
             onSnapChange={setSnapToGrid}
@@ -530,12 +479,7 @@ export default function HomeLayoutPage() {
               setWallTraceStart(null);
               if (!wallEditMode) setRoomEditMode(false);
             }}
-            onSyncItems={() => runLayoutAutomation('items')}
-            onReflowItems={() => runLayoutAutomation('reflow')}
-            onSeedRooms={() => runLayoutAutomation('rooms')}
-            onResetFloorRooms={resetFloorToSuggestedOutlines}
-            onSeedArchitecture={() => runLayoutAutomation('architecture')}
-            onResetArchitecture={() => runLayoutAutomation('architectureReset')}
+            onSyncItems={syncItemsFromBelongings}
           />
           <div className="layout-workspace-grid">
             {viewMode === '2d' ? (
@@ -623,8 +567,6 @@ export default function HomeLayoutPage() {
                 onDraftChange={setRoomDraft}
                 onCreateRoom={createLayoutRoom}
                 onSave={saveRoomGeometry}
-                onResetSuggested={resetRoomToSuggestedOutline}
-                onResetFloorSuggested={resetFloorToSuggestedOutlines}
               />
               <ArchitecturalElementControls
                 key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}` : `new-${activeFloor.id}`}
@@ -690,19 +632,14 @@ function LayoutToolbar({
   wallCount,
   viewMode,
   onViewModeChange,
-  busy,
   message,
   onToggleOverlay,
   onToggleRoomLabels,
   onSnapChange,
   onToggleRoomEdit,
   onToggleWallEdit,
+  syncingItems,
   onSyncItems,
-  onReflowItems,
-  onSeedRooms,
-  onResetFloorRooms,
-  onSeedArchitecture,
-  onResetArchitecture,
 }: {
   floorPlan: HomeFloorPlan;
   overlayVisible: boolean;
@@ -713,7 +650,7 @@ function LayoutToolbar({
   wallCount: number;
   viewMode: '2d' | '3d';
   onViewModeChange: (mode: '2d' | '3d') => void;
-  busy: LayoutAutomationMode | null;
+  syncingItems: boolean;
   message: string | null;
   onToggleOverlay: () => void;
   onToggleRoomLabels: () => void;
@@ -721,11 +658,6 @@ function LayoutToolbar({
   onToggleRoomEdit: () => void;
   onToggleWallEdit: () => void;
   onSyncItems: () => Promise<SaveResult>;
-  onReflowItems: () => Promise<SaveResult>;
-  onSeedRooms: () => Promise<SaveResult>;
-  onResetFloorRooms: () => Promise<SaveResult>;
-  onSeedArchitecture: () => Promise<SaveResult>;
-  onResetArchitecture: () => Promise<SaveResult>;
 }) {
   return (
     <div
@@ -788,23 +720,8 @@ function LayoutToolbar({
             <Ruler size={14} />
             {wallEditMode ? `Finish Walls (${wallCount})` : `Trace Walls (${wallCount})`}
           </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={busy !== null}>
-            <RotateCw size={14} /> {busy === 'items' ? 'Syncing...' : 'Sync Items'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onReflowItems} disabled={busy !== null}>
-            <MoveDiagonal size={14} /> {busy === 'reflow' ? 'Reflowing...' : 'Reflow'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedRooms} disabled={busy !== null}>
-            <Ruler size={14} /> {busy === 'rooms' ? 'Applying...' : 'Suggested Rooms'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetFloorRooms} disabled={busy !== null}>
-            <RotateCcw size={14} /> {busy === 'floorRooms' ? 'Resetting...' : 'Reset Rooms'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onSeedArchitecture} disabled={busy !== null}>
-            <Grid3X3 size={14} /> {busy === 'architecture' ? 'Adding...' : 'Add Details'}
-          </button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onResetArchitecture} disabled={busy !== null}>
-            <RotateCcw size={14} /> {busy === 'architectureReset' ? 'Resetting...' : 'Reset Details'}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={syncingItems}>
+            <RotateCw size={14} /> {syncingItems ? 'Syncing...' : 'Sync Items'}
           </button>
         </div>
       </div>
@@ -995,8 +912,6 @@ function RoomGeometryControls({
   onDraftChange,
   onCreateRoom,
   onSave,
-  onResetSuggested,
-  onResetFloorSuggested,
 }: {
   floorPlan: HomeFloorPlan;
   floorRooms: Room[];
@@ -1008,8 +923,6 @@ function RoomGeometryControls({
   onDraftChange: (draft: RoomGeometryDraft | null) => void;
   onCreateRoom: (name: string) => Promise<SaveResult>;
   onSave: (draft: RoomGeometryDraft) => Promise<SaveResult>;
-  onResetSuggested: (roomId: number) => Promise<SaveResult>;
-  onResetFloorSuggested: () => Promise<SaveResult>;
 }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -1067,35 +980,6 @@ function RoomGeometryControls({
     const points = roomEditorPoints(selectedRoom, roomDraft);
     if (points.length <= 3) return;
     updateDraft({ shapePoints: points.slice(0, -1) });
-  };
-
-  const resetSuggested = async () => {
-    if (!selectedRoom) return;
-    setSaveState('saving');
-    setSaveMessage(null);
-    const result = await onResetSuggested(selectedRoom.id);
-    if (result.ok) {
-      setSaveState('saved');
-      setSaveMessage('Suggested outline applied.');
-      window.setTimeout(() => setSaveState('idle'), 1800);
-      return;
-    }
-    setSaveState('error');
-    setSaveMessage(result.message);
-  };
-
-  const resetFloorSuggested = async () => {
-    setSaveState('saving');
-    setSaveMessage(null);
-    const result = await onResetFloorSuggested();
-    if (result.ok) {
-      setSaveState('saved');
-      setSaveMessage('Floor reset to recommended outlines.');
-      window.setTimeout(() => setSaveState('idle'), 1800);
-      return;
-    }
-    setSaveState('error');
-    setSaveMessage(result.message);
   };
 
   const createRoom = async () => {
@@ -1197,12 +1081,6 @@ function RoomGeometryControls({
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={useRectangle} disabled={!selectedRoom}>
                   <Grid3X3 size={14} /> Reset Rectangle
-                </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={resetSuggested} disabled={!selectedRoom || saveState === 'saving'}>
-                  <RotateCcw size={14} /> Reset to Suggested
-                </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={resetFloorSuggested} disabled={saveState === 'saving'}>
-                  <RotateCcw size={14} /> Reset Floor
                 </button>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={addPoint} disabled={!selectedRoom}>
                   <Plus size={14} /> Add Point
