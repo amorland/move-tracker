@@ -1088,6 +1088,8 @@ function normaliseArchitecturalElement(row: Record<string, unknown>): Architectu
     sourceKey: nullableString(row.source_key ?? row.sourceKey),
     notes: nullableString(row.notes),
     sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
+    wallId: nullableNumber(row.wall_id ?? row.wallId),
+    offsetAlongWallFt: nullableNumber(row.offset_along_wall_ft ?? row.offsetAlongWallFt),
   };
 }
 

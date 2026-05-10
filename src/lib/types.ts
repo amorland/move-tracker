@@ -257,6 +257,21 @@ export interface ArchitecturalElement {
   sourceKey: string | null;
   notes: string | null;
   sortIndex: number;
+  wallId: number | null;
+  offsetAlongWallFt: number | null;
+}
+
+export interface Wall {
+  id: number;
+  floorPlanId: number;
+  startXFt: number;
+  startYFt: number;
+  endXFt: number;
+  endYFt: number;
+  thicknessIn: number;
+  heightFt: number | null;
+  notes: string | null;
+  sortIndex: number;
 }
 
 export interface HomeProject {

@@ -186,6 +186,8 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-room-geometry.sql](supabase-room-geometry.sql) — adds room label coordinates and polygon room outlines for blueprint-aligned planning
 - [supabase-room-item-furniture-types.sql](supabase-room-item-furniture-types.sql) — adds stored furniture shape types to room items and backfills existing records from item names
 - [supabase-belongings-placement.sql](supabase-belongings-placement.sql) — adds `size_class` plus per-item dimensions (`width_in`, `depth_in`, `height_in`) to belongings and backfills from existing room_items rows
+- [supabase-walls.sql](supabase-walls.sql) — adds the `walls` table (line-segment wall geometry per floor) and nullable `wall_id`/`offset_along_wall_ft` columns on architectural_elements
+- [supabase-reset-placements.sql](supabase-reset-placements.sql) — destructive: clears `room_items` placements, `rooms.shape_points`, and all `architectural_elements`. Run when migrating a floor over to wall-based geometry.
 - [supabase-rls.sql](supabase-rls.sql) — enables RLS + authenticated-only policies on the app tables
 
 ## Running Locally

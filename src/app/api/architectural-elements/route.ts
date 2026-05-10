@@ -94,6 +94,8 @@ export async function PATCH(request: Request) {
   if ('sourceKey' in rest) update.source_key = nullableString(rest.sourceKey);
   if ('notes' in rest) update.notes = rest.notes;
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
+  if ('wallId' in rest) update.wall_id = rest.wallId === null ? null : Number(rest.wallId);
+  if ('offsetAlongWallFt' in rest) update.offset_along_wall_ft = nullableNumber(rest.offsetAlongWallFt);
 
   let { data, error } = await supabase
     .from('architectural_elements')
@@ -143,6 +145,8 @@ function normalise(row: Record<string, unknown>): ArchitecturalElement {
     sourceKey: nullableString(row.source_key ?? row.sourceKey),
     notes: nullableString(row.notes),
     sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
+    wallId: nullableNumber(row.wall_id ?? row.wallId),
+    offsetAlongWallFt: nullableNumber(row.offset_along_wall_ft ?? row.offsetAlongWallFt),
   };
 }
 

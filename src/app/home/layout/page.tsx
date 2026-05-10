@@ -8,7 +8,7 @@ import {
   planPointsForRoom,
 } from '@/lib/homeLayout';
 import { FURNITURE_TYPE_OPTIONS, normaliseFurnitureType } from '@/lib/furniture';
-import { ArchitecturalElement, ArchitecturalElementType, FurnitureType, HomeFloorPlan, PlanPoint, Room, RoomItem } from '@/lib/types';
+import { ArchitecturalElement, ArchitecturalElementType, FurnitureType, HomeFloorPlan, PlanPoint, Room, RoomItem, Wall } from '@/lib/types';
 import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, MoveDiagonal, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -58,8 +58,11 @@ export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [items, setItems] = useState<RoomItem[]>([]);
   const [architecturalElements, setArchitecturalElements] = useState<ArchitecturalElement[]>([]);
+  const [walls, setWalls] = useState<Wall[]>([]);
   const [floorPlans, setFloorPlans] = useState<HomeFloorPlan[]>([]);
   const [activeFloorName, setActiveFloorName] = useState<string | null>(null);
+  const [wallEditMode, setWallEditMode] = useState(false);
+  const [wallTraceStart, setWallTraceStart] = useState<PlanPoint | null>(null);
   const [overlayVisible, setOverlayVisible] = useState(true);
   const [roomLabelsVisible, setRoomLabelsVisible] = useState(true);
   const [overlayOpacity, setOverlayOpacity] = useState(0.42);
@@ -76,24 +79,27 @@ export default function HomeLayoutPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    const [roomsRes, itemsRes, elementsRes, floorPlansRes] = await Promise.all([
+    const [roomsRes, itemsRes, elementsRes, floorPlansRes, wallsRes] = await Promise.all([
       fetch('/api/rooms'),
       fetch('/api/room-items'),
       fetch('/api/architectural-elements'),
       fetch('/api/home-floor-plans'),
+      fetch('/api/walls'),
     ]);
     const nextRooms: Room[] = await roomsRes.json();
     const nextItems: RoomItem[] = await itemsRes.json();
     const nextElements: ArchitecturalElement[] = elementsRes.ok ? await elementsRes.json() : [];
     const nextFloorPlans: HomeFloorPlan[] = floorPlansRes.ok ? await floorPlansRes.json() : [];
+    const nextWalls: Wall[] = wallsRes.ok ? await wallsRes.json() : [];
 
     setRooms(nextRooms);
     setItems(nextItems);
     setArchitecturalElements(nextElements);
     setFloorPlans(nextFloorPlans);
+    setWalls(nextWalls);
     setActiveFloorName(current => current ?? (nextFloorPlans[0]?.name ?? fallbackFloorPlansForRooms(nextRooms)[0]?.name ?? null));
     setLoading(false);
-    return { rooms: nextRooms, items: nextItems, architecturalElements: nextElements, floorPlans: nextFloorPlans };
+    return { rooms: nextRooms, items: nextItems, architecturalElements: nextElements, floorPlans: nextFloorPlans, walls: nextWalls };
   }, []);
 
   useEffect(() => {
@@ -113,6 +119,7 @@ export default function HomeLayoutPage() {
   const unplacedItems = items.filter(item => item.roomId === null && item.floorPlanId === null);
   const selectedItem = items.find(item => item.id === selectedItemId) ?? null;
   const activeFloorElements = activeFloor ? architecturalElements.filter(element => element.floorPlanId === activeFloor.id) : [];
+  const activeFloorWalls = activeFloor ? walls.filter(wall => wall.floorPlanId === activeFloor.id) : [];
   const selectedElement = architecturalElements.find(element => element.id === selectedElementId) ?? null;
   const selectedItemRoom = selectedItem?.roomId ? rooms.find(room => room.id === selectedItem.roomId) ?? null : null;
   const selectedItemFloor = selectedItem?.floorPlanId
@@ -209,6 +216,38 @@ export default function HomeLayoutPage() {
 
     setArchitecturalElements(current => current.filter(element => element.id !== elementId));
     setSelectedElementId(null);
+    return { ok: true };
+  };
+
+  const createWall = async (start: PlanPoint, end: PlanPoint): Promise<SaveResult> => {
+    if (!activeFloor || activeFloor.id < 0) return { ok: false, message: 'Save this floor plan before tracing walls.' };
+    const res = await fetch('/api/walls', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        floorPlanId: activeFloor.id,
+        startXFt: roundToHundredth(start.x),
+        startYFt: roundToHundredth(start.y),
+        endXFt: roundToHundredth(end.x),
+        endYFt: roundToHundredth(end.y),
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Wall create failed with HTTP ${res.status}` };
+    }
+    const saved: Wall = await res.json();
+    setWalls(current => [...current, saved]);
+    return { ok: true };
+  };
+
+  const deleteWall = async (wallId: number): Promise<SaveResult> => {
+    const res = await fetch(`/api/walls?id=${wallId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Wall delete failed with HTTP ${res.status}` };
+    }
+    setWalls(current => current.filter(wall => wall.id !== wallId));
     return { ok: true };
   };
 
@@ -452,12 +491,19 @@ export default function HomeLayoutPage() {
             roomLabelsVisible={roomLabelsVisible}
             snapToGrid={snapToGrid}
             roomEditMode={roomEditMode}
+            wallEditMode={wallEditMode}
+            wallCount={activeFloorWalls.length}
             busy={automationBusy}
             message={automationMessage}
             onToggleOverlay={() => setOverlayVisible(value => !value)}
             onToggleRoomLabels={() => setRoomLabelsVisible(value => !value)}
             onSnapChange={setSnapToGrid}
             onToggleRoomEdit={toggleRoomEditMode}
+            onToggleWallEdit={() => {
+              setWallEditMode(value => !value);
+              setWallTraceStart(null);
+              if (!wallEditMode) setRoomEditMode(false);
+            }}
             onSyncItems={() => runLayoutAutomation('items')}
             onReflowItems={() => runLayoutAutomation('reflow')}
             onSeedRooms={() => runLayoutAutomation('rooms')}
@@ -494,6 +540,12 @@ export default function HomeLayoutPage() {
               onMoveArchitecturalElement={saveArchitecturalElement}
               snapToGrid={snapToGrid}
               onMoveItem={moveItem}
+              walls={activeFloorWalls}
+              wallEditMode={wallEditMode}
+              wallTraceStart={wallTraceStart}
+              onWallTraceStartChange={setWallTraceStart}
+              onCreateWall={createWall}
+              onDeleteWall={deleteWall}
               statusMessage={layoutMessage}
             />
             <div className="layout-inspector-stack">
@@ -581,12 +633,15 @@ function LayoutToolbar({
   roomLabelsVisible,
   snapToGrid,
   roomEditMode,
+  wallEditMode,
+  wallCount,
   busy,
   message,
   onToggleOverlay,
   onToggleRoomLabels,
   onSnapChange,
   onToggleRoomEdit,
+  onToggleWallEdit,
   onSyncItems,
   onReflowItems,
   onSeedRooms,
@@ -599,12 +654,15 @@ function LayoutToolbar({
   roomLabelsVisible: boolean;
   snapToGrid: boolean;
   roomEditMode: boolean;
+  wallEditMode: boolean;
+  wallCount: number;
   busy: LayoutAutomationMode | null;
   message: string | null;
   onToggleOverlay: () => void;
   onToggleRoomLabels: () => void;
   onSnapChange: (value: boolean) => void;
   onToggleRoomEdit: () => void;
+  onToggleWallEdit: () => void;
   onSyncItems: () => Promise<SaveResult>;
   onReflowItems: () => Promise<SaveResult>;
   onSeedRooms: () => Promise<SaveResult>;
@@ -652,6 +710,10 @@ function LayoutToolbar({
           <button type="button" className={`btn btn-${roomEditMode ? 'primary' : 'secondary'} btn-sm`} onClick={onToggleRoomEdit}>
             <Edit3 size={14} />
             {roomEditMode ? 'Finish Rooms' : 'Edit Rooms'}
+          </button>
+          <button type="button" className={`btn btn-${wallEditMode ? 'primary' : 'secondary'} btn-sm`} onClick={onToggleWallEdit} title={wallEditMode ? 'Click two points to add a wall, then click endpoint × to delete. Click here to finish.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints.'}>
+            <Ruler size={14} />
+            {wallEditMode ? `Finish Walls (${wallCount})` : `Trace Walls (${wallCount})`}
           </button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={busy !== null}>
             <RotateCw size={14} /> {busy === 'items' ? 'Syncing...' : 'Sync Items'}

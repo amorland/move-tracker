@@ -11,8 +11,10 @@ import {
 import type {
   ArchitecturalElement,
   HomeFloorPlan,
+  PlanPoint,
   Room,
   RoomItem,
+  Wall,
 } from '@/lib/types';
 import {
   ArchitecturalElementUpdate,
@@ -49,6 +51,7 @@ export function MeasuredFloorPlan({
   rooms,
   items,
   architecturalElements,
+  walls,
   overlayVisible,
   roomLabelsVisible,
   overlayOpacity,
@@ -65,6 +68,11 @@ export function MeasuredFloorPlan({
   onMoveArchitecturalElement,
   snapToGrid,
   onMoveItem,
+  wallEditMode,
+  wallTraceStart,
+  onWallTraceStartChange,
+  onCreateWall,
+  onDeleteWall,
   statusMessage,
 }: {
   floorPlan: HomeFloorPlan;
@@ -72,6 +80,7 @@ export function MeasuredFloorPlan({
   rooms: Room[];
   items: RoomItem[];
   architecturalElements: ArchitecturalElement[];
+  walls: Wall[];
   overlayVisible: boolean;
   roomLabelsVisible: boolean;
   overlayOpacity: number;
@@ -88,12 +97,18 @@ export function MeasuredFloorPlan({
   onMoveArchitecturalElement: (elementId: number, update: ArchitecturalElementUpdate) => Promise<SaveResult>;
   snapToGrid: boolean;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
+  wallEditMode: boolean;
+  wallTraceStart: PlanPoint | null;
+  onWallTraceStartChange: (point: PlanPoint | null) => void;
+  onCreateWall: (start: PlanPoint, end: PlanPoint) => Promise<SaveResult>;
+  onDeleteWall: (wallId: number) => Promise<SaveResult>;
   statusMessage: string | null;
 }) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const [dragTarget, setDragTarget] = useState<GeometryDragTarget | null>(null);
   const [itemDragPreview, setItemDragPreview] = useState<{ itemId: number; xFt: number; yFt: number } | null>(null);
   const [architecturalDragPreview, setArchitecturalDragPreview] = useState<{ elementId: number; xFt: number; yFt: number } | null>(null);
+  const [wallCursor, setWallCursor] = useState<PlanPoint | null>(null);
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
   const roomShapes = floorRooms.map(room => ({
     room,
@@ -127,7 +142,7 @@ export function MeasuredFloorPlan({
     depth: floorPlan.overlayDepthFt ?? floorPlan.depthFt,
   };
 
-  const pointFromPointer = (event: PointerEvent<Element>) => {
+  const pointFromPointer = (event: { clientX: number; clientY: number }) => {
     if (!surfaceRef.current) return null;
     const bounds = surfaceRef.current.getBoundingClientRect();
     return {
@@ -136,7 +151,32 @@ export function MeasuredFloorPlan({
     };
   };
 
+  const wallEndpoints: PlanPoint[] = walls.flatMap(wall => [
+    { x: wall.startXFt, y: wall.startYFt },
+    { x: wall.endXFt, y: wall.endYFt },
+  ]);
+
+  const snapForWallTrace = (point: PlanPoint): PlanPoint => {
+    const snapRadius = 1; // foot
+    const nearest = wallEndpoints.reduce<{ point: PlanPoint; distance: number } | null>((best, candidate) => {
+      const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
+      if (distance > snapRadius) return best;
+      if (!best || distance < best.distance) return { point: candidate, distance };
+      return best;
+    }, null);
+    if (nearest) return nearest.point;
+    return {
+      x: snapPlanValue(point.x, snapToGrid),
+      y: snapPlanValue(point.y, snapToGrid),
+    };
+  };
+
   const updateDraftFromPointer = (event: PointerEvent<HTMLElement>) => {
+    if (wallEditMode) {
+      const point = pointFromPointer(event);
+      if (point) setWallCursor(snapForWallTrace(point));
+      return;
+    }
     if (!dragTarget) return;
     const point = pointFromPointer(event);
     if (!point) return;
@@ -277,6 +317,35 @@ export function MeasuredFloorPlan({
             setItemDragPreview(null);
             setArchitecturalDragPreview(null);
           }}
+          onPointerLeave={() => {
+            if (wallEditMode) setWallCursor(null);
+          }}
+          onClick={async (event) => {
+            if (!wallEditMode) return;
+            // Ignore bubbled clicks from inner buttons (which call stopPropagation,
+            // but be defensive).
+            const target = event.target as HTMLElement;
+            if (target.closest('[data-layout-control="true"]')) return;
+            const raw = pointFromPointer(event);
+            if (!raw) return;
+            const snapped = snapForWallTrace(raw);
+            if (!wallTraceStart) {
+              onWallTraceStartChange(snapped);
+              return;
+            }
+            const dx = snapped.x - wallTraceStart.x;
+            const dy = snapped.y - wallTraceStart.y;
+            if (Math.hypot(dx, dy) < 0.25) {
+              // Treat near-zero as a cancel (double-tap on the same spot).
+              onWallTraceStartChange(null);
+              return;
+            }
+            const result = await onCreateWall(wallTraceStart, snapped);
+            if (result.ok) {
+              onWallTraceStartChange(null);
+              setWallCursor(null);
+            }
+          }}
           style={{
             position: 'relative',
             width: '100%',
@@ -376,6 +445,110 @@ export function MeasuredFloorPlan({
               );
             })}
           </svg>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}
+          >
+            {walls.map(wall => {
+              const startThickness = 0.6;
+              return (
+                <line
+                  key={wall.id}
+                  x1={(wall.startXFt / floorPlan.widthFt) * 100}
+                  y1={(wall.startYFt / floorPlan.depthFt) * 100}
+                  x2={(wall.endXFt / floorPlan.widthFt) * 100}
+                  y2={(wall.endYFt / floorPlan.depthFt) * 100}
+                  stroke="#3f3a34"
+                  strokeWidth={startThickness}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+            {wallEditMode && wallTraceStart && wallCursor && (
+              <line
+                x1={(wallTraceStart.x / floorPlan.widthFt) * 100}
+                y1={(wallTraceStart.y / floorPlan.depthFt) * 100}
+                x2={(wallCursor.x / floorPlan.widthFt) * 100}
+                y2={(wallCursor.y / floorPlan.depthFt) * 100}
+                stroke="#1f6b5b"
+                strokeWidth={0.5}
+                strokeDasharray="2 1"
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+          </svg>
+          {wallEditMode && walls.map(wall => (
+            <button
+              key={`wall-handle-${wall.id}`}
+              type="button"
+              data-layout-control="true"
+              aria-label={`Delete wall ${wall.id}`}
+              title="Click to delete this wall"
+              onClick={async (event) => {
+                event.stopPropagation();
+                await onDeleteWall(wall.id);
+              }}
+              style={{
+                position: 'absolute',
+                left: `${(((wall.startXFt + wall.endXFt) / 2) / floorPlan.widthFt) * 100}%`,
+                top: `${(((wall.startYFt + wall.endYFt) / 2) / floorPlan.depthFt) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 6,
+                width: 18,
+                height: 18,
+                borderRadius: 999,
+                border: '2px solid #b91c1c',
+                background: 'rgba(255,250,243,0.96)',
+                color: '#b91c1c',
+                fontSize: 10,
+                fontWeight: 800,
+                cursor: 'pointer',
+                padding: 0,
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </button>
+          ))}
+          {wallEditMode && wallTraceStart && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: `${(wallTraceStart.x / floorPlan.widthFt) * 100}%`,
+                top: `${(wallTraceStart.y / floorPlan.depthFt) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 5,
+                width: 12,
+                height: 12,
+                borderRadius: 999,
+                border: '2px solid #1f6b5b',
+                background: '#fffaf3',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+          {wallEditMode && wallCursor && !wallTraceStart && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: `${(wallCursor.x / floorPlan.widthFt) * 100}%`,
+                top: `${(wallCursor.y / floorPlan.depthFt) * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: 5,
+                width: 10,
+                height: 10,
+                borderRadius: 999,
+                border: '1px dashed rgba(31,107,91,0.66)',
+                background: 'transparent',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
           {roomLabelsVisible && roomShapes.map(({ room, label, selected }) => {
             const status = roomGeometryStatus(room);
             return (
