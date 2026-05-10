@@ -5,27 +5,28 @@ import {
   fallbackFloorPlansForRooms,
   floorForRoom,
   itemFootprint,
-  planPointsForRoom,
 } from '@/lib/homeLayout';
 import { FURNITURE_TYPE_OPTIONS, normaliseFurnitureType } from '@/lib/furniture';
 import { ArchitecturalElement, ArchitecturalElementType, FurnitureType, HomeFloorPlan, PlanPoint, Room, RoomItem, Wall } from '@/lib/types';
-import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, Eye, EyeOff, Grid3X3, Image as ImageIcon, MousePointer2, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Eye, EyeOff, Grid3X3, Image as ImageIcon, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MeasuredFloorPlan } from './MeasuredFloorPlan';
 import { MeasuredFloorScene, type SceneCameraMode } from './MeasuredFloorScene';
 import { useBlueprintImageUrl } from './useBlueprintImageUrl';
+import { useBlueprintSnap } from './blueprintSnap';
+import { useDerivedRoomShapes } from './useDerivedRoomShapes';
+import { polygonContainsPoint } from './roomDerivation';
+import { RoomAnchorControls, type RoomAnchorPlacement } from './RoomAnchorControls';
 import {
   ARCHITECTURAL_ELEMENT_TYPES,
   ArchitecturalElementDraft,
   ArchitecturalElementUpdate,
   OverlayFit,
-  RoomGeometryDraft,
   RoomItemLayoutUpdate,
   SaveResult,
   architecturalDraftHasChanges,
   architecturalDraftToUpdate,
-  averagePoint,
   clamp,
   clampArchitecturalElementPosition,
   clampItemPosition,
@@ -37,21 +38,13 @@ import {
   itemPlacementForControls,
   labelForArchitecturalElementType,
   makeArchitecturalElementDraft,
-  makeRoomGeometryDraft,
-  newRoomRectForFloor,
-  normaliseDraftPoints,
   normaliseRotation,
   nullableNumber,
   nullableNumbersMatch,
-  rectToPoints,
-  roomDraftHasChanges,
-  roomEditorPoints,
-  roomGeometryStatus,
   roundToHundredth,
   roundToQuarter,
   toBlueprintImageSrc,
 } from './helpers';
-import { planRectForRoom } from '@/lib/homeLayout';
 
 export default function HomeLayoutPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -68,9 +61,7 @@ export default function HomeLayoutPage() {
   const [roomLabelsVisible, setRoomLabelsVisible] = useState(true);
   const [overlayOpacity, setOverlayOpacity] = useState(0.42);
   const [overlayFit, setOverlayFit] = useState<OverlayFit>('contain');
-  const [roomEditMode, setRoomEditMode] = useState(false);
-  const [editingRoomId, setEditingRoomId] = useState<number | null>(null);
-  const [roomDraft, setRoomDraft] = useState<RoomGeometryDraft | null>(null);
+  const [anchorPlacement, setAnchorPlacement] = useState<RoomAnchorPlacement | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [selectedElementId, setSelectedElementId] = useState<number | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(true);
@@ -122,6 +113,8 @@ export default function HomeLayoutPage() {
   const activeFloorElements = activeFloor ? architecturalElements.filter(element => element.floorPlanId === activeFloor.id) : [];
   const activeFloorWalls = activeFloor ? walls.filter(wall => wall.floorPlanId === activeFloor.id) : [];
   const activeBlueprintUrl = useBlueprintImageUrl(activeFloor?.blueprintImagePath ?? null);
+  const blueprintSnap = useBlueprintSnap(activeFloor ?? null, activeBlueprintUrl);
+  const derivedRoomShapes = useDerivedRoomShapes(activeFloor ?? null, activeFloorRooms, activeFloorWalls);
   const selectedElement = architecturalElements.find(element => element.id === selectedElementId) ?? null;
   const selectedItemRoom = selectedItem?.roomId ? rooms.find(room => room.id === selectedItem.roomId) ?? null : null;
   const selectedItemFloor = selectedItem?.floorPlanId
@@ -130,17 +123,27 @@ export default function HomeLayoutPage() {
       ? floorForRoom(selectedItemRoom, measuredFloors)
       : null;
 
-  const moveItem = async (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => {
+  const moveItem = async (item: RoomItem, floorPlanId: number, _roomId: number | null, planXFt: number, planYFt: number) => {
+    void _roomId; // ignore caller-provided roomId — derived from anchor polygon
     setSelectedItemId(item.id);
     setSelectedElementId(null);
     setLayoutMessage('Saving item position...');
+    // Re-derive the room assignment from the wall-bounded polygons.
+    const point = { x: planXFt, y: planYFt };
+    let derivedRoomId: number | null = null;
+    for (const [roomIdCandidate, shape] of derivedRoomShapes) {
+      if (shape.bounded && polygonContainsPoint(shape.polygon, point)) {
+        derivedRoomId = roomIdCandidate;
+        break;
+      }
+    }
     const res = await fetch('/api/room-items', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         id: item.id,
         floorPlanId: floorPlanId > 0 ? floorPlanId : null,
-        roomId,
+        roomId: derivedRoomId,
         planXFt: roundToHundredth(planXFt),
         planYFt: roundToHundredth(planYFt),
       }),
@@ -281,96 +284,77 @@ export default function HomeLayoutPage() {
     return { ok: true };
   };
 
-  const selectRoomForEditing = (roomId: number | null) => {
-    setEditingRoomId(roomId);
-    const room = roomId ? rooms.find(entry => entry.id === roomId) : null;
-    setRoomDraft(room ? makeRoomGeometryDraft(room) : null);
-  };
-
-  const toggleRoomEditMode = () => {
-    if (roomEditMode) {
-      setRoomEditMode(false);
-      return;
-    }
-
-    const room = activeFloorRooms.find(entry => entry.id === editingRoomId) ?? activeFloorRooms[0] ?? null;
-    setEditingRoomId(room?.id ?? null);
-    setRoomDraft(room ? makeRoomGeometryDraft(room) : null);
-    setRoomEditMode(true);
-  };
-
   const selectFloor = (floorName: string) => {
     setActiveFloorName(floorName);
-    if (!roomEditMode) return;
-
-    const nextFloor = measuredFloors.find(floor => floor.name === floorName);
-    const nextRooms = nextFloor ? rooms.filter(room => floorForRoom(room, measuredFloors)?.name === nextFloor.name) : [];
-    const nextRoom = nextRooms[0] ?? null;
-    setEditingRoomId(nextRoom?.id ?? null);
-    setRoomDraft(nextRoom ? makeRoomGeometryDraft(nextRoom) : null);
+    setAnchorPlacement(null);
+    setWallTraceStart(null);
+    setWallEditMode(false);
   };
 
-  const saveRoomGeometry = async (draft: RoomGeometryDraft): Promise<SaveResult> => {
-    const res = await fetch('/api/rooms', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        id: draft.roomId,
-        labelXFt: draft.labelXFt,
-        labelYFt: draft.labelYFt,
-        shapePoints: normaliseDraftPoints(draft.shapePoints),
-        geometrySource: 'custom',
-      }),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => null) as { error?: string } | null;
-      return { ok: false, message: body?.error || `Save failed with HTTP ${res.status}` };
+  const placeRoomAnchor = async (point: PlanPoint) => {
+    if (!anchorPlacement || !activeFloor) return;
+    const placement = anchorPlacement;
+    setAnchorPlacement(null);
+    if (placement.pendingRoomId !== undefined) {
+      // Move existing room's anchor.
+      const res = await fetch('/api/rooms', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: placement.pendingRoomId,
+          anchorXFt: roundToHundredth(point.x),
+          anchorYFt: roundToHundredth(point.y),
+          floor: activeFloor.name,
+          floorPlanId: activeFloor.id > 0 ? activeFloor.id : null,
+        }),
+      });
+      if (res.ok) {
+        const saved: Room = await res.json();
+        setRooms(current => current.map(room => room.id === saved.id ? saved : room));
+      }
+      return;
     }
-
-    const saved: Room = await res.json();
-    setRooms(current => current.map(room => room.id === saved.id ? saved : room));
-    setRoomDraft(makeRoomGeometryDraft(saved));
-    return { ok: true };
-  };
-
-  const createLayoutRoom = async (name: string): Promise<SaveResult> => {
-    if (!activeFloor) return { ok: false, message: 'Select a floor before adding a room.' };
-    const roomName = name.trim();
-    if (!roomName) return { ok: false, message: 'Enter a room name.' };
-
-    const rect = newRoomRectForFloor(activeFloor, activeFloorRooms.length);
-    const shapePoints = rectToPoints(rect);
-    const label = averagePoint(shapePoints);
+    // Create a new room anchored at this point.
     const res = await fetch('/api/rooms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: roomName,
+        name: placement.pendingName,
         floor: activeFloor.name,
         floorPlanId: activeFloor.id > 0 ? activeFloor.id : null,
-        notes: null,
-        planXFt: rect.x,
-        planYFt: rect.y,
-        planWidthFt: rect.width,
-        planDepthFt: rect.depth,
-        labelXFt: label.x,
-        labelYFt: label.y,
-        shapePoints,
-        geometrySource: 'custom',
+        anchorXFt: roundToHundredth(point.x),
+        anchorYFt: roundToHundredth(point.y),
       }),
     });
+    if (res.ok) {
+      const saved: Room = await res.json();
+      setRooms(current => [...current, saved]);
+    }
+  };
 
+  const deleteRoom = async (roomId: number): Promise<SaveResult> => {
+    const res = await fetch(`/api/rooms?id=${roomId}`, { method: 'DELETE' });
     if (!res.ok) {
       const body = await res.json().catch(() => null) as { error?: string } | null;
-      return { ok: false, message: body?.error || `Create failed with HTTP ${res.status}` };
+      return { ok: false, message: body?.error || `Delete failed with HTTP ${res.status}` };
     }
+    setRooms(current => current.filter(room => room.id !== roomId));
+    setItems(current => current.map(item => item.roomId === roomId ? { ...item, roomId: null } : item));
+    return { ok: true };
+  };
 
+  const renameRoom = async (roomId: number, name: string): Promise<SaveResult> => {
+    const res = await fetch('/api/rooms', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: roomId, name }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Rename failed with HTTP ${res.status}` };
+    }
     const saved: Room = await res.json();
-    setRooms(current => [...current, saved]);
-    setEditingRoomId(saved.id);
-    setRoomDraft(makeRoomGeometryDraft(saved));
-    setRoomEditMode(true);
+    setRooms(current => current.map(room => room.id === saved.id ? saved : room));
     return { ok: true };
   };
 
@@ -455,17 +439,15 @@ export default function HomeLayoutPage() {
             overlayVisible={overlayVisible}
             roomLabelsVisible={roomLabelsVisible}
             snapToGrid={snapToGrid}
-            roomEditMode={roomEditMode}
             wallEditMode={wallEditMode}
             wallCount={activeFloorWalls.length}
             viewMode={viewMode}
             onViewModeChange={mode => {
               setViewMode(mode);
               if (mode === '3d') {
-                // Disable 2D-only edit modes when entering 3D.
                 setWallEditMode(false);
-                setRoomEditMode(false);
                 setWallTraceStart(null);
+                setAnchorPlacement(null);
               }
             }}
             syncingItems={syncingItems}
@@ -473,11 +455,10 @@ export default function HomeLayoutPage() {
             onToggleOverlay={() => setOverlayVisible(value => !value)}
             onToggleRoomLabels={() => setRoomLabelsVisible(value => !value)}
             onSnapChange={setSnapToGrid}
-            onToggleRoomEdit={toggleRoomEditMode}
             onToggleWallEdit={() => {
               setWallEditMode(value => !value);
               setWallTraceStart(null);
-              if (!wallEditMode) setRoomEditMode(false);
+              setAnchorPlacement(null);
             }}
             onSyncItems={syncItemsFromBelongings}
           />
@@ -493,11 +474,11 @@ export default function HomeLayoutPage() {
                 roomLabelsVisible={roomLabelsVisible}
                 overlayOpacity={overlayOpacity}
                 overlayFit={overlayFit}
-                roomEditMode={roomEditMode}
-                editingRoomId={editingRoomId}
-                roomDraft={roomDraft}
-                onSelectRoom={selectRoomForEditing}
-                onRoomDraftChange={setRoomDraft}
+                derivedRoomShapes={derivedRoomShapes}
+                anchorPlacement={anchorPlacement}
+                onPlaceAnchor={placeRoomAnchor}
+                onCancelAnchor={() => setAnchorPlacement(null)}
+                blueprintSnap={blueprintSnap}
                 selectedItemId={selectedItemId}
                 selectedElementId={selectedElementId}
                 onSelectItem={itemId => {
@@ -556,17 +537,19 @@ export default function HomeLayoutPage() {
                 onSnapChange={setSnapToGrid}
                 onClear={() => setSelectedItemId(null)}
               />
-              <RoomGeometryControls
+              <RoomAnchorControls
                 floorPlan={activeFloor}
                 floorRooms={activeFloorRooms}
-                editMode={roomEditMode}
-                editingRoomId={editingRoomId}
-                roomDraft={roomDraft}
-                onToggleEditMode={toggleRoomEditMode}
-                onSelectRoom={selectRoomForEditing}
-                onDraftChange={setRoomDraft}
-                onCreateRoom={createLayoutRoom}
-                onSave={saveRoomGeometry}
+                derivedShapes={derivedRoomShapes}
+                placementMode={anchorPlacement}
+                onStartPlacement={placement => {
+                  setAnchorPlacement(placement);
+                  setWallEditMode(false);
+                  setWallTraceStart(null);
+                }}
+                onCancelPlacement={() => setAnchorPlacement(null)}
+                onDeleteRoom={deleteRoom}
+                onRenameRoom={renameRoom}
               />
               <ArchitecturalElementControls
                 key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}` : `new-${activeFloor.id}`}
@@ -627,7 +610,6 @@ function LayoutToolbar({
   overlayVisible,
   roomLabelsVisible,
   snapToGrid,
-  roomEditMode,
   wallEditMode,
   wallCount,
   viewMode,
@@ -636,7 +618,6 @@ function LayoutToolbar({
   onToggleOverlay,
   onToggleRoomLabels,
   onSnapChange,
-  onToggleRoomEdit,
   onToggleWallEdit,
   syncingItems,
   onSyncItems,
@@ -645,7 +626,6 @@ function LayoutToolbar({
   overlayVisible: boolean;
   roomLabelsVisible: boolean;
   snapToGrid: boolean;
-  roomEditMode: boolean;
   wallEditMode: boolean;
   wallCount: number;
   viewMode: '2d' | '3d';
@@ -655,7 +635,6 @@ function LayoutToolbar({
   onToggleOverlay: () => void;
   onToggleRoomLabels: () => void;
   onSnapChange: (value: boolean) => void;
-  onToggleRoomEdit: () => void;
   onToggleWallEdit: () => void;
   onSyncItems: () => Promise<SaveResult>;
 }) {
@@ -712,11 +691,7 @@ function LayoutToolbar({
             <input type="checkbox" checked={snapToGrid} onChange={event => onSnapChange(event.target.checked)} style={{ width: 14, height: 14 }} />
             Snap
           </label>
-          <button type="button" className={`btn btn-${roomEditMode ? 'primary' : 'secondary'} btn-sm`} onClick={onToggleRoomEdit}>
-            <Edit3 size={14} />
-            {roomEditMode ? 'Finish Rooms' : 'Edit Rooms'}
-          </button>
-          <button type="button" className={`btn btn-${wallEditMode ? 'primary' : 'secondary'} btn-sm`} onClick={onToggleWallEdit} title={wallEditMode ? 'Click two points to add a wall, then click endpoint × to delete. Click here to finish.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints.'}>
+          <button type="button" className={`btn btn-${wallEditMode ? 'primary' : 'secondary'} btn-sm`} onClick={onToggleWallEdit} title={wallEditMode ? 'Click two points to add a wall, then click endpoint × to delete. Click here to finish.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints and blueprint lines.'}>
             <Ruler size={14} />
             {wallEditMode ? `Finish Walls (${wallCount})` : `Trace Walls (${wallCount})`}
           </button>
@@ -901,246 +876,6 @@ function BlueprintOverlayControls({
   );
 }
 
-function RoomGeometryControls({
-  floorPlan,
-  floorRooms,
-  editMode,
-  editingRoomId,
-  roomDraft,
-  onToggleEditMode,
-  onSelectRoom,
-  onDraftChange,
-  onCreateRoom,
-  onSave,
-}: {
-  floorPlan: HomeFloorPlan;
-  floorRooms: Room[];
-  editMode: boolean;
-  editingRoomId: number | null;
-  roomDraft: RoomGeometryDraft | null;
-  onToggleEditMode: () => void;
-  onSelectRoom: (roomId: number | null) => void;
-  onDraftChange: (draft: RoomGeometryDraft | null) => void;
-  onCreateRoom: (name: string) => Promise<SaveResult>;
-  onSave: (draft: RoomGeometryDraft) => Promise<SaveResult>;
-}) {
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [newRoomName, setNewRoomName] = useState('');
-  const selectedRoom = floorRooms.find(room => room.id === editingRoomId) ?? null;
-  const editorPoints = selectedRoom && roomDraft ? roomEditorPoints(selectedRoom, roomDraft) : [];
-  const selectedSource = selectedRoom ? roomGeometryStatus(selectedRoom) : null;
-  const hasUnsavedRoomChanges = selectedRoom && roomDraft ? roomDraftHasChanges(selectedRoom, roomDraft) : false;
-
-  const updateDraft = (next: Partial<RoomGeometryDraft>) => {
-    if (!roomDraft) return;
-    onDraftChange({ ...roomDraft, ...next });
-  };
-
-  const save = async () => {
-    if (!roomDraft) return;
-    setSaveState('saving');
-    setSaveMessage(null);
-    const result = await onSave(roomDraft);
-    if (result.ok) {
-      setSaveState('saved');
-      setSaveMessage('Room outline saved.');
-      window.setTimeout(() => setSaveState('idle'), 1800);
-      return;
-    }
-    setSaveState('error');
-    setSaveMessage(result.message);
-  };
-
-  const setPoint = (index: number, point: PlanPoint) => {
-    if (!selectedRoom || !roomDraft) return;
-    const nextPoints = roomEditorPoints(selectedRoom, roomDraft).map((entry, pointIndex) => pointIndex === index ? point : entry);
-    updateDraft({ shapePoints: nextPoints });
-  };
-
-  const useRectangle = () => {
-    if (!selectedRoom) return;
-    updateDraft({ shapePoints: rectToPoints(planRectForRoom(selectedRoom)) });
-  };
-
-  const addPoint = () => {
-    if (!selectedRoom || !roomDraft) return;
-    const points = roomEditorPoints(selectedRoom, roomDraft);
-    const first = points[0] ?? { x: 0, y: 0 };
-    const last = points[points.length - 1] ?? first;
-    const nextPoint = {
-      x: roundToQuarter((first.x + last.x) / 2),
-      y: roundToQuarter((first.y + last.y) / 2),
-    };
-    updateDraft({ shapePoints: [...points, nextPoint] });
-  };
-
-  const removePoint = () => {
-    if (!selectedRoom || !roomDraft) return;
-    const points = roomEditorPoints(selectedRoom, roomDraft);
-    if (points.length <= 3) return;
-    updateDraft({ shapePoints: points.slice(0, -1) });
-  };
-
-  const createRoom = async () => {
-    setSaveState('saving');
-    setSaveMessage(null);
-    const result = await onCreateRoom(newRoomName);
-    if (result.ok) {
-      setNewRoomName('');
-      setSaveState('saved');
-      setSaveMessage('Room added. Drag or resize it into place, then save if needed.');
-      window.setTimeout(() => setSaveState('idle'), 1800);
-      return;
-    }
-    setSaveState('error');
-    setSaveMessage(result.message);
-  };
-
-  return (
-    <div className="card" style={{ marginBottom: 18 }}>
-      <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Edit3 size={17} color="var(--color-accent-dark)" />
-            <div>
-              <div className="section-label" style={{ marginBottom: 4 }}>Room outlines</div>
-              <div style={{ fontSize: 12, color: 'var(--color-secondary)' }}>
-                Shape and label rooms against the blueprint canvas.
-              </div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleEditMode}>
-              <MousePointer2 size={14} />
-              {editMode ? 'Finish Editing' : 'Edit Rooms'}
-            </button>
-            {editMode && (
-              <>
-                {hasUnsavedRoomChanges && (
-                  <span className="badge badge-neutral" style={{ alignSelf: 'center', color: '#9a5a2f', borderColor: 'rgba(154,90,47,0.44)' }}>
-                    Unsaved outline
-                  </span>
-                )}
-              <button type="button" className="btn btn-primary btn-sm" onClick={save} disabled={!roomDraft || saveState === 'saving'}>
-                <Save size={14} /> {saveState === 'saving' ? 'Saving...' : 'Save Room'}
-              </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1fr) auto', gap: 10, alignItems: 'end' }}>
-          <label style={{ display: 'block' }}>
-            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>New room</span>
-            <input
-              value={newRoomName}
-              onChange={event => setNewRoomName(event.target.value)}
-              onKeyDown={event => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  void createRoom();
-                }
-              }}
-              placeholder="e.g. Porch"
-            />
-          </label>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={createRoom} disabled={saveState === 'saving'}>
-            <Plus size={14} /> Add Room
-          </button>
-        </div>
-
-        {editMode && (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.4fr) repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
-              <label style={{ display: 'block' }}>
-                <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Room</span>
-                <select value={editingRoomId ?? ''} onChange={event => onSelectRoom(event.target.value ? Number(event.target.value) : null)}>
-                  <option value="">Select room</option>
-                  {floorRooms.map(room => (
-                    <option key={room.id} value={room.id}>{room.name} - {roomGeometryStatus(room).label}</option>
-                  ))}
-                </select>
-              </label>
-              <GeometryNumberField
-                label="Label X ft"
-                value={roomDraft?.labelXFt ?? null}
-                min={0}
-                max={floorPlan.widthFt}
-                nullable
-                onChange={value => updateDraft({ labelXFt: value })}
-              />
-              <GeometryNumberField
-                label="Label Y ft"
-                value={roomDraft?.labelYFt ?? null}
-                min={0}
-                max={floorPlan.depthFt}
-                nullable
-                onChange={value => updateDraft({ labelYFt: value })}
-              />
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={useRectangle} disabled={!selectedRoom}>
-                  <Grid3X3 size={14} /> Reset Rectangle
-                </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={addPoint} disabled={!selectedRoom}>
-                  <Plus size={14} /> Add Point
-                </button>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={removePoint} disabled={!selectedRoom || editorPoints.length <= 3}>
-                  <Trash2 size={14} /> Remove Point
-                </button>
-              </div>
-            </div>
-
-            {selectedRoom && roomDraft && (
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                  <div className="section-label" style={{ fontSize: 10 }}>Polygon points</div>
-                  {selectedSource && (
-                    <span className="badge badge-neutral" style={{ borderColor: selectedSource.color, color: selectedSource.color }}>
-                      {selectedSource.label}
-                    </span>
-                  )}
-                  <span style={{ fontSize: 11, color: 'var(--color-secondary)' }}>
-                    Corner handles move points; side handles move a whole wall. Save Room applies changes.
-                  </span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                  {editorPoints.map((point, index) => (
-                    <div key={`${selectedRoom.id}-${index}`} style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr', gap: 8, alignItems: 'end' }}>
-                      <div style={{ height: 38, display: 'grid', placeItems: 'center', borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-background)', fontSize: 11, fontWeight: 800 }}>
-                        {index + 1}
-                      </div>
-                      <GeometryNumberField
-                        label="X ft"
-                        value={point.x}
-                        min={0}
-                        max={floorPlan.widthFt}
-                        onChange={value => value !== null && setPoint(index, { ...point, x: value })}
-                      />
-                      <GeometryNumberField
-                        label="Y ft"
-                        value={point.y}
-                        min={0}
-                        max={floorPlan.depthFt}
-                        onChange={value => value !== null && setPoint(index, { ...point, y: value })}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {saveMessage && (
-              <span style={{ fontSize: 12, color: saveState === 'error' ? '#b91c1c' : '#1f6b5b', fontWeight: 700 }}>
-                {saveMessage}
-              </span>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function ArchitecturalElementControls({
   floorPlan,
@@ -1400,7 +1135,10 @@ function SelectedItemControls({
 
   const centerInRoom = () => {
     if (!room || !floorPlan || draft.widthFt === null || draft.depthFt === null) return;
-    const center = averagePoint(planPointsForRoom(room));
+    // Center on the room's anchor point. The anchor sits inside the
+    // wall-bounded region, so this lands the item somewhere sensible.
+    if (room.anchorXFt === null || room.anchorYFt === null) return;
+    const center = { x: room.anchorXFt, y: room.anchorYFt };
     const nextDraft = {
       ...draft,
       ...clampItemPosition(center.x - draft.widthFt / 2, center.y - draft.depthFt / 2, draft.widthFt, draft.depthFt, floorPlan),
