@@ -65,6 +65,8 @@ export function MeasuredFloorPlan({
   roomLabelsVisible,
   overlayOpacity,
   overlayFit,
+  structureLocked,
+  elementsLocked,
   derivedRoomShapes,
   anchorPlacement,
   onPlaceAnchor,
@@ -95,6 +97,8 @@ export function MeasuredFloorPlan({
   roomLabelsVisible: boolean;
   overlayOpacity: number;
   overlayFit: OverlayFit;
+  structureLocked: boolean;
+  elementsLocked: boolean;
   derivedRoomShapes: Map<number, DerivedRoomShape>;
   anchorPlacement: RoomAnchorPlacement | null;
   onPlaceAnchor: (point: PlanPoint) => void;
@@ -456,7 +460,7 @@ export function MeasuredFloorPlan({
                 y1={(wall.startYFt / floorPlan.depthFt) * 100}
                 x2={(wall.endXFt / floorPlan.widthFt) * 100}
                 y2={(wall.endYFt / floorPlan.depthFt) * 100}
-                stroke="#3f3a34"
+                stroke={structureLocked ? '#5a7691' : '#3f3a34'}
                 strokeWidth={0.6}
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
@@ -475,8 +479,8 @@ export function MeasuredFloorPlan({
               />
             )}
           </svg>
-          {/* Wall delete buttons (only in edit mode) */}
-          {wallEditMode && walls.map(wall => (
+          {/* Wall delete buttons (only in edit mode, never when locked) */}
+          {wallEditMode && !structureLocked && walls.map(wall => (
             <button
               key={`wall-handle-${wall.id}`}
               type="button"
@@ -585,8 +589,13 @@ export function MeasuredFloorPlan({
               element={element}
               floorPlan={floorPlan}
               selected={element.id === selectedElementId}
+              dimmed={elementsLocked}
               onSelect={() => onSelectArchitecturalElement(element.id)}
               onStartDrag={event => {
+                if (elementsLocked) {
+                  // Selection still allowed; drag is suppressed.
+                  return;
+                }
                 const start = pointFromPointer(event);
                 if (!start) return;
                 event.preventDefault();
@@ -717,12 +726,14 @@ function ArchitecturalElementMarker({
   element,
   floorPlan,
   selected,
+  dimmed,
   onSelect,
   onStartDrag,
 }: {
   element: ArchitecturalElement;
   floorPlan: HomeFloorPlan;
   selected: boolean;
+  dimmed: boolean;
   onSelect: () => void;
   onStartDrag: (event: PointerEvent<HTMLButtonElement>) => void;
 }) {
@@ -753,7 +764,8 @@ function ArchitecturalElementMarker({
         padding: 3,
         overflow: 'hidden',
         boxShadow: selected ? '0 0 0 3px rgba(31,107,91,0.18), var(--shadow-sm)' : 'var(--shadow-sm)',
-        cursor: 'grab',
+        cursor: dimmed ? 'pointer' : 'grab',
+        opacity: dimmed ? 0.6 : 1,
         transform: `rotate(${element.rotationDeg}deg)`,
         transformOrigin: 'center',
         zIndex: selected ? 7 : 4,

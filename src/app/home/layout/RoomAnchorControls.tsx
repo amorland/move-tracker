@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, Check, MapPin, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Check, Lock, MapPin, Plus, Trash2, X } from 'lucide-react';
 import type { HomeFloorPlan, Room } from '@/lib/types';
 import type { SaveResult } from './helpers';
 import type { DerivedRoomShape } from './useDerivedRoomShapes';
@@ -16,6 +16,7 @@ export function RoomAnchorControls({
   floorRooms,
   derivedShapes,
   placementMode,
+  locked,
   onStartPlacement,
   onCancelPlacement,
   onDeleteRoom,
@@ -25,6 +26,7 @@ export function RoomAnchorControls({
   floorRooms: Room[];
   derivedShapes: Map<number, DerivedRoomShape>;
   placementMode: RoomAnchorPlacement | null;
+  locked: boolean;
   /** Tells the page that the user wants to place an anchor for a new (or
    * existing, when re-anchoring) room. Page enters anchor-placement mode
    * on the canvas; clicking the canvas commits the anchor. */
@@ -78,11 +80,16 @@ export function RoomAnchorControls({
             type="button"
             className="btn btn-primary btn-sm"
             onClick={startNewRoom}
-            disabled={placementMode !== null || !draftName.trim()}
+            disabled={placementMode !== null || !draftName.trim() || locked}
           >
             <Plus size={14} /> Add Room
           </button>
         </div>
+        {locked && (
+          <div style={{ fontSize: 12, color: 'var(--color-secondary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Lock size={12} /> Structure layer locked. Unlock to add or rename rooms.
+          </div>
+        )}
 
         {placementMode && (
           <div
@@ -120,6 +127,7 @@ export function RoomAnchorControls({
                 room={room}
                 shape={derivedShapes.get(room.id) ?? null}
                 isPlacing={placementMode?.pendingRoomId === room.id}
+                locked={locked}
                 onMoveAnchor={() => onStartPlacement({ pendingName: room.name, pendingRoomId: room.id })}
                 onDelete={() => onDeleteRoom(room.id)}
                 onRename={(name) => onRenameRoom(room.id, name)}
@@ -136,6 +144,7 @@ function RoomAnchorRow({
   room,
   shape,
   isPlacing,
+  locked,
   onMoveAnchor,
   onDelete,
   onRename,
@@ -143,6 +152,7 @@ function RoomAnchorRow({
   room: Room;
   shape: DerivedRoomShape | null;
   isPlacing: boolean;
+  locked: boolean;
   onMoveAnchor: () => void;
   onDelete: () => Promise<SaveResult>;
   onRename: (name: string) => Promise<SaveResult>;
@@ -207,7 +217,7 @@ function RoomAnchorRow({
         ) : (
           <button
             type="button"
-            onClick={() => { setDraftName(room.name); setEditingName(true); }}
+            onClick={() => { if (locked) return; setDraftName(room.name); setEditingName(true); }}
             style={{
               display: 'block',
               width: '100%',
@@ -218,9 +228,9 @@ function RoomAnchorRow({
               fontSize: 13,
               fontWeight: 700,
               color: 'var(--color-foreground)',
-              cursor: 'text',
+              cursor: locked ? 'default' : 'text',
             }}
-            title="Click to rename"
+            title={locked ? 'Structure layer locked.' : 'Click to rename'}
           >
             {room.name}
           </button>
@@ -245,8 +255,8 @@ function RoomAnchorRow({
         type="button"
         className="btn btn-secondary btn-sm"
         onClick={onMoveAnchor}
-        disabled={isPlacing}
-        title={hasAnchor ? 'Move anchor' : 'Place anchor'}
+        disabled={isPlacing || locked}
+        title={locked ? 'Structure layer locked.' : hasAnchor ? 'Move anchor' : 'Place anchor'}
       >
         <MapPin size={13} /> {hasAnchor ? 'Move' : 'Place'}
       </button>
@@ -254,8 +264,9 @@ function RoomAnchorRow({
         type="button"
         className="btn btn-secondary btn-sm"
         onClick={removeRoom}
-        title="Delete room"
-        style={{ color: '#b91c1c' }}
+        disabled={locked}
+        title={locked ? 'Structure layer locked.' : 'Delete room'}
+        style={{ color: locked ? 'var(--color-secondary)' : '#b91c1c' }}
       >
         <Trash2 size={13} />
       </button>

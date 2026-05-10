@@ -8,7 +8,7 @@ import {
 } from '@/lib/homeLayout';
 import { FURNITURE_TYPE_OPTIONS, normaliseFurnitureType } from '@/lib/furniture';
 import { ArchitecturalElement, ArchitecturalElementType, FurnitureType, HomeFloorPlan, PlanPoint, Room, RoomItem, Wall } from '@/lib/types';
-import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Eye, EyeOff, Grid3X3, Image as ImageIcon, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Eye, EyeOff, Grid3X3, Image as ImageIcon, Lock, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2, Unlock } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MeasuredFloorPlan } from './MeasuredFloorPlan';
@@ -263,6 +263,28 @@ export default function HomeLayoutPage() {
     return { ok: true };
   };
 
+  const toggleFloorLock = async (key: 'structureLocked' | 'elementsLocked') => {
+    if (!activeFloor || activeFloor.id < 0) return;
+    const next = !activeFloor[key];
+    const res = await fetch('/api/home-floor-plans', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: activeFloor.id, [key]: next }),
+    });
+    if (res.ok) {
+      const saved: HomeFloorPlan = await res.json();
+      setFloorPlans(current => current.map(f => f.id === saved.id ? saved : f));
+    }
+    if (next) {
+      // Exit any edit modes the locked layer governed.
+      if (key === 'structureLocked') {
+        setWallEditMode(false);
+        setWallTraceStart(null);
+        setAnchorPlacement(null);
+      }
+    }
+  };
+
   const deleteWall = async (wallId: number): Promise<SaveResult> => {
     const res = await fetch(`/api/walls?id=${wallId}`, { method: 'DELETE' });
     if (!res.ok) {
@@ -447,6 +469,10 @@ export default function HomeLayoutPage() {
             snapToGrid={snapToGrid}
             wallEditMode={wallEditMode}
             wallCount={activeFloorWalls.length}
+            structureLocked={activeFloor.structureLocked}
+            elementsLocked={activeFloor.elementsLocked}
+            onToggleStructureLock={() => toggleFloorLock('structureLocked')}
+            onToggleElementsLock={() => toggleFloorLock('elementsLocked')}
             viewMode={viewMode}
             onViewModeChange={mode => {
               setViewMode(mode);
@@ -462,6 +488,7 @@ export default function HomeLayoutPage() {
             onToggleRoomLabels={() => setRoomLabelsVisible(value => !value)}
             onSnapChange={setSnapToGrid}
             onToggleWallEdit={() => {
+              if (activeFloor.structureLocked) return;
               setWallEditMode(value => !value);
               setWallTraceStart(null);
               setAnchorPlacement(null);
@@ -480,6 +507,8 @@ export default function HomeLayoutPage() {
                 roomLabelsVisible={roomLabelsVisible}
                 overlayOpacity={overlayOpacity}
                 overlayFit={overlayFit}
+                structureLocked={activeFloor.structureLocked}
+                elementsLocked={activeFloor.elementsLocked}
                 derivedRoomShapes={derivedRoomShapes}
                 anchorPlacement={anchorPlacement}
                 onPlaceAnchor={placeRoomAnchor}
@@ -548,7 +577,9 @@ export default function HomeLayoutPage() {
                 floorRooms={activeFloorRooms}
                 derivedShapes={derivedRoomShapes}
                 placementMode={anchorPlacement}
+                locked={activeFloor.structureLocked}
                 onStartPlacement={placement => {
+                  if (activeFloor.structureLocked) return;
                   setAnchorPlacement(placement);
                   setWallEditMode(false);
                   setWallTraceStart(null);
@@ -562,6 +593,7 @@ export default function HomeLayoutPage() {
                 floorPlan={activeFloor}
                 floorRooms={activeFloorRooms}
                 floorWalls={activeFloorWalls}
+                locked={activeFloor.elementsLocked}
                 selectedElement={selectedElement?.floorPlanId === activeFloor.id ? selectedElement : null}
                 onCreate={createArchitecturalElement}
                 onSave={saveArchitecturalElement}
@@ -619,6 +651,10 @@ function LayoutToolbar({
   snapToGrid,
   wallEditMode,
   wallCount,
+  structureLocked,
+  elementsLocked,
+  onToggleStructureLock,
+  onToggleElementsLock,
   viewMode,
   onViewModeChange,
   message,
@@ -635,6 +671,10 @@ function LayoutToolbar({
   snapToGrid: boolean;
   wallEditMode: boolean;
   wallCount: number;
+  structureLocked: boolean;
+  elementsLocked: boolean;
+  onToggleStructureLock: () => void;
+  onToggleElementsLock: () => void;
   viewMode: '2d' | '3d';
   onViewModeChange: (mode: '2d' | '3d') => void;
   syncingItems: boolean;
@@ -698,9 +738,33 @@ function LayoutToolbar({
             <input type="checkbox" checked={snapToGrid} onChange={event => onSnapChange(event.target.checked)} style={{ width: 14, height: 14 }} />
             Snap
           </label>
-          <button type="button" className={`btn btn-${wallEditMode ? 'primary' : 'secondary'} btn-sm`} onClick={onToggleWallEdit} title={wallEditMode ? 'Click two points to add a wall, then click endpoint × to delete. Click here to finish.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints and blueprint lines.'}>
+          <button
+            type="button"
+            className={`btn btn-${wallEditMode ? 'primary' : 'secondary'} btn-sm`}
+            onClick={onToggleWallEdit}
+            disabled={structureLocked}
+            title={structureLocked ? 'Structure layer is locked. Unlock to edit walls.' : wallEditMode ? 'Click two points to add a wall, then click endpoint × to delete. Click here to finish.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints and blueprint lines.'}
+          >
             <Ruler size={14} />
             {wallEditMode ? `Finish Walls (${wallCount})` : `Trace Walls (${wallCount})`}
+          </button>
+          <button
+            type="button"
+            className={`btn btn-${structureLocked ? 'primary' : 'secondary'} btn-sm`}
+            onClick={onToggleStructureLock}
+            title={structureLocked ? 'Structure (walls + rooms) is locked. Click to unlock.' : 'Lock walls + rooms so they can’t be edited.'}
+          >
+            {structureLocked ? <Lock size={14} /> : <Unlock size={14} />}
+            Structure
+          </button>
+          <button
+            type="button"
+            className={`btn btn-${elementsLocked ? 'primary' : 'secondary'} btn-sm`}
+            onClick={onToggleElementsLock}
+            title={elementsLocked ? 'Architectural elements are locked. Click to unlock.' : 'Lock doors / windows / fixtures so they can’t be edited.'}
+          >
+            {elementsLocked ? <Lock size={14} /> : <Unlock size={14} />}
+            Elements
           </button>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onSyncItems} disabled={syncingItems}>
             <RotateCw size={14} /> {syncingItems ? 'Syncing...' : 'Sync Items'}
@@ -888,6 +952,7 @@ function ArchitecturalElementControls({
   floorPlan,
   floorRooms,
   floorWalls,
+  locked,
   selectedElement,
   onCreate,
   onSave,
@@ -897,6 +962,7 @@ function ArchitecturalElementControls({
   floorPlan: HomeFloorPlan;
   floorRooms: Room[];
   floorWalls: Wall[];
+  locked: boolean;
   selectedElement: ArchitecturalElement | null;
   onCreate: (draft: ArchitecturalElementDraft) => Promise<SaveResult>;
   onSave: (elementId: number, update: ArchitecturalElementUpdate) => Promise<SaveResult>;
@@ -909,7 +975,7 @@ function ArchitecturalElementControls({
   const selectedWallLength = selectedWall ? Math.hypot(selectedWall.endXFt - selectedWall.startXFt, selectedWall.endYFt - selectedWall.startYFt) : 0;
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const canPersist = floorPlan.id > 0;
+  const canPersist = floorPlan.id > 0 && !locked;
   const hasUnsavedElementChanges = selectedElement ? architecturalDraftHasChanges(selectedElement, draft) : false;
 
   useEffect(() => {
@@ -1104,8 +1170,13 @@ function ArchitecturalElementControls({
           </>
         )}
 
-        {!canPersist && (
+        {floorPlan.id < 0 && (
           <span style={{ fontSize: 12, color: '#b45309', fontWeight: 700 }}>Save this floor plan before adding architectural elements.</span>
+        )}
+        {locked && (
+          <span style={{ fontSize: 12, color: 'var(--color-secondary)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Lock size={12} /> Elements layer locked. Click the Elements lock in the toolbar to edit.
+          </span>
         )}
         {saveMessage && (
           <span style={{ fontSize: 12, color: saveState === 'error' ? '#b91c1c' : '#1f6b5b', fontWeight: 700 }}>
