@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MeasuredFloorPlan } from './MeasuredFloorPlan';
 import { MeasuredFloorScene, type SceneCameraMode } from './MeasuredFloorScene';
+import { useBlueprintImageUrl } from './useBlueprintImageUrl';
 import {
   ARCHITECTURAL_ELEMENT_TYPES,
   ArchitecturalElementDraft,
@@ -123,6 +124,7 @@ export default function HomeLayoutPage() {
   const selectedItem = items.find(item => item.id === selectedItemId) ?? null;
   const activeFloorElements = activeFloor ? architecturalElements.filter(element => element.floorPlanId === activeFloor.id) : [];
   const activeFloorWalls = activeFloor ? walls.filter(wall => wall.floorPlanId === activeFloor.id) : [];
+  const activeBlueprintUrl = useBlueprintImageUrl(activeFloor?.blueprintImagePath ?? null);
   const selectedElement = architecturalElements.find(element => element.id === selectedElementId) ?? null;
   const selectedItemRoom = selectedItem?.roomId ? rooms.find(room => room.id === selectedItem.roomId) ?? null : null;
   const selectedItemFloor = selectedItem?.floorPlanId
@@ -543,6 +545,7 @@ export default function HomeLayoutPage() {
                 rooms={rooms}
                 items={items}
                 overlayVisible={overlayVisible}
+                overlayUrl={activeBlueprintUrl}
                 roomLabelsVisible={roomLabelsVisible}
                 overlayOpacity={overlayOpacity}
                 overlayFit={overlayFit}
@@ -593,7 +596,7 @@ export default function HomeLayoutPage() {
                 onCameraModeChange={setCameraMode}
                 snapToGrid={snapToGrid}
                 overlayVisible={overlayVisible}
-                blueprintTextureUrl={toBlueprintImageSrc(activeFloor.blueprintImagePath)}
+                blueprintTextureUrl={activeBlueprintUrl}
                 overlayOpacity={overlayOpacity}
                 statusMessage={layoutMessage}
               />

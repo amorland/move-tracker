@@ -39,7 +39,6 @@ import {
   roomOutlineStyle,
   roundPlanPoint,
   snapPlanValue,
-  toBlueprintImageSrc,
   translateEdgeWithinFloor,
   translatePointsWithinFloor,
   edgeResizeCursor,
@@ -53,6 +52,7 @@ export function MeasuredFloorPlan({
   architecturalElements,
   walls,
   overlayVisible,
+  overlayUrl,
   roomLabelsVisible,
   overlayOpacity,
   overlayFit,
@@ -82,6 +82,7 @@ export function MeasuredFloorPlan({
   architecturalElements: ArchitecturalElement[];
   walls: Wall[];
   overlayVisible: boolean;
+  overlayUrl: string | null;
   roomLabelsVisible: boolean;
   overlayOpacity: number;
   overlayFit: OverlayFit;
@@ -134,7 +135,7 @@ export function MeasuredFloorPlan({
   });
   const gridLinesX = gridLines(floorPlan.widthFt);
   const gridLinesY = gridLines(floorPlan.depthFt);
-  const overlaySrc = toBlueprintImageSrc(floorPlan.blueprintImagePath);
+  const overlaySrc = overlayUrl;
   const overlayRect = {
     x: floorPlan.overlayOffsetXFt ?? 0,
     y: floorPlan.overlayOffsetYFt ?? 0,

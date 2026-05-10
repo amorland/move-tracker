@@ -212,6 +212,17 @@ The dev server binds to `0.0.0.0:3000`.
 
 The Visual Layout page uses bundled blueprint overlay PNGs from `public/blueprints/`. These files are committed to the repo and deploy with the app, so hosted environments can load them directly from paths such as `/blueprints/second-floor.png`. Rooms can be shaped as polygons over the blueprint and labeled independently from their saved dimensions. Room items are placed on the measured floor canvas, assigned to a room when their center point lands inside that room outline, and can be selected to edit footprint, X/Y placement, rotation, snap behavior, and nudge positioning.
 
+### Private blueprint storage (optional)
+
+Blueprints can also live in a private Supabase Storage bucket so they don't sit in the public repo. To migrate:
+
+1. In the Supabase dashboard, create a Storage bucket named `blueprints` and leave it private (no public URL access).
+2. Add a Storage policy on the bucket that allows authenticated users to `SELECT` (read) objects. With per-row scoping not needed for a single-user app, the simplest policy is `bucket_id = 'blueprints'` for the authenticated role.
+3. Upload `first-floor.png`, `second-floor.png`, `third-floor.png`, `site-plan.png` (or whatever filenames you prefer) into the bucket root.
+4. In the Visual Layout page's "Blueprint overlay" panel for each floor, change the **Image URL** from `/blueprints/second-floor.png` to a bucket-relative path like `second-floor.png` (no leading slash, no `https://`). Save.
+5. The app's `/api/blueprints` route mints a 1-hour signed URL on demand for any non-public path. The browser fetches the signed URL, the bucket stays private.
+6. Once every floor row has been switched over, you can delete the PNGs from `public/blueprints/` and add the directory to `.gitignore`. The historical commits will still contain the PNGs; rewriting that history (`git filter-repo --path public/blueprints --invert-paths`) plus a force-push to `main` removes them from older history. Force-pushing rewrites shared history — only do it if no one else has cloned recent commits.
+
 ## Tests
 
 ```bash
