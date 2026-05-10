@@ -51,6 +51,7 @@ export interface Task {
 
 export type BelongingAction = 'Bring' | 'Sell' | 'Donate' | 'Trash';
 export type BelongingStatus = 'unresolved' | 'resolved';
+export type BelongingSizeClass = 'floorplan_item' | 'boxed';
 export type FurnitureType =
   | 'bed'
   | 'crib'
@@ -83,6 +84,10 @@ export interface Belonging {
   itemName: string;
   action: BelongingAction;
   status: BelongingStatus;
+  sizeClass: BelongingSizeClass;
+  widthIn: number | null;
+  depthIn: number | null;
+  heightIn: number | null;
   notes: string | null;
   createdAt: string;
 }
