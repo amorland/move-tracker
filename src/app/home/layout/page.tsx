@@ -543,6 +543,9 @@ export default function HomeLayoutPage() {
                 items={items}
                 walls={activeFloorWalls}
                 architecturalElements={activeFloorElements}
+                derivedRoomShapes={derivedRoomShapes}
+                structureLocked={activeFloor.structureLocked}
+                elementsLocked={activeFloor.elementsLocked}
                 selectedItemId={selectedItemId}
                 onSelectItem={itemId => {
                   setSelectedItemId(itemId);
