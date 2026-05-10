@@ -35,10 +35,12 @@ import {
   formatNumberInput,
   ftToIn,
   furnitureProfileForType,
+  isWallAttachedType,
   itemPlacementForControls,
   labelForArchitecturalElementType,
   makeArchitecturalElementDraft,
   normaliseRotation,
+  resolveElementGeometry,
   nullableNumber,
   nullableNumbersMatch,
   roundToHundredth,
@@ -110,8 +112,12 @@ export default function HomeLayoutPage() {
   }, [activeFloor, measuredFloors, rooms]);
   const unplacedItems = items.filter(item => item.roomId === null && item.floorPlanId === null);
   const selectedItem = items.find(item => item.id === selectedItemId) ?? null;
-  const activeFloorElements = activeFloor ? architecturalElements.filter(element => element.floorPlanId === activeFloor.id) : [];
   const activeFloorWalls = activeFloor ? walls.filter(wall => wall.floorPlanId === activeFloor.id) : [];
+  const activeFloorElements = activeFloor
+    ? architecturalElements
+        .filter(element => element.floorPlanId === activeFloor.id)
+        .map(element => resolveElementGeometry(element, activeFloorWalls))
+    : [];
   const activeBlueprintUrl = useBlueprintImageUrl(activeFloor?.blueprintImagePath ?? null);
   const blueprintSnap = useBlueprintSnap(activeFloor ?? null, activeBlueprintUrl);
   const derivedRoomShapes = useDerivedRoomShapes(activeFloor ?? null, activeFloorRooms, activeFloorWalls);
@@ -552,9 +558,10 @@ export default function HomeLayoutPage() {
                 onRenameRoom={renameRoom}
               />
               <ArchitecturalElementControls
-                key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}` : `new-${activeFloor.id}`}
+                key={selectedElement ? `${selectedElement.id}-${selectedElement.xFt}-${selectedElement.yFt}-${selectedElement.widthFt}-${selectedElement.depthFt}-${selectedElement.rotationDeg}-${selectedElement.wallId ?? 'free'}-${selectedElement.offsetAlongWallFt ?? 'na'}` : `new-${activeFloor.id}`}
                 floorPlan={activeFloor}
                 floorRooms={activeFloorRooms}
+                floorWalls={activeFloorWalls}
                 selectedElement={selectedElement?.floorPlanId === activeFloor.id ? selectedElement : null}
                 onCreate={createArchitecturalElement}
                 onSave={saveArchitecturalElement}
@@ -880,6 +887,7 @@ function BlueprintOverlayControls({
 function ArchitecturalElementControls({
   floorPlan,
   floorRooms,
+  floorWalls,
   selectedElement,
   onCreate,
   onSave,
@@ -888,6 +896,7 @@ function ArchitecturalElementControls({
 }: {
   floorPlan: HomeFloorPlan;
   floorRooms: Room[];
+  floorWalls: Wall[];
   selectedElement: ArchitecturalElement | null;
   onCreate: (draft: ArchitecturalElementDraft) => Promise<SaveResult>;
   onSave: (elementId: number, update: ArchitecturalElementUpdate) => Promise<SaveResult>;
@@ -895,6 +904,9 @@ function ArchitecturalElementControls({
   onClear: () => void;
 }) {
   const [draft, setDraft] = useState(() => makeArchitecturalElementDraft(selectedElement, floorPlan, floorRooms));
+  const isWallAttached = isWallAttachedType(draft.elementType);
+  const selectedWall = draft.wallId != null ? floorWalls.find(w => w.id === draft.wallId) ?? null : null;
+  const selectedWallLength = selectedWall ? Math.hypot(selectedWall.endXFt - selectedWall.startXFt, selectedWall.endYFt - selectedWall.startYFt) : 0;
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const canPersist = floorPlan.id > 0;
@@ -1023,26 +1035,74 @@ function ArchitecturalElementControls({
           </label>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
-          <GeometryNumberField label="X ft" value={draft.xFt} min={0} max={Math.max(0, floorPlan.widthFt - draft.widthFt)} onChange={xFt => xFt !== null && setDraft(current => ({ ...current, xFt }))} />
-          <GeometryNumberField label="Y ft" value={draft.yFt} min={0} max={Math.max(0, floorPlan.depthFt - draft.depthFt)} onChange={yFt => yFt !== null && setDraft(current => ({ ...current, yFt }))} />
-          <GeometryNumberField label="Width ft" value={draft.widthFt} min={0.25} max={floorPlan.widthFt} onChange={widthFt => widthFt !== null && setDraft(current => ({ ...current, widthFt }))} />
-          <GeometryNumberField label="Depth ft" value={draft.depthFt} min={0.1} max={floorPlan.depthFt} onChange={depthFt => depthFt !== null && setDraft(current => ({ ...current, depthFt }))} />
-          <GeometryNumberField label="Rotation" value={draft.rotationDeg} min={0} max={359} onChange={rotationDeg => rotationDeg !== null && setDraft(current => ({ ...current, rotationDeg: normaliseRotation(rotationDeg) }))} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <NudgePad label="0.25 ft" disabled={!selectedElement || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx * 0.25, dy * 0.25)} />
-          <NudgePad label="1 ft" disabled={!selectedElement || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx, dy)} />
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDraft(current => ({ ...current, rotationDeg: normaliseRotation(current.rotationDeg - 15) }))}>
-              <RotateCcw size={14} /> 15
-            </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDraft(current => ({ ...current, rotationDeg: normaliseRotation(current.rotationDeg + 15) }))}>
-              <RotateCw size={14} /> 15
-            </button>
+        {isWallAttached ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, alignItems: 'end' }}>
+            <label style={{ display: 'block' }}>
+              <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Wall</span>
+              <select
+                value={draft.wallId ?? ''}
+                onChange={event => {
+                  const wallId = event.target.value ? Number(event.target.value) : null;
+                  const wall = wallId !== null ? floorWalls.find(w => w.id === wallId) : null;
+                  const length = wall ? Math.hypot(wall.endXFt - wall.startXFt, wall.endYFt - wall.startYFt) : 0;
+                  setDraft(current => ({
+                    ...current,
+                    wallId,
+                    offsetAlongWallFt: wallId === null ? null : (current.offsetAlongWallFt ?? length / 2),
+                  }));
+                }}
+              >
+                <option value="">No wall ({floorWalls.length} available)</option>
+                {floorWalls.map(wall => {
+                  const length = Math.hypot(wall.endXFt - wall.startXFt, wall.endYFt - wall.startYFt);
+                  return (
+                    <option key={wall.id} value={wall.id}>
+                      Wall #{wall.id} ({length.toFixed(1)} ft)
+                    </option>
+                  );
+                })}
+              </select>
+            </label>
+            <GeometryNumberField
+              label={`Offset ft${selectedWall ? ` (max ${selectedWallLength.toFixed(1)})` : ''}`}
+              value={draft.offsetAlongWallFt}
+              min={0}
+              max={selectedWallLength || floorPlan.widthFt}
+              nullable
+              onChange={offset => setDraft(current => ({ ...current, offsetAlongWallFt: offset }))}
+            />
+            <GeometryNumberField
+              label="Width ft"
+              value={draft.widthFt}
+              min={0.25}
+              max={floorPlan.widthFt}
+              onChange={widthFt => widthFt !== null && setDraft(current => ({ ...current, widthFt }))}
+            />
           </div>
-        </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, alignItems: 'end' }}>
+              <GeometryNumberField label="X ft" value={draft.xFt} min={0} max={Math.max(0, floorPlan.widthFt - draft.widthFt)} onChange={xFt => xFt !== null && setDraft(current => ({ ...current, xFt }))} />
+              <GeometryNumberField label="Y ft" value={draft.yFt} min={0} max={Math.max(0, floorPlan.depthFt - draft.depthFt)} onChange={yFt => yFt !== null && setDraft(current => ({ ...current, yFt }))} />
+              <GeometryNumberField label="Width ft" value={draft.widthFt} min={0.25} max={floorPlan.widthFt} onChange={widthFt => widthFt !== null && setDraft(current => ({ ...current, widthFt }))} />
+              <GeometryNumberField label="Depth ft" value={draft.depthFt} min={0.1} max={floorPlan.depthFt} onChange={depthFt => depthFt !== null && setDraft(current => ({ ...current, depthFt }))} />
+              <GeometryNumberField label="Rotation" value={draft.rotationDeg} min={0} max={359} onChange={rotationDeg => rotationDeg !== null && setDraft(current => ({ ...current, rotationDeg: normaliseRotation(rotationDeg) }))} />
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <NudgePad label="0.25 ft" disabled={!selectedElement || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx * 0.25, dy * 0.25)} />
+              <NudgePad label="1 ft" disabled={!selectedElement || saveState === 'saving'} onMove={(dx, dy) => moveBy(dx, dy)} />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDraft(current => ({ ...current, rotationDeg: normaliseRotation(current.rotationDeg - 15) }))}>
+                  <RotateCcw size={14} /> 15
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setDraft(current => ({ ...current, rotationDeg: normaliseRotation(current.rotationDeg + 15) }))}>
+                  <RotateCw size={14} /> 15
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
         {!canPersist && (
           <span style={{ fontSize: 12, color: '#b45309', fontWeight: 700 }}>Save this floor plan before adding architectural elements.</span>

@@ -55,6 +55,8 @@ export type ArchitecturalElementUpdate = {
   source?: ArchitecturalElement['source'];
   sourceKey?: string | null;
   notes?: string | null;
+  wallId?: number | null;
+  offsetAlongWallFt?: number | null;
 };
 
 export type ArchitecturalElementDraft = {
@@ -68,7 +70,15 @@ export type ArchitecturalElementDraft = {
   depthFt: number;
   rotationDeg: number;
   notes: string;
+  wallId: number | null;
+  offsetAlongWallFt: number | null;
 };
+
+export const WALL_ATTACHED_ELEMENT_TYPES = new Set<ArchitecturalElementType>(['door', 'window', 'opening']);
+
+export function isWallAttachedType(type: ArchitecturalElementType): boolean {
+  return WALL_ATTACHED_ELEMENT_TYPES.has(type);
+}
 
 export const ARCHITECTURAL_ELEMENT_TYPES: ArchitecturalElementType[] = [
   'door',
@@ -444,12 +454,16 @@ export function makeArchitecturalElementDraft(
       depthFt: element.depthFt,
       rotationDeg: element.rotationDeg,
       notes: element.notes ?? '',
+      wallId: element.wallId ?? null,
+      offsetAlongWallFt: element.offsetAlongWallFt ?? null,
     };
   }
 
   const defaultType: ArchitecturalElementType = 'door';
   const dimensions = defaultArchitecturalElementDimensions(defaultType);
-  const firstRoomCenter = floorRooms[0] ? planLabelPointForRoom(floorRooms[0]) : { x: floorPlan.widthFt / 2, y: floorPlan.depthFt / 2 };
+  const firstRoomCenter = floorRooms[0]?.anchorXFt != null && floorRooms[0]?.anchorYFt != null
+    ? { x: floorRooms[0].anchorXFt, y: floorRooms[0].anchorYFt }
+    : floorRooms[0] ? planLabelPointForRoom(floorRooms[0]) : { x: floorPlan.widthFt / 2, y: floorPlan.depthFt / 2 };
   const position = clampArchitecturalElementPosition(
     firstRoomCenter.x - dimensions.widthFt / 2,
     firstRoomCenter.y - dimensions.depthFt / 2,
@@ -469,6 +483,8 @@ export function makeArchitecturalElementDraft(
     depthFt: dimensions.depthFt,
     rotationDeg: 0,
     notes: '',
+    wallId: null,
+    offsetAlongWallFt: null,
   };
 }
 
@@ -484,6 +500,8 @@ export function architecturalDraftToUpdate(draft: ArchitecturalElementDraft): Ar
     depthFt: roundToHundredth(draft.depthFt),
     rotationDeg: normaliseRotation(draft.rotationDeg),
     notes: draft.notes.trim() || null,
+    wallId: draft.wallId,
+    offsetAlongWallFt: draft.offsetAlongWallFt === null ? null : roundToHundredth(draft.offsetAlongWallFt),
   };
 }
 
@@ -496,7 +514,48 @@ export function architecturalDraftHasChanges(element: ArchitecturalElement, draf
     !nullableNumbersMatch(element.widthFt, draft.widthFt) ||
     !nullableNumbersMatch(element.depthFt, draft.depthFt) ||
     !nullableNumbersMatch(element.rotationDeg, normaliseRotation(draft.rotationDeg)) ||
-    (element.notes ?? '') !== draft.notes.trim();
+    (element.notes ?? '') !== draft.notes.trim() ||
+    (element.wallId ?? null) !== (draft.wallId ?? null) ||
+    !nullableNumbersMatch(element.offsetAlongWallFt, draft.offsetAlongWallFt);
+}
+
+/**
+ * For wall-attached elements, compute the effective x/y/rotation from
+ * the wall's geometry + the offset along the wall. Returns the element
+ * with overridden xFt/yFt/rotationDeg if wallId is set and the wall is
+ * available; otherwise returns the element unchanged.
+ */
+export function resolveElementGeometry(element: ArchitecturalElement, walls: { id: number; startXFt: number; startYFt: number; endXFt: number; endYFt: number; thicknessIn: number }[]): ArchitecturalElement {
+  if (element.wallId === null || element.offsetAlongWallFt === null) return element;
+  const wall = walls.find(w => w.id === element.wallId);
+  if (!wall) return element;
+  const dx = wall.endXFt - wall.startXFt;
+  const dy = wall.endYFt - wall.startYFt;
+  const length = Math.hypot(dx, dy);
+  if (length < 0.01) return element;
+  const t = clamp(element.offsetAlongWallFt, 0, length) / length;
+  // Position the element's TOP-LEFT corner so its center lands on the wall.
+  // Element width is along the wall, depth is perpendicular (matches wall thickness).
+  const angleRad = Math.atan2(dy, dx);
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
+  const wallThicknessFt = (wall.thicknessIn ?? 5) / 12;
+  const widthFt = element.widthFt;
+  const depthFt = Math.max(wallThicknessFt, 0.2);
+  // Effective center on the wall
+  const centerX = wall.startXFt + t * dx;
+  const centerY = wall.startYFt + t * dy;
+  // Element box rotates around its center. Compute top-left from center.
+  const xFt = centerX - widthFt / 2 * cosA + depthFt / 2 * sinA;
+  const yFt = centerY - widthFt / 2 * sinA - depthFt / 2 * cosA;
+  const rotationDeg = (angleRad * 180 / Math.PI + 360) % 360;
+  return {
+    ...element,
+    xFt: roundToHundredth(xFt),
+    yFt: roundToHundredth(yFt),
+    depthFt: roundToHundredth(depthFt),
+    rotationDeg: Math.round(rotationDeg * 100) / 100,
+  };
 }
 
 export function defaultArchitecturalElementDimensions(type: ArchitecturalElementType) {
