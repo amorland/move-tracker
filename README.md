@@ -8,6 +8,7 @@ A private web app for Andrew, Tory, and Remy's move from Clearwater, FL to Cold 
 - **Supabase** (Postgres) for application data
 - **Tailwind CSS v4** with CSS custom properties design system
 - **Leaflet** + **OSRM** for the interactive route map
+- **react-three-fiber** + **drei** + **three** for the 3D layout scene (Visual Layout page)
 - **Vitest** for API and utility tests
 - **Deployed on Vercel**
 

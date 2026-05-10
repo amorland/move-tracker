@@ -13,6 +13,7 @@ import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Edit3, 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MeasuredFloorPlan } from './MeasuredFloorPlan';
+import { MeasuredFloorScene, type SceneCameraMode } from './MeasuredFloorScene';
 import {
   ARCHITECTURAL_ELEMENT_TYPES,
   ArchitecturalElementDraft,
@@ -63,6 +64,8 @@ export default function HomeLayoutPage() {
   const [activeFloorName, setActiveFloorName] = useState<string | null>(null);
   const [wallEditMode, setWallEditMode] = useState(false);
   const [wallTraceStart, setWallTraceStart] = useState<PlanPoint | null>(null);
+  const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [cameraMode, setCameraMode] = useState<SceneCameraMode>('top');
   const [overlayVisible, setOverlayVisible] = useState(true);
   const [roomLabelsVisible, setRoomLabelsVisible] = useState(true);
   const [overlayOpacity, setOverlayOpacity] = useState(0.42);
@@ -216,6 +219,17 @@ export default function HomeLayoutPage() {
 
     setArchitecturalElements(current => current.filter(element => element.id !== elementId));
     setSelectedElementId(null);
+    return { ok: true };
+  };
+
+  const deleteRoomItem = async (itemId: number): Promise<SaveResult> => {
+    const res = await fetch(`/api/room-items?id=${itemId}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as { error?: string } | null;
+      return { ok: false, message: body?.error || `Delete failed with HTTP ${res.status}` };
+    }
+    setItems(current => current.filter(item => item.id !== itemId));
+    if (selectedItemId === itemId) setSelectedItemId(null);
     return { ok: true };
   };
 
@@ -493,6 +507,16 @@ export default function HomeLayoutPage() {
             roomEditMode={roomEditMode}
             wallEditMode={wallEditMode}
             wallCount={activeFloorWalls.length}
+            viewMode={viewMode}
+            onViewModeChange={mode => {
+              setViewMode(mode);
+              if (mode === '3d') {
+                // Disable 2D-only edit modes when entering 3D.
+                setWallEditMode(false);
+                setRoomEditMode(false);
+                setWallTraceStart(null);
+              }
+            }}
             busy={automationBusy}
             message={automationMessage}
             onToggleOverlay={() => setOverlayVisible(value => !value)}
@@ -512,42 +536,68 @@ export default function HomeLayoutPage() {
             onResetArchitecture={() => runLayoutAutomation('architectureReset')}
           />
           <div className="layout-workspace-grid">
-            <MeasuredFloorPlan
-              floorPlan={activeFloor}
-              floorPlans={measuredFloors}
-              rooms={rooms}
-              items={items}
-              overlayVisible={overlayVisible}
-              roomLabelsVisible={roomLabelsVisible}
-              overlayOpacity={overlayOpacity}
-              overlayFit={overlayFit}
-              roomEditMode={roomEditMode}
-              editingRoomId={editingRoomId}
-              roomDraft={roomDraft}
-              onSelectRoom={selectRoomForEditing}
-              onRoomDraftChange={setRoomDraft}
-              selectedItemId={selectedItemId}
-              selectedElementId={selectedElementId}
-              onSelectItem={itemId => {
-                setSelectedItemId(itemId);
-                setSelectedElementId(null);
-              }}
-              architecturalElements={activeFloorElements}
-              onSelectArchitecturalElement={elementId => {
-                setSelectedElementId(elementId);
-                setSelectedItemId(null);
-              }}
-              onMoveArchitecturalElement={saveArchitecturalElement}
-              snapToGrid={snapToGrid}
-              onMoveItem={moveItem}
-              walls={activeFloorWalls}
-              wallEditMode={wallEditMode}
-              wallTraceStart={wallTraceStart}
-              onWallTraceStartChange={setWallTraceStart}
-              onCreateWall={createWall}
-              onDeleteWall={deleteWall}
-              statusMessage={layoutMessage}
-            />
+            {viewMode === '2d' ? (
+              <MeasuredFloorPlan
+                floorPlan={activeFloor}
+                floorPlans={measuredFloors}
+                rooms={rooms}
+                items={items}
+                overlayVisible={overlayVisible}
+                roomLabelsVisible={roomLabelsVisible}
+                overlayOpacity={overlayOpacity}
+                overlayFit={overlayFit}
+                roomEditMode={roomEditMode}
+                editingRoomId={editingRoomId}
+                roomDraft={roomDraft}
+                onSelectRoom={selectRoomForEditing}
+                onRoomDraftChange={setRoomDraft}
+                selectedItemId={selectedItemId}
+                selectedElementId={selectedElementId}
+                onSelectItem={itemId => {
+                  setSelectedItemId(itemId);
+                  setSelectedElementId(null);
+                }}
+                architecturalElements={activeFloorElements}
+                onSelectArchitecturalElement={elementId => {
+                  setSelectedElementId(elementId);
+                  setSelectedItemId(null);
+                }}
+                onMoveArchitecturalElement={saveArchitecturalElement}
+                snapToGrid={snapToGrid}
+                onMoveItem={moveItem}
+                walls={activeFloorWalls}
+                wallEditMode={wallEditMode}
+                wallTraceStart={wallTraceStart}
+                onWallTraceStartChange={setWallTraceStart}
+                onCreateWall={createWall}
+                onDeleteWall={deleteWall}
+                statusMessage={layoutMessage}
+              />
+            ) : (
+              <MeasuredFloorScene
+                floorPlan={activeFloor}
+                rooms={rooms}
+                items={items}
+                walls={activeFloorWalls}
+                architecturalElements={activeFloorElements}
+                selectedItemId={selectedItemId}
+                onSelectItem={itemId => {
+                  setSelectedItemId(itemId);
+                  setSelectedElementId(null);
+                }}
+                onMoveItem={moveItem}
+                onSaveItem={saveItemLayout}
+                onDeleteItem={deleteRoomItem}
+                onMoveArchitecturalElement={saveArchitecturalElement}
+                cameraMode={cameraMode}
+                onCameraModeChange={setCameraMode}
+                snapToGrid={snapToGrid}
+                overlayVisible={overlayVisible}
+                blueprintTextureUrl={toBlueprintImageSrc(activeFloor.blueprintImagePath)}
+                overlayOpacity={overlayOpacity}
+                statusMessage={layoutMessage}
+              />
+            )}
             <div className="layout-inspector-stack">
               <SelectedItemControls
                 key={selectedItem ? `${selectedItem.id}-${selectedItem.furnitureType ?? 'type'}-${selectedItem.planXFt ?? 'x'}-${selectedItem.planYFt ?? 'y'}-${selectedItem.widthIn ?? 'w'}-${selectedItem.depthIn ?? 'd'}-${selectedItem.rotationDeg ?? 'r'}` : 'empty'}
@@ -635,6 +685,8 @@ function LayoutToolbar({
   roomEditMode,
   wallEditMode,
   wallCount,
+  viewMode,
+  onViewModeChange,
   busy,
   message,
   onToggleOverlay,
@@ -656,6 +708,8 @@ function LayoutToolbar({
   roomEditMode: boolean;
   wallEditMode: boolean;
   wallCount: number;
+  viewMode: '2d' | '3d';
+  onViewModeChange: (mode: '2d' | '3d') => void;
   busy: LayoutAutomationMode | null;
   message: string | null;
   onToggleOverlay: () => void;
@@ -695,6 +749,22 @@ function LayoutToolbar({
               {message}
             </span>
           )}
+          <div className="seg-control" aria-label="View mode">
+            <button
+              type="button"
+              onClick={() => onViewModeChange('2d')}
+              className={`seg-btn ${viewMode === '2d' ? 'seg-active' : ''}`}
+            >
+              2D
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange('3d')}
+              className={`seg-btn ${viewMode === '3d' ? 'seg-active' : ''}`}
+            >
+              3D
+            </button>
+          </div>
           <button type="button" className="btn btn-secondary btn-sm" onClick={onToggleOverlay}>
             {overlayVisible ? <EyeOff size={14} /> : <Eye size={14} />}
             {overlayVisible ? 'Hide Blueprint' : 'Show Blueprint'}
