@@ -1,9 +1,8 @@
 'use client';
 
 import { type PointerEvent, useRef, useState } from 'react';
-import { Grid3X3, MoveDiagonal, MousePointer2 } from 'lucide-react';
+import { AlertTriangle, Grid3X3, MapPin, MoveDiagonal } from 'lucide-react';
 import {
-  containsPlanPoint,
   floorForRoom,
   itemFootprint,
   planLabelPointForRoom,
@@ -20,29 +19,39 @@ import {
   ArchitecturalElementUpdate,
   GeometryDragTarget,
   OverlayFit,
-  RoomGeometryDraft,
   SaveResult,
   architecturalElementStyle,
   clamp,
   clampArchitecturalElementPosition,
   clampItemPosition,
-  displayLabelPointForRoom,
-  displayPointsForRoom,
   formatFt,
   furnitureProfileForItem,
   type FurnitureProfile,
   gridLines,
   labelForArchitecturalElementType,
   pointsToSvg,
-  roomEditorPoints,
-  roomGeometryStatus,
-  roomOutlineStyle,
-  roundPlanPoint,
   snapPlanValue,
-  translateEdgeWithinFloor,
-  translatePointsWithinFloor,
-  edgeResizeCursor,
 } from './helpers';
+import type { BlueprintSnap } from './blueprintSnap';
+import type { DerivedRoomShape } from './useDerivedRoomShapes';
+import type { RoomAnchorPlacement } from './RoomAnchorControls';
+
+const ROOM_TINTS = [
+  'rgba(31,107,91,0.18)',
+  'rgba(154,90,47,0.18)',
+  'rgba(184,95,54,0.18)',
+  'rgba(85,117,139,0.18)',
+  'rgba(159,118,84,0.18)',
+  'rgba(79,138,96,0.18)',
+];
+const ROOM_STROKES = [
+  'rgba(31,107,91,0.78)',
+  'rgba(154,90,47,0.78)',
+  'rgba(184,95,54,0.78)',
+  'rgba(85,117,139,0.78)',
+  'rgba(159,118,84,0.78)',
+  'rgba(79,138,96,0.78)',
+];
 
 export function MeasuredFloorPlan({
   floorPlan,
@@ -56,11 +65,13 @@ export function MeasuredFloorPlan({
   roomLabelsVisible,
   overlayOpacity,
   overlayFit,
-  roomEditMode,
-  editingRoomId,
-  roomDraft,
-  onSelectRoom,
-  onRoomDraftChange,
+  structureLocked,
+  elementsLocked,
+  derivedRoomShapes,
+  anchorPlacement,
+  onPlaceAnchor,
+  onCancelAnchor,
+  blueprintSnap,
   selectedItemId,
   selectedElementId,
   onSelectItem,
@@ -86,11 +97,13 @@ export function MeasuredFloorPlan({
   roomLabelsVisible: boolean;
   overlayOpacity: number;
   overlayFit: OverlayFit;
-  roomEditMode: boolean;
-  editingRoomId: number | null;
-  roomDraft: RoomGeometryDraft | null;
-  onSelectRoom: (roomId: number | null) => void;
-  onRoomDraftChange: (draft: RoomGeometryDraft | null) => void;
+  structureLocked: boolean;
+  elementsLocked: boolean;
+  derivedRoomShapes: Map<number, DerivedRoomShape>;
+  anchorPlacement: RoomAnchorPlacement | null;
+  onPlaceAnchor: (point: PlanPoint) => void;
+  onCancelAnchor: () => void;
+  blueprintSnap: BlueprintSnap;
   selectedItemId: number | null;
   selectedElementId: number | null;
   onSelectItem: (itemId: number) => void;
@@ -110,16 +123,8 @@ export function MeasuredFloorPlan({
   const [itemDragPreview, setItemDragPreview] = useState<{ itemId: number; xFt: number; yFt: number } | null>(null);
   const [architecturalDragPreview, setArchitecturalDragPreview] = useState<{ elementId: number; xFt: number; yFt: number } | null>(null);
   const [wallCursor, setWallCursor] = useState<PlanPoint | null>(null);
+
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
-  const roomShapes = floorRooms.map(room => ({
-    room,
-    points: displayPointsForRoom(room, roomDraft),
-    label: displayLabelPointForRoom(room, roomDraft),
-    selected: room.id === editingRoomId,
-  }));
-  const editingRoom = roomDraft ? floorRooms.find(room => room.id === roomDraft.roomId) ?? null : null;
-  const editingPoints = editingRoom && roomDraft ? roomEditorPoints(editingRoom, roomDraft) : [];
-  const editingLabel = editingRoom && roomDraft ? displayLabelPointForRoom(editingRoom, roomDraft) : null;
   const floorItems = items.filter(item => {
     if (item.floorPlanId === floorPlan.id) return true;
     return item.floorPlanId === null && item.roomId !== null && floorRooms.some(room => room.id === item.roomId);
@@ -152,25 +157,42 @@ export function MeasuredFloorPlan({
     };
   };
 
-  const wallEndpoints: PlanPoint[] = walls.flatMap(wall => [
-    { x: wall.startXFt, y: wall.startYFt },
-    { x: wall.endXFt, y: wall.endYFt },
-  ]);
-
   const snapForWallTrace = (point: PlanPoint): PlanPoint => {
-    const snapRadius = 1; // foot
-    const nearest = wallEndpoints.reduce<{ point: PlanPoint; distance: number } | null>((best, candidate) => {
+    // Priority 1: snap to an existing wall endpoint within 1 ft.
+    const endpoints: PlanPoint[] = walls.flatMap(wall => [
+      { x: wall.startXFt, y: wall.startYFt },
+      { x: wall.endXFt, y: wall.endYFt },
+    ]);
+    const nearestEndpoint = endpoints.reduce<{ point: PlanPoint; distance: number } | null>((best, candidate) => {
       const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
-      if (distance > snapRadius) return best;
+      if (distance > 1) return best;
       if (!best || distance < best.distance) return { point: candidate, distance };
       return best;
     }, null);
-    if (nearest) return nearest.point;
+    if (nearestEndpoint) return nearestEndpoint.point;
+
+    // Priority 2: snap to a blueprint pixel within 0.5 ft.
+    if (blueprintSnap.hasImage) {
+      const snapped = blueprintSnap.snap(point, 0.5);
+      if (snapped) {
+        return {
+          x: Math.round(snapped.x * 100) / 100,
+          y: Math.round(snapped.y * 100) / 100,
+        };
+      }
+    }
+
+    // Priority 3: grid snap.
     return {
       x: snapPlanValue(point.x, snapToGrid),
       y: snapPlanValue(point.y, snapToGrid),
     };
   };
+
+  const snapForAnchor = (point: PlanPoint): PlanPoint => ({
+    x: snapPlanValue(point.x, snapToGrid),
+    y: snapPlanValue(point.y, snapToGrid),
+  });
 
   const updateDraftFromPointer = (event: PointerEvent<HTMLElement>) => {
     if (wallEditMode) {
@@ -209,40 +231,6 @@ export function MeasuredFloorPlan({
       setArchitecturalDragPreview({ elementId: dragTarget.element.id, xFt: next.xFt, yFt: next.yFt });
       return;
     }
-
-    if (!roomEditMode || !roomDraft) return;
-    const roundedPoint = roundPlanPoint(point);
-
-    if (dragTarget.type === 'label') {
-      onRoomDraftChange({ ...roomDraft, labelXFt: roundedPoint.x, labelYFt: roundedPoint.y });
-      return;
-    }
-
-    if (dragTarget.type === 'room') {
-      const dx = point.x - dragTarget.start.x;
-      const dy = point.y - dragTarget.start.y;
-      onRoomDraftChange({
-        ...roomDraft,
-        shapePoints: translatePointsWithinFloor(dragTarget.points, dx, dy, floorPlan),
-      });
-      return;
-    }
-
-    if (dragTarget.type === 'edge') {
-      const dx = point.x - dragTarget.start.x;
-      const dy = point.y - dragTarget.start.y;
-      onRoomDraftChange({
-        ...roomDraft,
-        shapePoints: translateEdgeWithinFloor(dragTarget.points, dragTarget.index, dx, dy, floorPlan, snapToGrid),
-      });
-      return;
-    }
-
-    const selectedRoom = floorRooms.find(room => room.id === roomDraft.roomId);
-    if (!selectedRoom) return;
-    const points = roomEditorPoints(selectedRoom, roomDraft);
-    const nextPoints = points.map((entry, index) => index === dragTarget.index ? roundedPoint : entry);
-    onRoomDraftChange({ ...roomDraft, shapePoints: nextPoints });
   };
 
   const finishPointerDrag = async () => {
@@ -254,10 +242,7 @@ export function MeasuredFloorPlan({
     setArchitecturalDragPreview(null);
 
     if (target?.type === 'item' && itemPreview?.itemId === target.item.id) {
-      const centerXFt = itemPreview.xFt + target.widthFt / 2;
-      const centerYFt = itemPreview.yFt + target.depthFt / 2;
-      const targetRoom = roomShapes.find(({ points }) => containsPlanPoint(points, centerXFt, centerYFt));
-      onMoveItem(target.item, floorPlan.id, targetRoom?.room.id ?? null, itemPreview.xFt, itemPreview.yFt);
+      onMoveItem(target.item, floorPlan.id, null, itemPreview.xFt, itemPreview.yFt);
       return;
     }
 
@@ -268,6 +253,12 @@ export function MeasuredFloorPlan({
       floorPlanId: floorPlan.id,
     });
   };
+
+  const interactionMode: 'wall' | 'anchor' | 'idle' = wallEditMode
+    ? 'wall'
+    : anchorPlacement
+      ? 'anchor'
+      : 'idle';
 
   return (
     <div className="card">
@@ -290,6 +281,26 @@ export function MeasuredFloorPlan({
             {statusMessage}
           </div>
         )}
+        {interactionMode === 'anchor' && anchorPlacement && (
+          <div style={{
+            marginBottom: 10,
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px dashed var(--color-accent)',
+            background: 'var(--color-accent-soft)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+          }}>
+            <MapPin size={14} color="var(--color-accent-dark)" />
+            <div style={{ flex: 1, fontSize: 12, fontWeight: 700, color: 'var(--color-accent-dark)' }}>
+              {anchorPlacement.pendingRoomId
+                ? `Click inside the room to move "${anchorPlacement.pendingName}".`
+                : `Click inside a wall-bounded area to anchor "${anchorPlacement.pendingName}".`}
+            </div>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onCancelAnchor}>Cancel</button>
+          </div>
+        )}
         <div
           ref={surfaceRef}
           onDragOver={event => event.preventDefault()}
@@ -306,10 +317,7 @@ export function MeasuredFloorPlan({
             const snappedYFt = snapPlanValue(rawYFt, snapToGrid);
             const planXFt = clamp(snappedXFt, 0, Math.max(0, floorPlan.widthFt - footprint.widthFt));
             const planYFt = clamp(snappedYFt, 0, Math.max(0, floorPlan.depthFt - footprint.depthFt));
-            const centerXFt = planXFt + footprint.widthFt / 2;
-            const centerYFt = planYFt + footprint.depthFt / 2;
-            const target = roomShapes.find(({ points }) => containsPlanPoint(points, centerXFt, centerYFt));
-            onMoveItem(item, floorPlan.id, target?.room.id ?? null, planXFt, planYFt);
+            onMoveItem(item, floorPlan.id, null, planXFt, planYFt);
           }}
           onPointerMove={updateDraftFromPointer}
           onPointerUp={() => { void finishPointerDrag(); }}
@@ -322,29 +330,35 @@ export function MeasuredFloorPlan({
             if (wallEditMode) setWallCursor(null);
           }}
           onClick={async (event) => {
-            if (!wallEditMode) return;
-            // Ignore bubbled clicks from inner buttons (which call stopPropagation,
-            // but be defensive).
             const target = event.target as HTMLElement;
             if (target.closest('[data-layout-control="true"]')) return;
             const raw = pointFromPointer(event);
             if (!raw) return;
-            const snapped = snapForWallTrace(raw);
-            if (!wallTraceStart) {
-              onWallTraceStartChange(snapped);
+
+            if (interactionMode === 'wall') {
+              const snapped = snapForWallTrace(raw);
+              if (!wallTraceStart) {
+                onWallTraceStartChange(snapped);
+                return;
+              }
+              const dx = snapped.x - wallTraceStart.x;
+              const dy = snapped.y - wallTraceStart.y;
+              if (Math.hypot(dx, dy) < 0.25) {
+                onWallTraceStartChange(null);
+                return;
+              }
+              const result = await onCreateWall(wallTraceStart, snapped);
+              if (result.ok) {
+                onWallTraceStartChange(null);
+                setWallCursor(null);
+              }
               return;
             }
-            const dx = snapped.x - wallTraceStart.x;
-            const dy = snapped.y - wallTraceStart.y;
-            if (Math.hypot(dx, dy) < 0.25) {
-              // Treat near-zero as a cancel (double-tap on the same spot).
-              onWallTraceStartChange(null);
+
+            if (interactionMode === 'anchor') {
+              const snapped = snapForAnchor(raw);
+              onPlaceAnchor(snapped);
               return;
-            }
-            const result = await onCreateWall(wallTraceStart, snapped);
-            if (result.ok) {
-              onWallTraceStartChange(null);
-              setWallCursor(null);
             }
           }}
           style={{
@@ -357,6 +371,7 @@ export function MeasuredFloorPlan({
             background: '#f8f4ec',
             overflow: 'hidden',
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.5)',
+            cursor: interactionMode === 'wall' ? 'crosshair' : interactionMode === 'anchor' ? 'crosshair' : 'default',
           }}
         >
           {overlayVisible && overlaySrc && (
@@ -388,6 +403,7 @@ export function MeasuredFloorPlan({
                 left: `${(line / floorPlan.widthFt) * 100}%`,
                 borderLeft: line === 0 ? 'none' : '1px solid rgba(92,86,72,0.08)',
                 zIndex: 1,
+                pointerEvents: 'none',
               }}
             />
           ))}
@@ -401,73 +417,55 @@ export function MeasuredFloorPlan({
                 top: `${(line / floorPlan.depthFt) * 100}%`,
                 borderTop: line === 0 ? 'none' : '1px solid rgba(92,86,72,0.08)',
                 zIndex: 1,
+                pointerEvents: 'none',
               }}
             />
           ))}
+          {/* Derived room polygons (translucent fills) */}
           <svg
             aria-hidden="true"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: roomEditMode ? 'auto' : 'none' }}
+            style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }}
           >
-            {roomShapes.map(({ room, points, selected }) => {
-              const outline = roomOutlineStyle(room, selected);
+            {floorRooms.map((room, index) => {
+              const shape = derivedRoomShapes.get(room.id);
+              if (!shape || shape.polygon.length < 3) return null;
+              const fill = shape.bounded ? ROOM_TINTS[index % ROOM_TINTS.length] : 'rgba(180,83,9,0.12)';
+              const stroke = shape.bounded ? ROOM_STROKES[index % ROOM_STROKES.length] : '#b45309';
               return (
                 <polygon
                   key={room.id}
-                  points={pointsToSvg(points, floorPlan)}
-                  fill={outline.fill}
-                  stroke={outline.stroke}
-                  strokeWidth={outline.strokeWidth}
+                  points={pointsToSvg(shape.polygon, floorPlan)}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth={0.4}
+                  strokeDasharray={shape.bounded ? undefined : '1.5 1'}
                   vectorEffect="non-scaling-stroke"
-                  style={{ cursor: roomEditMode && selected ? 'move' : roomEditMode ? 'pointer' : 'default' }}
-                  onPointerDown={event => {
-                    if (!roomEditMode) return;
-                    event.preventDefault();
-                    event.stopPropagation();
-
-                    if (!selected) {
-                      onSelectRoom(room.id);
-                      return;
-                    }
-
-                    if (!roomDraft || roomDraft.roomId !== room.id) return;
-                    const start = pointFromPointer(event);
-                    if (!start) return;
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                    setDragTarget({ type: 'room', start, points });
-                  }}
-                  onClick={event => {
-                    if (!roomEditMode) return;
-                    event.stopPropagation();
-                    if (!selected) onSelectRoom(room.id);
-                  }}
                 />
               );
             })}
           </svg>
+          {/* Walls */}
           <svg
             aria-hidden="true"
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none' }}
+            style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }}
           >
-            {walls.map(wall => {
-              const startThickness = 0.6;
-              return (
-                <line
-                  key={wall.id}
-                  x1={(wall.startXFt / floorPlan.widthFt) * 100}
-                  y1={(wall.startYFt / floorPlan.depthFt) * 100}
-                  x2={(wall.endXFt / floorPlan.widthFt) * 100}
-                  y2={(wall.endYFt / floorPlan.depthFt) * 100}
-                  stroke="#3f3a34"
-                  strokeWidth={startThickness}
-                  strokeLinecap="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              );
-            })}
+            {walls.map(wall => (
+              <line
+                key={wall.id}
+                x1={(wall.startXFt / floorPlan.widthFt) * 100}
+                y1={(wall.startYFt / floorPlan.depthFt) * 100}
+                x2={(wall.endXFt / floorPlan.widthFt) * 100}
+                y2={(wall.endYFt / floorPlan.depthFt) * 100}
+                stroke={structureLocked ? '#5a7691' : '#3f3a34'}
+                strokeWidth={0.6}
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
             {wallEditMode && wallTraceStart && wallCursor && (
               <line
                 x1={(wallTraceStart.x / floorPlan.widthFt) * 100}
@@ -481,7 +479,8 @@ export function MeasuredFloorPlan({
               />
             )}
           </svg>
-          {wallEditMode && walls.map(wall => (
+          {/* Wall delete buttons (only in edit mode, never when locked) */}
+          {wallEditMode && !structureLocked && walls.map(wall => (
             <button
               key={`wall-handle-${wall.id}`}
               type="button"
@@ -510,9 +509,7 @@ export function MeasuredFloorPlan({
                 padding: 0,
                 lineHeight: 1,
               }}
-            >
-              ×
-            </button>
+            >×</button>
           ))}
           {wallEditMode && wallTraceStart && (
             <span
@@ -550,161 +547,55 @@ export function MeasuredFloorPlan({
               }}
             />
           )}
-          {roomLabelsVisible && roomShapes.map(({ room, label, selected }) => {
-            const status = roomGeometryStatus(room);
+          {/* Room name labels at anchor points */}
+          {roomLabelsVisible && floorRooms.map(room => {
+            if (room.anchorXFt === null || room.anchorYFt === null) return null;
+            const shape = derivedRoomShapes.get(room.id);
+            const bounded = shape?.bounded ?? false;
             return (
-              <button
+              <div
                 key={`label-${room.id}`}
-                type="button"
-                data-layout-control="true"
-                aria-label={`Select ${room.name}`}
-                onClick={event => {
-                  if (!roomEditMode) return;
-                  event.stopPropagation();
-                  if (!selected) onSelectRoom(room.id);
-                }}
-                disabled={!roomEditMode}
-                title={`${room.name} - ${status.label}`}
                 style={{
                   position: 'absolute',
-                  left: `${(label.x / floorPlan.widthFt) * 100}%`,
-                  top: `${(label.y / floorPlan.depthFt) * 100}%`,
+                  left: `${(room.anchorXFt / floorPlan.widthFt) * 100}%`,
+                  top: `${(room.anchorYFt / floorPlan.depthFt) * 100}%`,
                   transform: 'translate(-50%, -50%)',
-                  zIndex: 3,
-                  maxWidth: 96,
-                  border: selected ? '1px solid rgba(31,107,91,0.42)' : `1px solid ${status.border}`,
+                  zIndex: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '3px 8px',
                   borderRadius: 999,
-                  background: selected ? 'rgba(226,243,235,0.74)' : status.background,
-                  color: selected ? 'rgba(28,25,23,0.78)' : 'rgba(28,25,23,0.58)',
-                  padding: '2px 6px',
-                  fontSize: 8,
-                  fontWeight: 700,
+                  background: 'rgba(255,250,243,0.92)',
+                  border: `1px solid ${bounded ? 'rgba(31,107,91,0.42)' : 'rgba(180,83,9,0.66)'}`,
+                  color: bounded ? 'rgba(28,25,23,0.78)' : '#b45309',
+                  fontSize: 9,
+                  fontWeight: 800,
                   textTransform: 'uppercase',
-                  letterSpacing: 0,
-                  lineHeight: 1.1,
+                  letterSpacing: '0.04em',
                   whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  opacity: selected ? 0.86 : 0.68,
-                  pointerEvents: roomEditMode ? 'auto' : 'none',
-                  cursor: roomEditMode ? 'pointer' : 'default',
-                  boxShadow: selected ? '0 2px 6px rgba(31,107,91,0.12)' : '0 1px 3px rgba(28,25,23,0.05)',
+                  pointerEvents: 'none',
+                  boxShadow: '0 1px 3px rgba(28,25,23,0.05)',
                 }}
               >
+                {!bounded && <AlertTriangle size={9} />}
                 {room.name}
-              </button>
+              </div>
             );
           })}
-          {roomEditMode && roomDraft && editingRoom && editingPoints.map((point, index) => (
-            <button
-              key={`handle-${roomDraft.roomId}-${index}`}
-              type="button"
-              data-layout-control="true"
-              aria-label={`Move room point ${index + 1}`}
-              onPointerDown={event => {
-                event.preventDefault();
-                event.stopPropagation();
-                event.currentTarget.setPointerCapture(event.pointerId);
-                setDragTarget({ type: 'point', index });
-              }}
-              style={{
-                position: 'absolute',
-                left: `${(point.x / floorPlan.widthFt) * 100}%`,
-                top: `${(point.y / floorPlan.depthFt) * 100}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 5,
-                width: 16,
-                height: 16,
-                borderRadius: 999,
-                border: '2px solid #1f6b5b',
-                background: '#fffaf3',
-                boxShadow: '0 2px 8px rgba(28,25,23,0.18)',
-                cursor: 'grab',
-                padding: 0,
-              }}
-            />
-          ))}
-          {roomEditMode && roomDraft && editingRoom && editingPoints.map((point, index) => {
-            const nextPoint = editingPoints[(index + 1) % editingPoints.length];
-            const midpoint = {
-              x: (point.x + nextPoint.x) / 2,
-              y: (point.y + nextPoint.y) / 2,
-            };
-            const cursor = edgeResizeCursor(point, nextPoint);
-            return (
-              <button
-                key={`edge-${roomDraft.roomId}-${index}`}
-                type="button"
-                data-layout-control="true"
-                aria-label={`Move room side ${index + 1}`}
-                title="Drag this side to resize the room"
-                onPointerDown={event => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  const start = pointFromPointer(event);
-                  if (!start) return;
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  setDragTarget({ type: 'edge', index, points: editingPoints, start });
-                }}
-                style={{
-                  position: 'absolute',
-                  left: `${(midpoint.x / floorPlan.widthFt) * 100}%`,
-                  top: `${(midpoint.y / floorPlan.depthFt) * 100}%`,
-                  transform: 'translate(-50%, -50%)',
-                  zIndex: 5,
-                  width: cursor === 'ew-resize' ? 12 : 24,
-                  height: cursor === 'ns-resize' ? 12 : 24,
-                  borderRadius: 999,
-                  border: '2px solid #9a5a2f',
-                  background: 'rgba(255,250,243,0.96)',
-                  boxShadow: '0 2px 8px rgba(28,25,23,0.16)',
-                  cursor,
-                  padding: 0,
-                  touchAction: 'none',
-                }}
-              />
-            );
-          })}
-          {roomEditMode && roomDraft && editingLabel && (
-            <button
-              type="button"
-              data-layout-control="true"
-              aria-label="Move room label"
-              onPointerDown={event => {
-                event.preventDefault();
-                event.stopPropagation();
-                event.currentTarget.setPointerCapture(event.pointerId);
-                setDragTarget({ type: 'label' });
-              }}
-              style={{
-                position: 'absolute',
-                left: `${(editingLabel.x / floorPlan.widthFt) * 100}%`,
-                top: `${(editingLabel.y / floorPlan.depthFt) * 100}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 6,
-                width: 22,
-                height: 22,
-                borderRadius: 999,
-                border: '2px solid #1f6b5b',
-                background: 'rgba(255,250,243,0.94)',
-                boxShadow: '0 2px 8px rgba(28,25,23,0.18)',
-                cursor: 'grab',
-                padding: 0,
-                display: 'grid',
-                placeItems: 'center',
-              }}
-            >
-              <MousePointer2 size={12} color="#1f6b5b" />
-            </button>
-          )}
           {displayedArchitecturalElements.map(element => (
             <ArchitecturalElementMarker
               key={element.id}
               element={element}
               floorPlan={floorPlan}
               selected={element.id === selectedElementId}
+              dimmed={elementsLocked}
               onSelect={() => onSelectArchitecturalElement(element.id)}
               onStartDrag={event => {
+                if (elementsLocked) {
+                  // Selection still allowed; drag is suppressed.
+                  return;
+                }
                 const start = pointFromPointer(event);
                 if (!start) return;
                 event.preventDefault();
@@ -750,11 +641,11 @@ export function MeasuredFloorPlan({
               />
             );
           })}
-          {floorRooms.length === 0 && (
+          {floorRooms.length === 0 && walls.length === 0 && (
             <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'var(--color-secondary)', textAlign: 'center', padding: 24 }}>
               <div>
                 <Grid3X3 size={28} style={{ marginBottom: 10 }} />
-                <div style={{ fontSize: 13 }}>No rooms are assigned to this floor.</div>
+                <div style={{ fontSize: 13 }}>Trace walls first, then anchor rooms inside them.</div>
               </div>
             </div>
           )}
@@ -816,7 +707,7 @@ function PlacedItem({
         touchAction: 'none',
         transform: `rotate(${item.rotationDeg ?? 0}deg)`,
         transformOrigin: 'center',
-        zIndex: selected ? 4 : 3,
+        zIndex: selected ? 8 : 7,
       }}
     >
       <FurnitureGlyph profile={profile} />
@@ -835,12 +726,14 @@ function ArchitecturalElementMarker({
   element,
   floorPlan,
   selected,
+  dimmed,
   onSelect,
   onStartDrag,
 }: {
   element: ArchitecturalElement;
   floorPlan: HomeFloorPlan;
   selected: boolean;
+  dimmed: boolean;
   onSelect: () => void;
   onStartDrag: (event: PointerEvent<HTMLButtonElement>) => void;
 }) {
@@ -871,7 +764,8 @@ function ArchitecturalElementMarker({
         padding: 3,
         overflow: 'hidden',
         boxShadow: selected ? '0 0 0 3px rgba(31,107,91,0.18), var(--shadow-sm)' : 'var(--shadow-sm)',
-        cursor: 'grab',
+        cursor: dimmed ? 'pointer' : 'grab',
+        opacity: dimmed ? 0.6 : 1,
         transform: `rotate(${element.rotationDeg}deg)`,
         transformOrigin: 'center',
         zIndex: selected ? 7 : 4,
@@ -909,7 +803,6 @@ function ArchitecturalElementGlyph({ element }: { element: ArchitecturalElement 
   if (element.elementType === 'wall') {
     return <span aria-hidden="true" style={{ position: 'absolute', inset: '35% 2px', background: 'rgba(255,250,243,0.22)' }} />;
   }
-
   if (element.elementType === 'door') {
     return (
       <>
@@ -918,13 +811,9 @@ function ArchitecturalElementGlyph({ element }: { element: ArchitecturalElement 
       </>
     );
   }
-
   if (element.elementType === 'window') {
-    return (
-      <span aria-hidden="true" style={{ position: 'absolute', inset: '35% 4px', borderTop: '2px solid #356c89', borderBottom: '2px solid #356c89' }} />
-    );
+    return <span aria-hidden="true" style={{ position: 'absolute', inset: '35% 4px', borderTop: '2px solid #356c89', borderBottom: '2px solid #356c89' }} />;
   }
-
   if (element.elementType === 'stairs') {
     return (
       <span aria-hidden="true" style={{ position: 'absolute', inset: 4, display: 'grid', gridTemplateRows: 'repeat(6, 1fr)', gap: 2 }}>
@@ -932,13 +821,9 @@ function ArchitecturalElementGlyph({ element }: { element: ArchitecturalElement 
       </span>
     );
   }
-
   if (element.elementType === 'closet' || element.elementType === 'storage') {
-    return (
-      <span aria-hidden="true" style={{ position: 'absolute', inset: 5, border: '1px dashed rgba(125,116,103,0.58)', borderRadius: 3, background: 'rgba(255,252,247,0.28)' }} />
-    );
+    return <span aria-hidden="true" style={{ position: 'absolute', inset: 5, border: '1px dashed rgba(125,116,103,0.58)', borderRadius: 3, background: 'rgba(255,252,247,0.28)' }} />;
   }
-
   if (element.elementType === 'laundry') {
     return (
       <span aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
@@ -947,22 +832,16 @@ function ArchitecturalElementGlyph({ element }: { element: ArchitecturalElement 
       </span>
     );
   }
-
   if (element.elementType === 'porch') {
     return <span aria-hidden="true" style={{ position: 'absolute', inset: 5, border: '1px dashed rgba(122,85,58,0.5)', backgroundImage: 'repeating-linear-gradient(90deg, rgba(122,85,58,0.14) 0 1px, transparent 1px 6px)' }} />;
   }
-
   if (element.elementType === 'sink' || element.elementType === 'toilet') {
     return <span aria-hidden="true" style={{ position: 'absolute', inset: '20%', border: '1px solid rgba(53,108,137,0.55)', borderRadius: element.elementType === 'toilet' ? '50% 50% 42% 42%' : 999, background: 'rgba(255,255,255,0.52)' }} />;
   }
-
   if (element.elementType === 'shower' || element.elementType === 'tub') {
     return <span aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(53,108,137,0.52)', borderRadius: element.elementType === 'tub' ? 999 : 4, background: 'rgba(255,255,255,0.28)' }} />;
   }
-
-  return (
-    <span aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(92,86,72,0.24)', background: 'rgba(255,255,255,0.24)', borderRadius: 4 }} />
-  );
+  return <span aria-hidden="true" style={{ position: 'absolute', inset: 4, border: '1px solid rgba(92,86,72,0.24)', background: 'rgba(255,255,255,0.24)', borderRadius: 4 }} />;
 }
 
 export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
@@ -981,7 +860,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'sofa') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
@@ -994,7 +872,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'sectional') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
@@ -1006,7 +883,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'chair' || kind === 'patio_chair') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
@@ -1017,7 +893,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'bench') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
@@ -1028,13 +903,9 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'ottoman') {
-    return (
-      <div aria-hidden="true" style={{ position: 'absolute', inset: '18%', borderRadius: 999, background: 'rgba(31,107,91,0.28)', border: '1px solid rgba(31,107,91,0.26)', boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.22)' }} />
-    );
+    return <div aria-hidden="true" style={{ position: 'absolute', inset: '18%', borderRadius: 999, background: 'rgba(31,107,91,0.28)', border: '1px solid rgba(31,107,91,0.26)', boxShadow: 'inset 0 0 0 4px rgba(255,255,255,0.22)' }} />;
   }
-
   if (kind === 'dining_table' || kind === 'outdoor_table' || kind === 'coffee_table' || kind === 'side_table') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: kind === 'side_table' ? '18%' : '22% 18%', borderRadius: kind === 'dining_table' || kind === 'outdoor_table' ? 999 : 7, border: '1px solid rgba(184,95,54,0.48)', background: 'rgba(255,252,247,0.56)' }}>
@@ -1042,18 +913,9 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
         <span style={{ position: 'absolute', right: 5, top: 5, width: 5, height: 5, borderRadius: 999, background: 'rgba(184,95,54,0.38)' }} />
         <span style={{ position: 'absolute', left: 5, bottom: 5, width: 5, height: 5, borderRadius: 999, background: 'rgba(184,95,54,0.38)' }} />
         <span style={{ position: 'absolute', right: 5, bottom: 5, width: 5, height: 5, borderRadius: 999, background: 'rgba(184,95,54,0.38)' }} />
-        {(kind === 'dining_table' || kind === 'outdoor_table') && (
-          <>
-            <span style={{ position: 'absolute', left: '46%', top: -8, width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
-            <span style={{ position: 'absolute', left: '46%', bottom: -8, width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
-            <span style={{ position: 'absolute', left: -8, top: '42%', width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
-            <span style={{ position: 'absolute', right: -8, top: '42%', width: 8, height: 8, borderRadius: 999, border: '1px solid rgba(184,95,54,0.32)' }} />
-          </>
-        )}
       </div>
     );
   }
-
   if (kind === 'desk') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
@@ -1064,7 +926,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'dresser') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateRows: 'repeat(4, 1fr)', gap: 2 }}>
@@ -1072,7 +933,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'bookcase' || kind === 'storage') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5, display: 'grid', gridTemplateRows: 'repeat(4, 1fr)', gap: 2 }}>
@@ -1084,7 +944,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'tv_stand') {
     return (
       <div aria-hidden="true" style={{ position: 'absolute', inset: 5 }}>
@@ -1095,7 +954,6 @@ export function FurnitureGlyph({ profile }: { profile: FurnitureProfile }) {
       </div>
     );
   }
-
   if (kind === 'rug') return <div aria-hidden="true" style={{ position: 'absolute', inset: 5, borderRadius: 8, border: '1px dashed rgba(185,155,104,0.78)', background: 'repeating-linear-gradient(45deg, rgba(185,155,104,0.14) 0 2px, transparent 2px 7px)' }} />;
   if (kind === 'lamp') return <div aria-hidden="true" style={{ position: 'absolute', inset: '20%', borderRadius: 999, border: '1px solid rgba(185,155,104,0.48)' }}><span style={{ position: 'absolute', inset: '28%', borderRadius: 999, background: 'rgba(185,155,104,0.42)' }} /></div>;
   if (kind === 'plant') return <div aria-hidden="true" style={{ position: 'absolute', inset: '18%', borderRadius: 999, border: '1px solid rgba(79,138,96,0.36)' }}><span style={{ position: 'absolute', left: '18%', top: '38%', width: '64%', height: '24%', borderRadius: '50%', background: 'rgba(79,138,96,0.36)', transform: 'rotate(35deg)' }} /><span style={{ position: 'absolute', left: '18%', top: '38%', width: '64%', height: '24%', borderRadius: '50%', background: 'rgba(79,138,96,0.36)', transform: 'rotate(-35deg)' }} /></div>;

@@ -33,6 +33,8 @@ export const DEFAULT_HOME_FLOOR_PLANS: HomeFloorPlan[] = [
     overlayDepthFt: 50,
     notes: 'Initial calibration from blueprint sheet A1, scale 1/8 inch = 1 foot.',
     sortIndex: 10,
+    structureLocked: false,
+    elementsLocked: false,
   },
   {
     id: -2,
@@ -51,6 +53,8 @@ export const DEFAULT_HOME_FLOOR_PLANS: HomeFloorPlan[] = [
     overlayDepthFt: 50,
     notes: 'Initial calibration from blueprint sheet A1, scale 1/8 inch = 1 foot.',
     sortIndex: 20,
+    structureLocked: false,
+    elementsLocked: false,
   },
   {
     id: -3,
@@ -69,6 +73,8 @@ export const DEFAULT_HOME_FLOOR_PLANS: HomeFloorPlan[] = [
     overlayDepthFt: 50,
     notes: 'Initial calibration from blueprint sheet A2, scale 1/8 inch = 1 foot.',
     sortIndex: 30,
+    structureLocked: false,
+    elementsLocked: false,
   },
   {
     id: -4,
@@ -87,6 +93,8 @@ export const DEFAULT_HOME_FLOOR_PLANS: HomeFloorPlan[] = [
     overlayDepthFt: 50,
     notes: 'Needs manual measurement; no basement floor-plan sheet was found in the provided blueprint set.',
     sortIndex: 0,
+    structureLocked: false,
+    elementsLocked: false,
   },
   {
     id: -5,
@@ -105,6 +113,8 @@ export const DEFAULT_HOME_FLOOR_PLANS: HomeFloorPlan[] = [
     overlayDepthFt: 80,
     notes: 'Exterior planning area for garage, porch, and yard items.',
     sortIndex: 40,
+    structureLocked: false,
+    elementsLocked: false,
   },
 ];
 
@@ -153,6 +163,8 @@ export function fallbackFloorPlansForRooms(rooms: Room[]) {
       overlayDepthFt: 32,
       notes: null,
       sortIndex: 100 + index,
+      structureLocked: false,
+      elementsLocked: false,
     })),
   ].sort((a, b) => a.sortIndex - b.sortIndex || a.level - b.level);
 }

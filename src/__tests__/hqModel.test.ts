@@ -163,7 +163,7 @@ const documents: DocumentRecord[] = [
 ];
 
 const rooms: Room[] = [
-  { id: 1, name: 'Kitchen', floor: '1', notes: null, floorPlanId: null, planXFt: null, planYFt: null, planWidthFt: null, planDepthFt: null, labelXFt: null, labelYFt: null, ceilingHeightFt: null, shapePoints: null, geometrySource: 'unknown', sortIndex: 0 },
+  { id: 1, name: 'Kitchen', floor: '1', notes: null, floorPlanId: null, ceilingHeightFt: null, anchorXFt: null, anchorYFt: null, sortIndex: 0, planXFt: null, planYFt: null, planWidthFt: null, planDepthFt: null, labelXFt: null, labelYFt: null, shapePoints: null, geometrySource: 'unknown' },
 ];
 
 const roomItems: RoomItem[] = [

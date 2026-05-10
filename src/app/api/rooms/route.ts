@@ -24,22 +24,19 @@ export async function POST(request: Request) {
     .limit(1)
     .single();
 
-  const insert = {
+  const insert: Record<string, unknown> = {
     name: body.name || 'New Room',
     floor: body.floor || null,
     notes: body.notes || null,
     floor_plan_id: body.floorPlanId ?? null,
-    plan_x_ft: body.planXFt ?? null,
-    plan_y_ft: body.planYFt ?? null,
-    plan_width_ft: body.planWidthFt ?? null,
-    plan_depth_ft: body.planDepthFt ?? null,
-    label_x_ft: body.labelXFt ?? null,
-    label_y_ft: body.labelYFt ?? null,
     ceiling_height_ft: body.ceilingHeightFt ?? null,
-    shape_points: normaliseShapePoints(body.shapePoints),
-    geometry_source: normaliseRoomGeometrySource(body.geometrySource ?? (body.shapePoints ? 'custom' : 'unknown')),
+    anchor_x_ft: nullableNumber(body.anchorXFt),
+    anchor_y_ft: nullableNumber(body.anchorYFt),
     sort_index: (last?.sort_index ?? -1) + 1,
   };
+  // Legacy polygon inputs are ignored on write — geometry is derived
+  // from walls + anchor in Phase 4+. We don't error on them so older
+  // clients sending shapePoints / planXFt etc. still create the room.
 
   let { data, error } = await supabase
     .from('rooms')
@@ -47,10 +44,10 @@ export async function POST(request: Request) {
     .select()
     .single();
 
-  if (error && isMissingMeasuredColumnError(error)) {
+  if (error && isMissingAnchorColumnError(error)) {
     const retry = await supabase
       .from('rooms')
-      .insert([stripMeasuredRoomFields(insert)])
+      .insert([stripAnchorFields(insert)])
       .select()
       .single();
     data = retry.data;
@@ -71,16 +68,12 @@ export async function PATCH(request: Request) {
   if ('floor' in rest) update.floor = rest.floor;
   if ('notes' in rest) update.notes = rest.notes;
   if ('floorPlanId' in rest) update.floor_plan_id = rest.floorPlanId;
-  if ('planXFt' in rest) update.plan_x_ft = rest.planXFt;
-  if ('planYFt' in rest) update.plan_y_ft = rest.planYFt;
-  if ('planWidthFt' in rest) update.plan_width_ft = rest.planWidthFt;
-  if ('planDepthFt' in rest) update.plan_depth_ft = rest.planDepthFt;
-  if ('labelXFt' in rest) update.label_x_ft = rest.labelXFt;
-  if ('labelYFt' in rest) update.label_y_ft = rest.labelYFt;
   if ('ceilingHeightFt' in rest) update.ceiling_height_ft = rest.ceilingHeightFt;
-  if ('shapePoints' in rest) update.shape_points = normaliseShapePoints(rest.shapePoints);
-  if ('geometrySource' in rest) update.geometry_source = normaliseRoomGeometrySource(rest.geometrySource);
+  if ('anchorXFt' in rest) update.anchor_x_ft = nullableNumber(rest.anchorXFt);
+  if ('anchorYFt' in rest) update.anchor_y_ft = nullableNumber(rest.anchorYFt);
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
+  // Legacy polygon update fields (shapePoints, planXFt, labelXFt etc.) are
+  // intentionally ignored — geometry derives from walls + anchor.
 
   let { data, error } = await supabase
     .from('rooms')
@@ -89,11 +82,10 @@ export async function PATCH(request: Request) {
     .select()
     .single();
 
-  if (error && isMissingMeasuredColumnError(error)) {
-    const legacyUpdate = stripMeasuredRoomFields(update);
+  if (error && isMissingAnchorColumnError(error)) {
     const retry = await supabase
       .from('rooms')
-      .update(legacyUpdate)
+      .update(stripAnchorFields(update))
       .eq('id', id)
       .select()
       .single();
@@ -122,16 +114,20 @@ function normalise(row: Record<string, unknown>): Room {
     floor: nullableString(row.floor),
     notes: nullableString(row.notes),
     floorPlanId: nullableNumber(row.floor_plan_id ?? row.floorPlanId),
+    ceilingHeightFt: nullableNumber(row.ceiling_height_ft ?? row.ceilingHeightFt),
+    anchorXFt: nullableNumber(row.anchor_x_ft ?? row.anchorXFt),
+    anchorYFt: nullableNumber(row.anchor_y_ft ?? row.anchorYFt),
+    sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
+    // Legacy fields kept on the type for the Phase 4 transition; always
+    // null/'unknown' after supabase-phase-4-reset.sql has run.
     planXFt: nullableNumber(row.plan_x_ft ?? row.planXFt),
     planYFt: nullableNumber(row.plan_y_ft ?? row.planYFt),
     planWidthFt: nullableNumber(row.plan_width_ft ?? row.planWidthFt),
     planDepthFt: nullableNumber(row.plan_depth_ft ?? row.planDepthFt),
     labelXFt: nullableNumber(row.label_x_ft ?? row.labelXFt),
     labelYFt: nullableNumber(row.label_y_ft ?? row.labelYFt),
-    ceilingHeightFt: nullableNumber(row.ceiling_height_ft ?? row.ceilingHeightFt),
     shapePoints: normaliseShapePoints(row.shape_points ?? row.shapePoints),
     geometrySource: normaliseRoomGeometrySource(row.geometry_source ?? row.geometrySource),
-    sortIndex: nullableNumber(row.sort_index ?? row.sortIndex) ?? 0,
   };
 }
 
@@ -147,22 +143,14 @@ function nullableString(value: unknown) {
   return text.length > 0 ? text : null;
 }
 
-function isMissingMeasuredColumnError(error: { code?: string; message?: string }) {
-  return error.code === '42703' || error.code === 'PGRST204' || /plan_|label_|floor_plan_id|shape_points|ceiling_height_ft|geometry_source/i.test(error.message ?? '');
+function isMissingAnchorColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /anchor_/i.test(error.message ?? '');
 }
 
-function stripMeasuredRoomFields(update: Record<string, unknown>) {
+function stripAnchorFields(update: Record<string, unknown>) {
   const legacyUpdate = { ...update };
-  delete legacyUpdate.floor_plan_id;
-  delete legacyUpdate.plan_x_ft;
-  delete legacyUpdate.plan_y_ft;
-  delete legacyUpdate.plan_width_ft;
-  delete legacyUpdate.plan_depth_ft;
-  delete legacyUpdate.label_x_ft;
-  delete legacyUpdate.label_y_ft;
-  delete legacyUpdate.ceiling_height_ft;
-  delete legacyUpdate.shape_points;
-  delete legacyUpdate.geometry_source;
+  delete legacyUpdate.anchor_x_ft;
+  delete legacyUpdate.anchor_y_ft;
   return legacyUpdate;
 }
 

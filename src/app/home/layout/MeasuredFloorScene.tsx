@@ -42,6 +42,10 @@ const WALL_HEIGHT_DEFAULT_FT = 9;
 const FLOOR_COLOUR = '#f3ead7';
 const GRID_COLOUR = '#cbb88f';
 const WALL_COLOUR = '#5e564b';
+const WALL_COLOUR_LOCKED = '#5a7691';
+const ROOM_TINT_COLOURS = [
+  '#7da99a', '#cda07a', '#a98558', '#5b8d77', '#bca988', '#5b8c5e', '#9f7654', '#55758b',
+];
 
 export function MeasuredFloorScene({
   floorPlan,
@@ -60,14 +64,19 @@ export function MeasuredFloorScene({
   blueprintTextureUrl,
   overlayOpacity,
   statusMessage,
-  // unused for now but reserved so the prop surface matches MeasuredFloorPlan
-  architecturalElements: _architecturalElements,
+  architecturalElements,
+  derivedRoomShapes,
+  structureLocked,
+  elementsLocked,
 }: {
   floorPlan: HomeFloorPlan;
   rooms: Room[];
   items: RoomItem[];
   walls: Wall[];
   architecturalElements: ArchitecturalElement[];
+  derivedRoomShapes: Map<number, { roomId: number; polygon: { x: number; y: number }[]; bounded: boolean; areaFt2: number }>;
+  structureLocked: boolean;
+  elementsLocked: boolean;
   selectedItemId: number | null;
   onSelectItem: (itemId: number | null) => void;
   onMoveItem: (item: RoomItem, floorPlanId: number, roomId: number | null, planXFt: number, planYFt: number) => void;
@@ -82,8 +91,7 @@ export function MeasuredFloorScene({
   overlayOpacity: number;
   statusMessage: string | null;
 }) {
-  void rooms;
-  void _architecturalElements;
+  void elementsLocked;
   const ceilingHeightFt = floorPlan.ceilingHeightFt ?? CEILING_HEIGHT_DEFAULT_FT;
   const floorItems = items.filter(item => {
     if (item.floorPlanId === floorPlan.id) return true;
@@ -187,7 +195,18 @@ export function MeasuredFloorScene({
               blueprintTextureUrl={blueprintTextureUrl}
               overlayOpacity={overlayOpacity}
             />
-            <Walls walls={walls} floorPlan={floorPlan} ceilingHeightFt={ceilingHeightFt} />
+            <DerivedFloors
+              floorPlan={floorPlan}
+              floorRooms={rooms.filter(r => r.floorPlanId === floorPlan.id)}
+              derivedRoomShapes={derivedRoomShapes}
+            />
+            <Walls
+              walls={walls}
+              floorPlan={floorPlan}
+              ceilingHeightFt={ceilingHeightFt}
+              architecturalElements={architecturalElements}
+              locked={structureLocked}
+            />
             {floorItems.map(item => (
               <FurnitureItem3D
                 key={item.id}
@@ -357,33 +376,63 @@ function Walls({
   walls,
   floorPlan,
   ceilingHeightFt,
+  architecturalElements,
+  locked,
 }: {
   walls: Wall[];
   floorPlan: HomeFloorPlan;
   ceilingHeightFt: number;
+  architecturalElements: ArchitecturalElement[];
+  locked: boolean;
 }) {
   return (
     <group>
-      {walls.map(wall => (
-        <WallSegment
-          key={wall.id}
-          wall={wall}
-          floorPlan={floorPlan}
-          ceilingHeightFt={ceilingHeightFt}
-        />
-      ))}
+      {walls.map(wall => {
+        const openings: WallOpening[] = architecturalElements
+          .filter((el): el is ArchitecturalElement & { elementType: 'door' | 'window' | 'opening' } =>
+            el.wallId === wall.id && el.offsetAlongWallFt !== null &&
+            (el.elementType === 'door' || el.elementType === 'window' || el.elementType === 'opening'))
+          .map(el => ({
+            type: el.elementType,
+            offset: el.offsetAlongWallFt ?? 0,
+            width: el.widthFt,
+          }))
+          .sort((a, b) => a.offset - b.offset);
+        return (
+          <WallWithOpenings
+            key={wall.id}
+            wall={wall}
+            floorPlan={floorPlan}
+            ceilingHeightFt={ceilingHeightFt}
+            openings={openings}
+            locked={locked}
+          />
+        );
+      })}
     </group>
   );
 }
 
-function WallSegment({
+type WallOpening = { type: 'door' | 'window' | 'opening'; offset: number; width: number };
+
+/**
+ * Render a wall as one or more box segments with gaps for openings.
+ * For a wall of length L with N openings at offsets o_i and widths w_i:
+ *   segments = [0..o_1 - w_1/2, o_1 + w_1/2 .. o_2 - w_2/2, ..., o_N + w_N/2 .. L]
+ * Windows get a translucent pane mesh in the gap; doors and openings stay empty.
+ */
+function WallWithOpenings({
   wall,
   floorPlan,
   ceilingHeightFt,
+  openings,
+  locked,
 }: {
   wall: Wall;
   floorPlan: HomeFloorPlan;
   ceilingHeightFt: number;
+  openings: WallOpening[];
+  locked: boolean;
 }) {
   const dx = wall.endXFt - wall.startXFt;
   const dy = wall.endYFt - wall.startYFt;
@@ -391,20 +440,93 @@ function WallSegment({
   if (length < 0.01) return null;
 
   const angle = Math.atan2(dy, dx);
-  const midX = (wall.startXFt + wall.endXFt) / 2;
-  const midY = (wall.startYFt + wall.endYFt) / 2;
   const thicknessFt = (wall.thicknessIn ?? 5) / 12;
   const heightFt = wall.heightFt ?? ceilingHeightFt ?? WALL_HEIGHT_DEFAULT_FT;
-  const [sceneX, , sceneZ] = planToScene(midX, midY, floorPlan);
+  const wallColour = locked ? WALL_COLOUR_LOCKED : WALL_COLOUR;
+
+  // Walk from offset 0 to offset L, emitting solid segments between openings.
+  const segments: { start: number; end: number }[] = [];
+  let cursor = 0;
+  for (const opening of openings) {
+    const halfWidth = opening.width / 2;
+    const openingStart = Math.max(0, opening.offset - halfWidth);
+    const openingEnd = Math.min(length, opening.offset + halfWidth);
+    if (openingStart > cursor) segments.push({ start: cursor, end: openingStart });
+    cursor = Math.max(cursor, openingEnd);
+  }
+  if (cursor < length) segments.push({ start: cursor, end: length });
+
+  const unitX = dx / length;
+  const unitY = dy / length;
+  const renderSegment = (start: number, end: number, key: string) => {
+    const segLength = end - start;
+    if (segLength < 0.01) return null;
+    const centreOffset = (start + end) / 2;
+    const centreXFt = wall.startXFt + centreOffset * unitX;
+    const centreYFt = wall.startYFt + centreOffset * unitY;
+    const [sceneX, , sceneZ] = planToScene(centreXFt, centreYFt, floorPlan);
+    return (
+      <mesh key={key} position={[sceneX, heightFt / 2, sceneZ]} rotation={[0, -angle, 0]}>
+        <boxGeometry args={[segLength, heightFt, thicknessFt]} />
+        <meshStandardMaterial color={wallColour} />
+      </mesh>
+    );
+  };
 
   return (
-    <mesh
-      position={[sceneX, heightFt / 2, sceneZ]}
-      rotation={[0, -angle, 0]}
-    >
-      <boxGeometry args={[length, heightFt, thicknessFt]} />
-      <meshStandardMaterial color={WALL_COLOUR} />
-    </mesh>
+    <group>
+      {segments.map((seg, idx) => renderSegment(seg.start, seg.end, `seg-${idx}`))}
+      {openings.filter(o => o.type === 'window').map((window, idx) => {
+        const centreOffset = window.offset;
+        const centreXFt = wall.startXFt + centreOffset * unitX;
+        const centreYFt = wall.startYFt + centreOffset * unitY;
+        const [sceneX, , sceneZ] = planToScene(centreXFt, centreYFt, floorPlan);
+        const paneHeight = heightFt * 0.45;
+        return (
+          <mesh
+            key={`pane-${idx}`}
+            position={[sceneX, heightFt * 0.5, sceneZ]}
+            rotation={[0, -angle, 0]}
+          >
+            <boxGeometry args={[window.width, paneHeight, thicknessFt * 0.4]} />
+            <meshPhysicalMaterial color="#bcd6e1" transparent opacity={0.45} roughness={0.1} transmission={0.6} thickness={0.5} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+function DerivedFloors({
+  floorPlan,
+  floorRooms,
+  derivedRoomShapes,
+}: {
+  floorPlan: HomeFloorPlan;
+  floorRooms: Room[];
+  derivedRoomShapes: Map<number, { roomId: number; polygon: { x: number; y: number }[]; bounded: boolean; areaFt2: number }>;
+}) {
+  return (
+    <group>
+      {floorRooms.map((room, index) => {
+        const shape = derivedRoomShapes.get(room.id);
+        if (!shape || shape.polygon.length < 3) return null;
+        const colour = shape.bounded
+          ? ROOM_TINT_COLOURS[index % ROOM_TINT_COLOURS.length]
+          : '#b45309';
+        const shapeGeo = new THREE.Shape(shape.polygon.map(p => {
+          // Plan coords: (x, y) → scene XZ: x → sceneX = x - widthFt/2; y → sceneZ = y - depthFt/2.
+          // We construct the Shape in scene XZ and rotate it flat onto the floor.
+          return new THREE.Vector2(p.x - floorPlan.widthFt / 2, p.y - floorPlan.depthFt / 2);
+        }));
+        return (
+          <mesh key={room.id} position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <shapeGeometry args={[shapeGeo]} />
+            <meshBasicMaterial color={colour} transparent opacity={shape.bounded ? 0.32 : 0.22} />
+          </mesh>
+        );
+      })}
+    </group>
   );
 }
 

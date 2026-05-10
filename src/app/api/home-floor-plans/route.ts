@@ -88,6 +88,8 @@ export async function PATCH(request: Request) {
   if ('overlayDepthFt' in rest) update.overlay_depth_ft = rest.overlayDepthFt;
   if ('notes' in rest) update.notes = rest.notes;
   if ('sortIndex' in rest) update.sort_index = rest.sortIndex;
+  if ('structureLocked' in rest) update.structure_locked = Boolean(rest.structureLocked);
+  if ('elementsLocked' in rest) update.elements_locked = Boolean(rest.elementsLocked);
 
   let { data, error } = await supabase
     .from('home_floor_plans')
@@ -96,10 +98,10 @@ export async function PATCH(request: Request) {
     .select()
     .single();
 
-  if (error && isMissingOverlayColumnError(error)) {
+  if (error && (isMissingOverlayColumnError(error) || isMissingLockColumnError(error))) {
     const retry = await supabase
       .from('home_floor_plans')
-      .update(stripOverlayFields(update))
+      .update(stripOverlayFields(stripLockFields(update)))
       .eq('id', id)
       .select()
       .single();
@@ -133,6 +135,8 @@ function normalise(row: Record<string, unknown>) {
     overlayDepthFt: nullableNumber(row.overlay_depth_ft ?? row.overlayDepthFt) ?? Math.max(depthFt, defaultCanvasDepth(name)),
     notes: row.notes ?? null,
     sortIndex: Number(row.sort_index ?? row.sortIndex ?? 0),
+    structureLocked: Boolean(row.structure_locked ?? row.structureLocked ?? false),
+    elementsLocked: Boolean(row.elements_locked ?? row.elementsLocked ?? false),
   };
 }
 
@@ -164,6 +168,17 @@ function stripOverlayFields(update: Record<string, unknown>) {
   delete next.overlay_offset_y_ft;
   delete next.overlay_width_ft;
   delete next.overlay_depth_ft;
+  return next;
+}
+
+function isMissingLockColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /structure_locked|elements_locked/i.test(error.message ?? '');
+}
+
+function stripLockFields(update: Record<string, unknown>) {
+  const next = { ...update };
+  delete next.structure_locked;
+  delete next.elements_locked;
   return next;
 }
 

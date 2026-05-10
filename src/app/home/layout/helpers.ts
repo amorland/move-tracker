@@ -55,6 +55,8 @@ export type ArchitecturalElementUpdate = {
   source?: ArchitecturalElement['source'];
   sourceKey?: string | null;
   notes?: string | null;
+  wallId?: number | null;
+  offsetAlongWallFt?: number | null;
 };
 
 export type ArchitecturalElementDraft = {
@@ -68,33 +70,15 @@ export type ArchitecturalElementDraft = {
   depthFt: number;
   rotationDeg: number;
   notes: string;
+  wallId: number | null;
+  offsetAlongWallFt: number | null;
 };
 
-export type LayoutAutomationMode = 'items' | 'rooms' | 'floorRooms' | 'reflow' | 'architecture' | 'architectureReset';
-export type LayoutAutomationStats = {
-  layout?: {
-    created?: number;
-    updated?: number;
-    removed?: number;
-    deduped?: number;
-    unmatched?: number;
-  };
-  roomSeeds?: {
-    updated?: number;
-    skipped?: number;
-    missing?: number;
-    custom?: number;
-    recommended?: number;
-  } | null;
-  architectural?: {
-    created?: number;
-    updated?: number;
-    removed?: number;
-    skipped?: number;
-    missing?: number;
-  } | null;
-  error?: string;
-};
+export const WALL_ATTACHED_ELEMENT_TYPES = new Set<ArchitecturalElementType>(['door', 'window', 'opening']);
+
+export function isWallAttachedType(type: ArchitecturalElementType): boolean {
+  return WALL_ATTACHED_ELEMENT_TYPES.has(type);
+}
 
 export const ARCHITECTURAL_ELEMENT_TYPES: ArchitecturalElementType[] = [
   'door',
@@ -470,12 +454,16 @@ export function makeArchitecturalElementDraft(
       depthFt: element.depthFt,
       rotationDeg: element.rotationDeg,
       notes: element.notes ?? '',
+      wallId: element.wallId ?? null,
+      offsetAlongWallFt: element.offsetAlongWallFt ?? null,
     };
   }
 
   const defaultType: ArchitecturalElementType = 'door';
   const dimensions = defaultArchitecturalElementDimensions(defaultType);
-  const firstRoomCenter = floorRooms[0] ? planLabelPointForRoom(floorRooms[0]) : { x: floorPlan.widthFt / 2, y: floorPlan.depthFt / 2 };
+  const firstRoomCenter = floorRooms[0]?.anchorXFt != null && floorRooms[0]?.anchorYFt != null
+    ? { x: floorRooms[0].anchorXFt, y: floorRooms[0].anchorYFt }
+    : floorRooms[0] ? planLabelPointForRoom(floorRooms[0]) : { x: floorPlan.widthFt / 2, y: floorPlan.depthFt / 2 };
   const position = clampArchitecturalElementPosition(
     firstRoomCenter.x - dimensions.widthFt / 2,
     firstRoomCenter.y - dimensions.depthFt / 2,
@@ -495,6 +483,8 @@ export function makeArchitecturalElementDraft(
     depthFt: dimensions.depthFt,
     rotationDeg: 0,
     notes: '',
+    wallId: null,
+    offsetAlongWallFt: null,
   };
 }
 
@@ -510,6 +500,8 @@ export function architecturalDraftToUpdate(draft: ArchitecturalElementDraft): Ar
     depthFt: roundToHundredth(draft.depthFt),
     rotationDeg: normaliseRotation(draft.rotationDeg),
     notes: draft.notes.trim() || null,
+    wallId: draft.wallId,
+    offsetAlongWallFt: draft.offsetAlongWallFt === null ? null : roundToHundredth(draft.offsetAlongWallFt),
   };
 }
 
@@ -522,7 +514,48 @@ export function architecturalDraftHasChanges(element: ArchitecturalElement, draf
     !nullableNumbersMatch(element.widthFt, draft.widthFt) ||
     !nullableNumbersMatch(element.depthFt, draft.depthFt) ||
     !nullableNumbersMatch(element.rotationDeg, normaliseRotation(draft.rotationDeg)) ||
-    (element.notes ?? '') !== draft.notes.trim();
+    (element.notes ?? '') !== draft.notes.trim() ||
+    (element.wallId ?? null) !== (draft.wallId ?? null) ||
+    !nullableNumbersMatch(element.offsetAlongWallFt, draft.offsetAlongWallFt);
+}
+
+/**
+ * For wall-attached elements, compute the effective x/y/rotation from
+ * the wall's geometry + the offset along the wall. Returns the element
+ * with overridden xFt/yFt/rotationDeg if wallId is set and the wall is
+ * available; otherwise returns the element unchanged.
+ */
+export function resolveElementGeometry(element: ArchitecturalElement, walls: { id: number; startXFt: number; startYFt: number; endXFt: number; endYFt: number; thicknessIn: number }[]): ArchitecturalElement {
+  if (element.wallId === null || element.offsetAlongWallFt === null) return element;
+  const wall = walls.find(w => w.id === element.wallId);
+  if (!wall) return element;
+  const dx = wall.endXFt - wall.startXFt;
+  const dy = wall.endYFt - wall.startYFt;
+  const length = Math.hypot(dx, dy);
+  if (length < 0.01) return element;
+  const t = clamp(element.offsetAlongWallFt, 0, length) / length;
+  // Position the element's TOP-LEFT corner so its center lands on the wall.
+  // Element width is along the wall, depth is perpendicular (matches wall thickness).
+  const angleRad = Math.atan2(dy, dx);
+  const cosA = Math.cos(angleRad);
+  const sinA = Math.sin(angleRad);
+  const wallThicknessFt = (wall.thicknessIn ?? 5) / 12;
+  const widthFt = element.widthFt;
+  const depthFt = Math.max(wallThicknessFt, 0.2);
+  // Effective center on the wall
+  const centerX = wall.startXFt + t * dx;
+  const centerY = wall.startYFt + t * dy;
+  // Element box rotates around its center. Compute top-left from center.
+  const xFt = centerX - widthFt / 2 * cosA + depthFt / 2 * sinA;
+  const yFt = centerY - widthFt / 2 * sinA - depthFt / 2 * cosA;
+  const rotationDeg = (angleRad * 180 / Math.PI + 360) % 360;
+  return {
+    ...element,
+    xFt: roundToHundredth(xFt),
+    yFt: roundToHundredth(yFt),
+    depthFt: roundToHundredth(depthFt),
+    rotationDeg: Math.round(rotationDeg * 100) / 100,
+  };
 }
 
 export function defaultArchitecturalElementDimensions(type: ArchitecturalElementType) {
@@ -575,22 +608,6 @@ export function architecturalElementStyle(type: ArchitecturalElementType) {
     return { minWidth: 32, minHeight: 28, borderRadius: 5, border: '1px solid #356c89', background: 'rgba(230,237,242,0.86)', color: '#356c89' };
   }
   return { minWidth: 30, minHeight: 30, borderRadius: 5, border: '1px solid var(--color-border-strong)', background: 'rgba(255,252,247,0.86)', color: 'var(--color-secondary)' };
-}
-
-export function formatAutomationMessage(mode: LayoutAutomationMode, body: LayoutAutomationStats | null) {
-  if (mode === 'rooms' || mode === 'floorRooms') {
-    const seeds = body?.roomSeeds;
-    return `Outlines updated ${seeds?.updated ?? 0}; skipped ${seeds?.skipped ?? 0}; custom preserved ${seeds?.custom ?? 0}.`;
-  }
-
-  if (mode === 'architecture' || mode === 'architectureReset') {
-    const architectural = body?.architectural;
-    return `Details added ${architectural?.created ?? 0}; updated ${architectural?.updated ?? 0}; removed ${architectural?.removed ?? 0}.`;
-  }
-
-  const layout = body?.layout;
-  if (mode === 'reflow') return `Items reflowed ${layout?.updated ?? 0}; created ${layout?.created ?? 0}.`;
-  return `Items created ${layout?.created ?? 0}; updated ${layout?.updated ?? 0}; removed ${layout?.removed ?? 0}.`;
 }
 
 export function toBlueprintImageSrc(value?: string | null) {

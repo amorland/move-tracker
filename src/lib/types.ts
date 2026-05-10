@@ -198,6 +198,8 @@ export interface HomeFloorPlan {
   overlayDepthFt: number | null;
   notes: string | null;
   sortIndex: number;
+  structureLocked: boolean;
+  elementsLocked: boolean;
 }
 
 export interface Room {
@@ -206,16 +208,22 @@ export interface Room {
   floor: string | null;
   notes: string | null;
   floorPlanId: number | null;
+  ceilingHeightFt: number | null;
+  anchorXFt: number | null;
+  anchorYFt: number | null;
+  sortIndex: number;
+  // Legacy polygon fields. Kept on the type during the Phase 4 transition
+  // so old UI doesn't crash, but always null in practice once
+  // supabase-phase-4-reset.sql has run. Removed entirely in Phase 4.1
+  // when RoomAnchorControls replaces RoomGeometryControls.
   planXFt: number | null;
   planYFt: number | null;
   planWidthFt: number | null;
   planDepthFt: number | null;
   labelXFt: number | null;
   labelYFt: number | null;
-  ceilingHeightFt: number | null;
   shapePoints: PlanPoint[] | null;
   geometrySource: RoomGeometrySource;
-  sortIndex: number;
 }
 
 export interface RoomItem {
