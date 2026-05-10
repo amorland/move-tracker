@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Belonging, BelongingAction } from '@/lib/types';
+import { Belonging, BelongingAction, BelongingSizeClass } from '@/lib/types';
 import { useScrollLock } from '@/lib/useScrollLock';
-import { Check, Plus, Trash2, X, Search, Box, DollarSign, Heart, Trash, Pencil } from 'lucide-react';
+import { Check, Plus, Trash2, X, Search, Box, DollarSign, Heart, Trash, Pencil, LayoutDashboard } from 'lucide-react';
 
 const ROOMS = [
   'Kitchen', 'Living Room', 'Master Bedroom', 'Bedroom 2', 'Bedroom 3',
@@ -42,16 +42,28 @@ const ACTION_COLORS: Record<BelongingAction, { bg: string; color: string }> = {
 
 type ResolvedFilter = 'all' | 'active' | 'done';
 type GroupMode = 'room' | 'outcome';
+type PlacementFilter = 'all' | 'floorplan' | 'boxed';
+
+function formatDimensions(item: Belonging): string | null {
+  const parts: string[] = [];
+  if (item.widthIn !== null && item.widthIn !== undefined) parts.push(`${item.widthIn}″ W`);
+  if (item.depthIn !== null && item.depthIn !== undefined) parts.push(`${item.depthIn}″ D`);
+  if (item.heightIn !== null && item.heightIn !== undefined) parts.push(`${item.heightIn}″ H`);
+  return parts.length === 0 ? null : parts.join(' · ');
+}
 
 export default function BelongingsPage() {
   const [items, setItems] = useState<Belonging[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState<BelongingAction | 'All'>('All');
   const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>('all');
+  const [placementFilter, setPlacementFilter] = useState<PlacementFilter>('all');
   const [roomFilter, setRoomFilter] = useState<string>('All');
   const [groupMode, setGroupMode] = useState<GroupMode>('room');
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<Partial<Belonging> | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useScrollLock(modal !== null);
 
@@ -77,7 +89,12 @@ export default function BelongingsPage() {
   };
 
   const toggleResolved = async (item: Belonging) => {
-    await saveItem({ ...item, status: item.status === 'resolved' ? 'unresolved' : 'resolved' });
+    await saveItem({ id: item.id, status: item.status === 'resolved' ? 'unresolved' : 'resolved' });
+  };
+
+  const togglePlacement = async (item: Belonging) => {
+    const next: BelongingSizeClass = item.sizeClass === 'floorplan_item' ? 'boxed' : 'floorplan_item';
+    await saveItem({ id: item.id, sizeClass: next });
   };
 
   const deleteItem = async (id: number) => {
@@ -90,14 +107,18 @@ export default function BelongingsPage() {
     if (actionFilter !== 'All' && i.action !== actionFilter) return false;
     if (resolvedFilter === 'active' && i.status !== 'unresolved') return false;
     if (resolvedFilter === 'done' && i.status !== 'resolved') return false;
+    if (placementFilter === 'floorplan' && i.sizeClass !== 'floorplan_item') return false;
+    if (placementFilter === 'boxed' && i.sizeClass !== 'boxed') return false;
     if (search && !i.itemName.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
   const visible = visibleBeforeRoom.filter(i => roomFilter === 'All' || i.room === roomFilter);
+  const visibleIds = useMemo(() => new Set(visible.map(item => item.id)), [visible]);
 
   const resolvedCount = items.filter(i => i.status === 'resolved').length;
   const unresolvedCount = items.filter(i => i.status === 'unresolved').length;
+  const floorplanCount = items.filter(i => i.sizeClass === 'floorplan_item').length;
 
   const actionCount = (a: BelongingAction | 'All') =>
     items.filter(i => (a === 'All' || i.action === a)).length;
@@ -110,6 +131,49 @@ export default function BelongingsPage() {
 
   const groups = groupItems(visible, groupMode);
 
+  const selectedVisibleIds = useMemo(
+    () => Array.from(selected).filter(id => visibleIds.has(id)),
+    [selected, visibleIds],
+  );
+  const allVisibleSelected = visible.length > 0 && selectedVisibleIds.length === visible.length;
+
+  const toggleSelected = (id: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelected(new Set());
+
+  const selectAllVisible = () => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      visible.forEach(item => next.add(item.id));
+      return next;
+    });
+  };
+
+  const applyBulkSizeClass = async (sizeClass: BelongingSizeClass) => {
+    if (selectedVisibleIds.length === 0) return;
+    setBulkBusy(true);
+    try {
+      await Promise.all(selectedVisibleIds.map(id =>
+        fetch('/api/belongings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, sizeClass }),
+        })
+      ));
+      clearSelection();
+      await fetchItems();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   if (loading) return <div style={{ padding: 40, color: 'var(--color-secondary)' }}>Loading the Starland inventory…</div>;
 
   return (
@@ -118,11 +182,11 @@ export default function BelongingsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <h1>The Big Sort</h1>
-          <p className="page-subtitle">{unresolvedCount} to sort. {resolvedCount} already decided.</p>
+          <p className="page-subtitle">{unresolvedCount} to sort. {resolvedCount} already decided. {floorplanCount} on the floor plan.</p>
         </div>
         <button
           className="btn btn-primary btn-lg"
-          onClick={() => setModal({ action: 'Bring', status: 'unresolved', room: 'Kitchen' })}
+          onClick={() => setModal({ action: 'Bring', status: 'unresolved', sizeClass: 'boxed', room: 'Kitchen' })}
         >
           <Plus size={18} /> Add Item
         </button>
@@ -153,6 +217,17 @@ export default function BelongingsPage() {
         ))}
         <div style={{ flex: 1 }} />
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="seg-control" aria-label="Placement filter">
+            {([['all', 'All sizes'], ['floorplan', 'On floor plan'], ['boxed', 'Boxed']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setPlacementFilter(val)}
+                className={`seg-btn ${placementFilter === val ? 'seg-active' : ''}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="seg-control" aria-label="Group items">
             {([['room', 'Room'], ['outcome', 'Outcome']] as const).map(([val, label]) => (
               <button
@@ -201,6 +276,56 @@ export default function BelongingsPage() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {selectedVisibleIds.length > 0 ? (
+        <div
+          style={{
+            position: 'sticky',
+            top: 8,
+            zIndex: 5,
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 8,
+            padding: '8px 12px',
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            marginBottom: 12,
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <span style={{ fontSize: 13, color: 'var(--color-secondary)' }}>
+            {selectedVisibleIds.length} selected
+          </span>
+          <button
+            className="btn btn-secondary btn-sm"
+            disabled={bulkBusy}
+            onClick={() => applyBulkSizeClass('floorplan_item')}
+          >
+            <LayoutDashboard size={14} /> Mark on floor plan
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            disabled={bulkBusy}
+            onClick={() => applyBulkSizeClass('boxed')}
+          >
+            <Box size={14} /> Mark boxed
+          </button>
+          <div style={{ flex: 1 }} />
+          <button className="btn btn-ghost btn-sm" onClick={clearSelection}>Clear</button>
+        </div>
+      ) : visible.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, fontSize: 12, color: 'var(--color-secondary)' }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={allVisibleSelected ? clearSelection : selectAllVisible}
+          >
+            {allVisibleSelected ? 'Clear' : `Select all ${visible.length}`}
+          </button>
+          <span>Click checkboxes to bulk-mark items as on the floor plan or boxed.</span>
+        </div>
+      )}
+
       {/* Items list */}
       <div>
         {visible.length === 0 ? (
@@ -227,7 +352,10 @@ export default function BelongingsPage() {
                   <BelongingRow
                     key={item.id}
                     item={item}
+                    selected={selected.has(item.id)}
+                    onSelectToggle={() => toggleSelected(item.id)}
                     onToggle={() => toggleResolved(item)}
+                    onTogglePlacement={() => togglePlacement(item)}
                     onEdit={() => setModal(item)}
                     onDelete={() => deleteItem(item.id)}
                   />
@@ -275,12 +403,19 @@ function groupItems(items: Belonging[], groupMode: GroupMode) {
     });
 }
 
-function BelongingRow({ item, onToggle, onEdit, onDelete }: {
+function BelongingRow({ item, selected, onSelectToggle, onToggle, onTogglePlacement, onEdit, onDelete }: {
   item: Belonging;
-  onToggle: () => void; onEdit: () => void; onDelete: () => void;
+  selected: boolean;
+  onSelectToggle: () => void;
+  onToggle: () => void;
+  onTogglePlacement: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const done = item.status === 'resolved';
+  const onFloor = item.sizeClass === 'floorplan_item';
   const { bg, color } = ACTION_COLORS[item.action];
+  const dims = formatDimensions(item);
   return (
     <div
       className="belonging-row"
@@ -293,8 +428,24 @@ function BelongingRow({ item, onToggle, onEdit, onDelete }: {
         transition: 'background 0.2s',
       }}
     >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: 12,
+          paddingRight: 4,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onSelectToggle}
+          aria-label={`Select ${item.itemName}`}
+          style={{ width: 16, height: 16, cursor: 'pointer' }}
+        />
+      </div>
       {/* Action badge */}
-      <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 16, paddingRight: 10, flexShrink: 0, opacity: done ? 0.4 : 1, transition: 'opacity 0.2s' }}>
+      <div style={{ display: 'flex', alignItems: 'center', paddingLeft: 4, paddingRight: 10, flexShrink: 0, opacity: done ? 0.4 : 1, transition: 'opacity 0.2s' }}>
         <span style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
           padding: '4px 10px', borderRadius: 'var(--radius-pill)',
@@ -319,15 +470,32 @@ function BelongingRow({ item, onToggle, onEdit, onDelete }: {
         }}>
           {item.itemName}
         </div>
-        {item.notes && (
-          <div style={{ fontSize: 12, color: 'var(--color-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, marginTop: 2, opacity: done ? 0.5 : 0.8 }}>
-            {item.notes}
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 2, fontSize: 12, color: 'var(--color-secondary)', opacity: done ? 0.5 : 0.85 }}>
+          {dims && <span>{dims}</span>}
+          {item.notes && (
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+              {item.notes}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Right: edit/delete (hover) + resolve pill */}
+      {/* Right: placement toggle + edit/delete + resolve pill */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', gap: 6, flexShrink: 0 }}>
+        {item.action === 'Bring' && (
+          <button
+            onClick={e => { e.stopPropagation(); onTogglePlacement(); }}
+            className="row-action-btn"
+            title={onFloor ? 'On floor plan — click to mark boxed' : 'Boxed — click to put on floor plan'}
+            style={{
+              background: onFloor ? 'var(--color-accent-soft)' : 'transparent',
+              color: onFloor ? 'var(--color-accent-dark)' : 'var(--color-secondary)',
+              border: onFloor ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
+            }}
+          >
+            <LayoutDashboard size={14} />
+          </button>
+        )}
         <div className="row-actions" style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <button onClick={e => { e.stopPropagation(); onEdit(); }} className="row-action-btn" title="Edit item">
             <Pencil size={14} />
@@ -354,6 +522,17 @@ function BelongingModal({ item, onClose, onSave }: {
   const [room, setRoom] = useState(item.room || ROOMS[0]);
   const [action, setAction] = useState<BelongingAction>(item.action || 'Bring');
   const [notes, setNotes] = useState(item.notes || '');
+  const [sizeClass, setSizeClass] = useState<BelongingSizeClass>(item.sizeClass ?? 'boxed');
+  const [widthIn, setWidthIn] = useState(item.widthIn?.toString() ?? '');
+  const [depthIn, setDepthIn] = useState(item.depthIn?.toString() ?? '');
+  const [heightIn, setHeightIn] = useState(item.heightIn?.toString() ?? '');
+
+  const parseDim = (raw: string): number | null => {
+    const trimmed = raw.trim();
+    if (trimmed === '') return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -382,13 +561,61 @@ function BelongingModal({ item, onClose, onSave }: {
             </div>
           </div>
           <div>
+            <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>On floor plan?</label>
+            <div className="seg-control" aria-label="Floor plan placement">
+              {([['floorplan_item', 'Place on floor plan'], ['boxed', 'Boxed / not placed']] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setSizeClass(val)}
+                  className={`seg-btn ${sizeClass === val ? 'seg-active' : ''}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 6, marginBottom: 0 }}>
+              {sizeClass === 'floorplan_item'
+                ? 'Will appear on the layout page so you can position it in the new home.'
+                : 'Tracked in inventory only — small items, dishes, contents of drawers.'}
+            </p>
+          </div>
+          {sizeClass === 'floorplan_item' && (
+            <div>
+              <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Dimensions (inches)</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <input value={widthIn} onChange={e => setWidthIn(e.target.value)} placeholder="W" inputMode="decimal" />
+                <input value={depthIn} onChange={e => setDepthIn(e.target.value)} placeholder="D" inputMode="decimal" />
+                <input value={heightIn} onChange={e => setHeightIn(e.target.value)} placeholder="H" inputMode="decimal" />
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--color-secondary)', marginTop: 6, marginBottom: 0 }}>
+                Leave blank to use estimates from the furniture type. Used to render this item to scale on the floor plan.
+              </p>
+            </div>
+          )}
+          <div>
             <label className="section-label" style={{ display: 'block', marginBottom: 8 }}>Notes (optional)</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} style={{ height: 72, resize: 'none' }} />
           </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => onSave({ ...item, itemName, room, action, notes: notes || null })}>Save</button>
+          <button
+            className="btn btn-primary"
+            onClick={() => onSave({
+              ...item,
+              itemName,
+              room,
+              action,
+              notes: notes || null,
+              sizeClass,
+              widthIn: parseDim(widthIn),
+              depthIn: parseDim(depthIn),
+              heightIn: parseDim(heightIn),
+            })}
+          >
+            Save
+          </button>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import type {
   ArchitecturalElementType,
   Belonging,
   BelongingAction,
+  BelongingSizeClass,
   HomeFloorPlan,
   PlanPoint,
   Room,
@@ -415,7 +416,7 @@ export async function syncBringItemsToLayout(
   const belongings = (belongingsResult.data ?? []).map(row => normaliseBelonging(row as Record<string, unknown>));
   const bringBelongingIds = new Set(
     belongings
-      .filter(belonging => belonging.action === 'Bring')
+      .filter(belonging => belonging.action === 'Bring' && belonging.sizeClass === 'floorplan_item')
       .map(belonging => belonging.id),
   );
 
@@ -443,7 +444,7 @@ export async function syncBringItemsToLayout(
     .filter(item => !options.reflowExisting || item.itemSource !== 'existing_belonging');
   const placementIndexByRoom = makePlacementIndex(placementIndexSourceItems);
   for (const belonging of belongings) {
-    if (belonging.action !== 'Bring') {
+    if (belonging.action !== 'Bring' || belonging.sizeClass !== 'floorplan_item') {
       stats.skipped += 1;
       continue;
     }
@@ -657,7 +658,7 @@ async function syncOneBelonging(
   stats: LayoutSyncStats,
   options: LayoutSyncOptions = {},
 ) {
-  if (belonging.action !== 'Bring') {
+  if (belonging.action !== 'Bring' || belonging.sizeClass !== 'floorplan_item') {
     const removal = await removeBelongingLayoutItems(supabase, belonging.id);
     mergeStats(stats, removal);
     return;
@@ -702,8 +703,8 @@ async function syncOneBelonging(
     furniture_type: existing?.furnitureType ?? inferFurnitureType(belonging.itemName),
     item_source: 'existing_belonging',
     status: placement.room ? 'placed' : 'undecided',
-    width_in: existing?.widthIn ?? placement.widthIn,
-    depth_in: existing?.depthIn ?? placement.depthIn,
+    width_in: existing?.widthIn ?? belonging.widthIn ?? placement.widthIn,
+    depth_in: existing?.depthIn ?? belonging.depthIn ?? placement.depthIn,
   };
 
   if (existing) {
@@ -730,7 +731,7 @@ async function syncOneBelonging(
     layout_y: null,
     layout_w: null,
     layout_h: null,
-    height_in: null,
+    height_in: belonging.heightIn ?? null,
     plan_x_ft: placement.planXFt,
     plan_y_ft: placement.planYFt,
     rotation_deg: 0,
@@ -990,9 +991,18 @@ function normaliseBelonging(row: Record<string, unknown>): Belonging {
     itemName: String(row.itemName ?? row.item_name ?? 'Unnamed Item'),
     action: normaliseBelongingAction(row.action),
     status: String(row.status ?? 'unresolved') === 'resolved' ? 'resolved' : 'unresolved',
+    sizeClass: normaliseBelongingSizeClass(row.size_class),
+    widthIn: nullableNumber(row.width_in),
+    depthIn: nullableNumber(row.depth_in),
+    heightIn: nullableNumber(row.height_in),
     notes: nullableString(row.notes),
     createdAt: String(row.createdAt ?? row.created_at ?? ''),
   };
+}
+
+function normaliseBelongingSizeClass(value: unknown): BelongingSizeClass {
+  if (value === undefined || value === null) return 'floorplan_item';
+  return String(value) === 'floorplan_item' ? 'floorplan_item' : 'boxed';
 }
 
 function normaliseRoom(row: Record<string, unknown>): Room {

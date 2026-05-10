@@ -82,6 +82,29 @@ describe('GET /api/belongings', () => {
     expect(body[0].status).toBe('unresolved');
   });
 
+  it('exposes size class and dimensions when stored', async () => {
+    const enriched = { ...mockItem, size_class: 'floorplan_item', width_in: 60, depth_in: 30, height_in: 28 };
+    mockFrom.mockReturnValueOnce({
+      select: vi.fn(() => ({ order: vi.fn(() => ({ data: [enriched], error: null })) })),
+    });
+    const res = await GET();
+    const body = await res.json();
+    expect(body[0].sizeClass).toBe('floorplan_item');
+    expect(body[0].widthIn).toBe(60);
+    expect(body[0].depthIn).toBe(30);
+    expect(body[0].heightIn).toBe(28);
+  });
+
+  it('defaults missing size_class column to floorplan_item to preserve legacy behaviour', async () => {
+    mockFrom.mockReturnValueOnce({
+      select: vi.fn(() => ({ order: vi.fn(() => ({ data: [mockItem], error: null })) })),
+    });
+    const res = await GET();
+    const body = await res.json();
+    expect(body[0].sizeClass).toBe('floorplan_item');
+    expect(body[0].widthIn).toBeNull();
+  });
+
   it('returns 500 on supabase error', async () => {
     mockFrom.mockReturnValueOnce({
       select: vi.fn(() => ({ order: vi.fn(() => ({ data: null, error: { message: 'DB error' } })) })),
@@ -140,6 +163,29 @@ describe('PATCH /api/belongings', () => {
     const body = await res.json();
     expect(body.status).toBe('resolved');
     expect(mockSyncBelongingLayoutItem).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ status: 'resolved' }));
+  });
+
+  it('persists size class and dimensions when provided', async () => {
+    let capturedUpdate: Record<string, unknown> = {};
+    mockUpdate.mockImplementationOnce((update: Record<string, unknown>) => {
+      capturedUpdate = update;
+      return { eq: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { ...mockItem, size_class: 'floorplan_item', width_in: 84, depth_in: 38, height_in: 32 }, error: null }) })) })) };
+    });
+    mockFrom.mockReturnValueOnce({ update: mockUpdate });
+
+    const req = new Request('http://localhost/api/belongings', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: 1, sizeClass: 'floorplan_item', widthIn: 84, depthIn: 38, heightIn: 32 }),
+    });
+    const res = await PATCH(req);
+    const body = await res.json();
+
+    expect(capturedUpdate.size_class).toBe('floorplan_item');
+    expect(capturedUpdate.width_in).toBe(84);
+    expect(capturedUpdate.depth_in).toBe(38);
+    expect(capturedUpdate.height_in).toBe(32);
+    expect(body.sizeClass).toBe('floorplan_item');
+    expect(body.widthIn).toBe(84);
   });
 
   it('does not include literal-quote key in update object for itemName', async () => {

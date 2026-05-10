@@ -154,8 +154,8 @@ const locations: MoveLocation[] = [
 ];
 
 const belongings: Belonging[] = [
-  { id: 1, room: 'Kitchen', itemName: 'Table', action: 'Bring', status: 'resolved', notes: null, createdAt: '2026-05-01' },
-  { id: 2, room: 'Garage', itemName: 'Old shelf', action: 'Donate', status: 'unresolved', notes: null, createdAt: '2026-05-01' },
+  { id: 1, room: 'Kitchen', itemName: 'Table', action: 'Bring', status: 'resolved', sizeClass: 'floorplan_item', widthIn: null, depthIn: null, heightIn: null, notes: null, createdAt: '2026-05-01' },
+  { id: 2, room: 'Garage', itemName: 'Old shelf', action: 'Donate', status: 'unresolved', sizeClass: 'boxed', widthIn: null, depthIn: null, heightIn: null, notes: null, createdAt: '2026-05-01' },
 ];
 
 const documents: DocumentRecord[] = [
@@ -163,7 +163,7 @@ const documents: DocumentRecord[] = [
 ];
 
 const rooms: Room[] = [
-  { id: 1, name: 'Kitchen', floor: '1', notes: null, floorPlanId: null, planXFt: null, planYFt: null, planWidthFt: null, planDepthFt: null, labelXFt: null, labelYFt: null, ceilingHeightFt: null, shapePoints: null, sortIndex: 0 },
+  { id: 1, name: 'Kitchen', floor: '1', notes: null, floorPlanId: null, planXFt: null, planYFt: null, planWidthFt: null, planDepthFt: null, labelXFt: null, labelYFt: null, ceilingHeightFt: null, shapePoints: null, geometrySource: 'unknown', sortIndex: 0 },
 ];
 
 const roomItems: RoomItem[] = [
