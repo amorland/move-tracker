@@ -390,7 +390,7 @@ function Walls({
 }) {
   return (
     <group>
-      {walls.map(wall => {
+      {walls.filter(w => !w.isVirtual).map(wall => {
         const openings: WallOpening[] = architecturalElements
           .filter((el): el is ArchitecturalElement & { elementType: 'door' | 'window' | 'opening' } =>
             el.wallId === wall.id && el.offsetAlongWallFt !== null &&

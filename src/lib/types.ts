@@ -280,6 +280,7 @@ export interface Wall {
   heightFt: number | null;
   notes: string | null;
   sortIndex: number;
+  isVirtual: boolean;
 }
 
 export interface HomeProject {

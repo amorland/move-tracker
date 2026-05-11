@@ -15,6 +15,7 @@ function wall(startXFt: number, startYFt: number, endXFt: number, endYFt: number
     heightFt: null,
     notes: null,
     sortIndex: 0,
+    isVirtual: false,
   };
 }
 
@@ -68,6 +69,25 @@ describe('deriveRoomPolygon', () => {
     ];
     const result = deriveRoomPolygon(walls, { x: 25, y: 25 }, FLOOR);
     expect(result.bounded).toBe(true);
+  });
+
+  it('does not apply endpoint caps when corners are properly aligned', () => {
+    // Properly-aligned 10x10 box. Endpoint caps should NOT engage
+    // (they'd push the polygon back 0.5 ft at each corner). The area
+    // should be close to the full interior (~89 ft²) minus only the
+    // body-band pullback (~0.26 ft on each side), not the cap pullback.
+    const walls: Wall[] = [
+      wall(20, 20, 30, 20),
+      wall(30, 20, 30, 30),
+      wall(30, 30, 20, 30),
+      wall(20, 30, 20, 20),
+    ];
+    const result = deriveRoomPolygon(walls, { x: 25, y: 25 }, FLOOR);
+    expect(result.bounded).toBe(true);
+    // Body-only pullback gives ~89.9; with caps it'd be ~89.3. Allow
+    // generous margin but require > 88 to confirm caps aren't engaging.
+    expect(result.areaFt2).toBeGreaterThan(88);
+    expect(result.areaFt2).toBeLessThan(100);
   });
 
   it('returns empty when the anchor sits on a wall', () => {

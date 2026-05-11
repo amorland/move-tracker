@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     height_ft: nullableNumber(body.heightFt),
     notes: nullableString(body.notes),
     sort_index: Number.isFinite(Number(body.sortIndex)) ? Number(body.sortIndex) : (last?.sort_index ?? -1) + 1,
+    is_virtual: Boolean(body.isVirtual),
   };
 
   const { data, error } = await supabase
@@ -56,6 +57,16 @@ export async function POST(request: Request) {
     .insert([insert])
     .select()
     .single();
+
+  if (error && isMissingVirtualColumnError(error)) {
+    const retry = await supabase
+      .from('walls')
+      .insert([stripVirtualField(insert)])
+      .select()
+      .single();
+    if (retry.error) return NextResponse.json({ error: retry.error.message }, { status: 500 });
+    return NextResponse.json(normalise(retry.data));
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -80,6 +91,7 @@ export async function PATCH(request: Request) {
   if ('heightFt' in rest) update.height_ft = nullableNumber(rest.heightFt);
   if ('notes' in rest) update.notes = nullableString(rest.notes);
   if ('sortIndex' in rest) update.sort_index = Number(rest.sortIndex);
+  if ('isVirtual' in rest) update.is_virtual = Boolean(rest.isVirtual);
 
   const { data, error } = await supabase
     .from('walls')
@@ -87,6 +99,17 @@ export async function PATCH(request: Request) {
     .eq('id', Number(id))
     .select()
     .single();
+
+  if (error && isMissingVirtualColumnError(error)) {
+    const retry = await supabase
+      .from('walls')
+      .update(stripVirtualField(update))
+      .eq('id', Number(id))
+      .select()
+      .single();
+    if (retry.error) return NextResponse.json({ error: retry.error.message }, { status: 500 });
+    return NextResponse.json(normalise(retry.data));
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(normalise(data));
@@ -114,7 +137,18 @@ function normalise(row: Record<string, unknown>): Wall {
     heightFt: nullableNumber(row.height_ft ?? row.heightFt),
     notes: nullableString(row.notes),
     sortIndex: Number.isFinite(Number(row.sort_index ?? row.sortIndex)) ? Number(row.sort_index ?? row.sortIndex) : 0,
+    isVirtual: Boolean(row.is_virtual ?? row.isVirtual ?? false),
   };
+}
+
+function isMissingVirtualColumnError(error: { code?: string; message?: string }) {
+  return error.code === '42703' || error.code === 'PGRST204' || /is_virtual/i.test(error.message ?? '');
+}
+
+function stripVirtualField(payload: Record<string, unknown>) {
+  const next = { ...payload };
+  delete next.is_virtual;
+  return next;
 }
 
 function numberOrZero(value: unknown): number {

@@ -57,6 +57,10 @@ export default function HomeLayoutPage() {
   const [activeFloorName, setActiveFloorName] = useState<string | null>(null);
   const [wallEditMode, setWallEditMode] = useState(false);
   const [wallTraceStart, setWallTraceStart] = useState<PlanPoint | null>(null);
+  // Toggle that decides whether new walls are physical walls or virtual
+  // dividers (room-bounding lines that don't render in 3D). Persists
+  // across multiple traces during a single edit session.
+  const [wallTraceVirtual, setWallTraceVirtual] = useState(false);
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
   const [cameraMode, setCameraMode] = useState<SceneCameraMode>('top');
   const [overlayVisible, setOverlayVisible] = useState(true);
@@ -258,6 +262,7 @@ export default function HomeLayoutPage() {
         startYFt: roundToHundredth(start.y),
         endXFt: roundToHundredth(end.x),
         endYFt: roundToHundredth(end.y),
+        isVirtual: wallTraceVirtual,
       }),
     });
     if (!res.ok) {
@@ -499,6 +504,8 @@ export default function HomeLayoutPage() {
               setWallTraceStart(null);
               setAnchorPlacement(null);
             }}
+            wallTraceVirtual={wallTraceVirtual}
+            onWallTraceVirtualChange={setWallTraceVirtual}
             onSyncItems={syncItemsFromBelongings}
           />
           <div className="layout-workspace-grid">
@@ -674,6 +681,8 @@ function LayoutToolbar({
   onToggleRoomLabels,
   onSnapChange,
   onToggleWallEdit,
+  wallTraceVirtual,
+  onWallTraceVirtualChange,
   syncingItems,
   onSyncItems,
 }: {
@@ -695,6 +704,8 @@ function LayoutToolbar({
   onToggleRoomLabels: () => void;
   onSnapChange: (value: boolean) => void;
   onToggleWallEdit: () => void;
+  wallTraceVirtual: boolean;
+  onWallTraceVirtualChange: (next: boolean) => void;
   onSyncItems: () => Promise<SaveResult>;
 }) {
   return (
@@ -760,6 +771,21 @@ function LayoutToolbar({
             <Ruler size={14} />
             {wallEditMode ? `Finish Walls (${wallCount})` : `Trace Walls (${wallCount})`}
           </button>
+          {wallEditMode && (
+            <label
+              className={`btn btn-${wallTraceVirtual ? 'primary' : 'secondary'} btn-sm`}
+              style={{ cursor: 'pointer' }}
+              title="When on, the next walls you trace are virtual dividers — dashed lines that bound rooms in the flood-fill but don't render as walls in 3D. Use at the top of stairs, between an open kitchen and dining area, etc."
+            >
+              <input
+                type="checkbox"
+                checked={wallTraceVirtual}
+                onChange={event => onWallTraceVirtualChange(event.target.checked)}
+                style={{ width: 14, height: 14 }}
+              />
+              Divider
+            </label>
+          )}
           <button
             type="button"
             className={`btn btn-${structureLocked ? 'primary' : 'secondary'} btn-sm`}
