@@ -67,6 +67,8 @@ export function MeasuredFloorPlan({
   overlayFit,
   structureLocked,
   elementsLocked,
+  wallLabelMode,
+  highlightedWallId,
   derivedRoomShapes,
   anchorPlacement,
   onPlaceAnchor,
@@ -99,6 +101,8 @@ export function MeasuredFloorPlan({
   overlayFit: OverlayFit;
   structureLocked: boolean;
   elementsLocked: boolean;
+  wallLabelMode: boolean;
+  highlightedWallId: number | null;
   derivedRoomShapes: Map<number, DerivedRoomShape>;
   anchorPlacement: RoomAnchorPlacement | null;
   onPlaceAnchor: (point: PlanPoint) => void;
@@ -472,19 +476,22 @@ export function MeasuredFloorPlan({
             preserveAspectRatio="none"
             style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }}
           >
-            {walls.map(wall => (
-              <line
-                key={wall.id}
-                x1={(wall.startXFt / floorPlan.widthFt) * 100}
-                y1={(wall.startYFt / floorPlan.depthFt) * 100}
-                x2={(wall.endXFt / floorPlan.widthFt) * 100}
-                y2={(wall.endYFt / floorPlan.depthFt) * 100}
-                stroke={structureLocked ? '#5a7691' : '#3f3a34'}
-                strokeWidth={0.6}
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
+            {walls.map(wall => {
+              const isHighlighted = wall.id === highlightedWallId;
+              return (
+                <line
+                  key={wall.id}
+                  x1={(wall.startXFt / floorPlan.widthFt) * 100}
+                  y1={(wall.startYFt / floorPlan.depthFt) * 100}
+                  x2={(wall.endXFt / floorPlan.widthFt) * 100}
+                  y2={(wall.endYFt / floorPlan.depthFt) * 100}
+                  stroke={isHighlighted ? '#b85f36' : structureLocked ? '#5a7691' : '#3f3a34'}
+                  strokeWidth={isHighlighted ? 1.1 : 0.6}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
             {wallEditMode && wallTraceStart && wallCursor && (
               <line
                 x1={(wallTraceStart.x / floorPlan.widthFt) * 100}
@@ -498,6 +505,42 @@ export function MeasuredFloorPlan({
               />
             )}
           </svg>
+          {/* Wall ID badges — shown only when the Elements panel has a
+              wall-attached type selected, so the user can match dropdown
+              entries to the actual walls on the canvas. */}
+          {wallLabelMode && walls.map(wall => {
+            const midX = (wall.startXFt + wall.endXFt) / 2;
+            const midY = (wall.startYFt + wall.endYFt) / 2;
+            const isHighlighted = wall.id === highlightedWallId;
+            return (
+              <div
+                key={`wall-id-${wall.id}`}
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: `${(midX / floorPlan.widthFt) * 100}%`,
+                  top: `${(midY / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 5,
+                  minWidth: 22,
+                  height: 22,
+                  padding: '0 6px',
+                  borderRadius: 999,
+                  background: isHighlighted ? '#b85f36' : 'rgba(255,250,243,0.96)',
+                  border: `2px solid ${isHighlighted ? '#b85f36' : 'rgba(31,107,91,0.55)'}`,
+                  color: isHighlighted ? '#fffaf3' : '#1f6b5b',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  display: 'grid',
+                  placeItems: 'center',
+                  pointerEvents: 'none',
+                  boxShadow: '0 1px 3px rgba(28,25,23,0.18)',
+                }}
+              >
+                #{wall.id}
+              </div>
+            );
+          })}
           {/* Wall delete buttons (only in edit mode, never when locked) */}
           {wallEditMode && !structureLocked && walls.map(wall => (
             <button
