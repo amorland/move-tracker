@@ -61,6 +61,7 @@ BEGIN
     SET plan_x_ft = NULL,
         plan_y_ft = NULL,
         rotation_deg = NULL,
-        room_id = NULL;
+        room_id = NULL,
+        floor_plan_id = NULL;
   END IF;
 END $$;
