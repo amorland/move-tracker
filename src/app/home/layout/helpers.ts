@@ -459,7 +459,11 @@ export function makeArchitecturalElementDraft(
     };
   }
 
-  const defaultType: ArchitecturalElementType = 'door';
+  // Default to a floor-positioned type so the canvas's wall ID badges
+  // stay hidden until the user explicitly picks a wall-attached type
+  // (door / window / opening). 'Fixture' is the most neutral catch-all
+  // and doesn't pre-commit the user to a specific category.
+  const defaultType: ArchitecturalElementType = 'fixture';
   const dimensions = defaultArchitecturalElementDimensions(defaultType);
   const firstRoomCenter = floorRooms[0]?.anchorXFt != null && floorRooms[0]?.anchorYFt != null
     ? { x: floorRooms[0].anchorXFt, y: floorRooms[0].anchorYFt }
