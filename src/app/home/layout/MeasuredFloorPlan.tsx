@@ -1,7 +1,7 @@
 'use client';
 
 import { type PointerEvent, useRef, useState } from 'react';
-import { AlertTriangle, Grid3X3, MapPin, MoveDiagonal } from 'lucide-react';
+import { AlertTriangle, Grid3X3, MapPin, Maximize2, Minus, MoveDiagonal, Plus } from 'lucide-react';
 import {
   floorForRoom,
   itemFootprint,
@@ -127,6 +127,12 @@ export function MeasuredFloorPlan({
   const [itemDragPreview, setItemDragPreview] = useState<{ itemId: number; xFt: number; yFt: number } | null>(null);
   const [architecturalDragPreview, setArchitecturalDragPreview] = useState<{ elementId: number; xFt: number; yFt: number } | null>(null);
   const [wallCursor, setWallCursor] = useState<PlanPoint | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 3;
+  const zoomIn = () => setZoom(z => Math.min(ZOOM_MAX, Math.round(z * 1.25 * 100) / 100));
+  const zoomOut = () => setZoom(z => Math.max(ZOOM_MIN, Math.round(z / 1.25 * 100) / 100));
+  const zoomReset = () => setZoom(1);
 
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
   const floorItems = items.filter(item => {
@@ -322,6 +328,17 @@ export function MeasuredFloorPlan({
           </div>
         )}
         <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxHeight: '85vh',
+            overflow: 'auto',
+            borderRadius: 12,
+            border: '1px solid var(--color-border)',
+            background: '#f8f4ec',
+          }}
+        >
+        <div
           ref={surfaceRef}
           onDragOver={event => event.preventDefault()}
           onDrop={event => {
@@ -386,11 +403,9 @@ export function MeasuredFloorPlan({
           }}
           style={{
             position: 'relative',
-            width: '100%',
+            width: `${100 * zoom}%`,
             aspectRatio: `${floorPlan.widthFt} / ${floorPlan.depthFt}`,
-            minHeight: 480,
-            borderRadius: 12,
-            border: '1px solid var(--color-border)',
+            minHeight: 480 * zoom,
             background: '#f8f4ec',
             overflow: 'hidden',
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.5)',
@@ -711,6 +726,58 @@ export function MeasuredFloorPlan({
               </div>
             </div>
           )}
+        </div>
+        {/* Zoom controls — pinned to the viewport's top-right, stay in
+            place while the surface scrolls underneath. */}
+        <div
+          style={{
+            position: 'sticky',
+            top: 8,
+            float: 'right',
+            marginRight: 8,
+            marginBottom: -32,
+            display: 'inline-flex',
+            gap: 4,
+            zIndex: 20,
+            background: 'rgba(255,250,243,0.94)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 999,
+            padding: 4,
+            boxShadow: '0 2px 8px rgba(28,25,23,0.12)',
+          }}
+        >
+          <button
+            type="button"
+            data-layout-control="true"
+            aria-label="Zoom out"
+            onClick={zoomOut}
+            disabled={zoom <= ZOOM_MIN + 0.001}
+            style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            type="button"
+            data-layout-control="true"
+            aria-label="Reset zoom"
+            onClick={zoomReset}
+            disabled={zoom === 1}
+            style={{ width: 32, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: 'var(--color-foreground)' }}
+            title={`${Math.round(zoom * 100)}%`}
+          >
+            {zoom === 1 ? <Maximize2 size={12} /> : `${Math.round(zoom * 100)}%`}
+          </button>
+          <button
+            type="button"
+            data-layout-control="true"
+            aria-label="Zoom in"
+            onClick={zoomIn}
+            disabled={zoom >= ZOOM_MAX - 0.001}
+            style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
         </div>
       </div>
     </div>
