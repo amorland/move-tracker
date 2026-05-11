@@ -410,7 +410,7 @@ export function MeasuredFloorPlan({
             background: '#f8f4ec',
             overflow: 'hidden',
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.5)',
-            cursor: interactionMode === 'wall' ? 'crosshair' : interactionMode === 'anchor' ? 'crosshair' : 'default',
+            cursor: interactionMode === 'wall' ? 'none' : interactionMode === 'anchor' ? 'crosshair' : 'default',
           }}
         >
           {overlayVisible && overlaySrc && (
@@ -494,16 +494,36 @@ export function MeasuredFloorPlan({
           >
             {walls.map(wall => {
               const isHighlighted = wall.id === highlightedWallId;
+              const dx = wall.endXFt - wall.startXFt;
+              const dy = wall.endYFt - wall.startYFt;
+              const length = Math.hypot(dx, dy);
+              if (length < 0.01) return null;
+              // Perpendicular unit vector (rotate (ux, uy) by 90°): (-uy, ux).
+              const perpX = -dy / length;
+              const perpY = dx / length;
+              // Render at the actual wall thickness, matching the obstacle
+              // band the room flood-fill uses. The +0.05 ft safety band the
+              // algorithm adds isn't reflected here — the obstacle is
+              // generously sized for fill robustness, but the visual width
+              // is the true wall body.
+              const halfFt = (wall.thicknessIn ?? 5) / 12 / 2;
+              const corners = [
+                { x: wall.startXFt + perpX * halfFt, y: wall.startYFt + perpY * halfFt },
+                { x: wall.endXFt + perpX * halfFt, y: wall.endYFt + perpY * halfFt },
+                { x: wall.endXFt - perpX * halfFt, y: wall.endYFt - perpY * halfFt },
+                { x: wall.startXFt - perpX * halfFt, y: wall.startYFt - perpY * halfFt },
+              ];
+              const points = corners
+                .map(c => `${(c.x / floorPlan.widthFt) * 100},${(c.y / floorPlan.depthFt) * 100}`)
+                .join(' ');
+              const fill = isHighlighted ? '#b85f36' : structureLocked ? '#5a7691' : '#3f3a34';
               return (
-                <line
+                <polygon
                   key={wall.id}
-                  x1={(wall.startXFt / floorPlan.widthFt) * 100}
-                  y1={(wall.startYFt / floorPlan.depthFt) * 100}
-                  x2={(wall.endXFt / floorPlan.widthFt) * 100}
-                  y2={(wall.endYFt / floorPlan.depthFt) * 100}
-                  stroke={isHighlighted ? '#b85f36' : structureLocked ? '#5a7691' : '#3f3a34'}
-                  strokeWidth={isHighlighted ? 1.1 : 0.6}
-                  strokeLinecap="round"
+                  points={points}
+                  fill={fill}
+                  stroke={isHighlighted ? '#7a3818' : 'none'}
+                  strokeWidth={isHighlighted ? 0.3 : 0}
                   vectorEffect="non-scaling-stroke"
                 />
               );
@@ -607,23 +627,58 @@ export function MeasuredFloorPlan({
               }}
             />
           )}
-          {wallEditMode && wallCursor && !wallTraceStart && (
-            <span
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                left: `${(wallCursor.x / floorPlan.widthFt) * 100}%`,
-                top: `${(wallCursor.y / floorPlan.depthFt) * 100}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 5,
-                width: 10,
-                height: 10,
-                borderRadius: 999,
-                border: '1px dashed rgba(31,107,91,0.66)',
-                background: 'transparent',
-                pointerEvents: 'none',
-              }}
-            />
+          {/* Custom crosshair indicator at the snapped placement point.
+              Shown both before the first click (to preview where the start
+              would land) and after (the second click's snapped target).
+              Native cursor is hidden in wall-edit mode so what you see is
+              exactly where the click will go. */}
+          {wallEditMode && wallCursor && (
+            <>
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: `${(wallCursor.x / floorPlan.widthFt) * 100}%`,
+                  top: `${(wallCursor.y / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 7,
+                  width: 24,
+                  height: 1,
+                  background: '#1f6b5b',
+                  pointerEvents: 'none',
+                }}
+              />
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: `${(wallCursor.x / floorPlan.widthFt) * 100}%`,
+                  top: `${(wallCursor.y / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 7,
+                  width: 1,
+                  height: 24,
+                  background: '#1f6b5b',
+                  pointerEvents: 'none',
+                }}
+              />
+              <span
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: `${(wallCursor.x / floorPlan.widthFt) * 100}%`,
+                  top: `${(wallCursor.y / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 7,
+                  width: 5,
+                  height: 5,
+                  borderRadius: 999,
+                  background: '#1f6b5b',
+                  border: '1px solid #fffaf3',
+                  pointerEvents: 'none',
+                }}
+              />
+            </>
           )}
           {/* Room name labels at anchor points */}
           {roomLabelsVisible && floorRooms.map(room => {

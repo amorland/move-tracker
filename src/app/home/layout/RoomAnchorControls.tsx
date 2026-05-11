@@ -160,7 +160,13 @@ function RoomAnchorRow({
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState(room.name);
   const hasAnchor = room.anchorXFt !== null && room.anchorYFt !== null;
+  const polygonLength = shape?.polygon.length ?? 0;
   const bounded = hasAnchor && (shape?.bounded ?? false);
+  // An empty polygon with bounded=false means the flood-fill couldn't
+  // start — either the anchor sits on a wall obstacle, or it's outside
+  // the floor. Distinct from "fill leaked", where polygon is non-empty
+  // but reached the floor edge.
+  const anchorOnObstacle = hasAnchor && polygonLength === 0 && shape !== null;
   const areaFt2 = shape?.areaFt2 ?? 0;
 
   const saveName = async () => {
@@ -242,6 +248,11 @@ function RoomAnchorRow({
             <>
               <Check size={11} color="#1f6b5b" />
               <span>{areaFt2.toFixed(0)} ft² · bounded</span>
+            </>
+          ) : anchorOnObstacle ? (
+            <>
+              <AlertTriangle size={11} color="#b45309" />
+              <span style={{ color: '#b45309' }}>Anchor sits on a wall — move it to an open spot</span>
             </>
           ) : (
             <>
