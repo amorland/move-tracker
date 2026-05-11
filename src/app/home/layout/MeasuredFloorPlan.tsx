@@ -35,6 +35,7 @@ import {
 import type { BlueprintSnap } from './blueprintSnap';
 import type { DerivedRoomShape } from './useDerivedRoomShapes';
 import type { RoomAnchorPlacement } from './RoomAnchorControls';
+import { polygonContainsPoint } from './roomDerivation';
 
 const ROOM_TINTS = [
   'rgba(31,107,91,0.18)',
@@ -263,6 +264,19 @@ export function MeasuredFloorPlan({
         dragTarget.depthFt,
         floorPlan,
       );
+      // Constrain the item's center to its assigned room's polygon
+      // unless Shift is held (in which case the user has explicit intent
+      // to move it to a different room or out of bounds). The constrain
+      // polygon is captured at drag-start; an item that began outside
+      // its room is left unconstrained so the user can drag it back in.
+      if (dragTarget.constrainPolygon && !event.shiftKey) {
+        const centerX = next.planXFt + dragTarget.widthFt / 2;
+        const centerY = next.planYFt + dragTarget.depthFt / 2;
+        if (!polygonContainsPoint(dragTarget.constrainPolygon, { x: centerX, y: centerY })) {
+          // Don't update the preview — drag feels "sticky" at the room edge.
+          return;
+        }
+      }
       setItemDragPreview({ itemId: dragTarget.item.id, xFt: next.planXFt, yFt: next.planYFt });
       return;
     }
@@ -818,7 +832,25 @@ export function MeasuredFloorPlan({
                   if (!start) return;
                   event.currentTarget.setPointerCapture(event.pointerId);
                   onSelectItem(item.id);
-                  setDragTarget({ type: 'item', item, start, xFt: x, yFt: y, widthFt: footprint.widthFt, depthFt: footprint.depthFt });
+                  // Determine whether to constrain this drag to the item's
+                  // assigned room polygon. Constraint applies only when
+                  //   (a) the item has a roomId,
+                  //   (b) the derived polygon for that room is bounded, and
+                  //   (c) the item's center is currently inside that polygon.
+                  // (c) lets the user drag an item back into its room if
+                  // it ended up outside (e.g., after a wall re-trace).
+                  let constrainPolygon: PlanPoint[] | null = null;
+                  if (item.roomId !== null && !event.shiftKey) {
+                    const shape = derivedRoomShapes.get(item.roomId);
+                    if (shape && shape.bounded && shape.polygon.length >= 3) {
+                      const centerX = x + footprint.widthFt / 2;
+                      const centerY = y + footprint.depthFt / 2;
+                      if (polygonContainsPoint(shape.polygon, { x: centerX, y: centerY })) {
+                        constrainPolygon = shape.polygon;
+                      }
+                    }
+                  }
+                  setDragTarget({ type: 'item', item, start, xFt: x, yFt: y, widthFt: footprint.widthFt, depthFt: footprint.depthFt, constrainPolygon });
                 }}
               />
             );
@@ -920,7 +952,7 @@ function PlacedItem({
         event.stopPropagation();
         onSelect();
       }}
-      title={`${item.itemName} · ${profile.label} · ${formatFt(width)} x ${formatFt(depth)}`}
+      title={`${item.itemName} · ${profile.label} · ${formatFt(width)} x ${formatFt(depth)} — drag to move within the room. Hold Shift to drag into a different room.`}
       style={{
         position: 'absolute',
         left: `${(x / floorPlan.widthFt) * 100}%`,
