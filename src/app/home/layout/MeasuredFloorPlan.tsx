@@ -327,6 +327,7 @@ export function MeasuredFloorPlan({
             <button type="button" className="btn btn-secondary btn-sm" onClick={onCancelAnchor}>Cancel</button>
           </div>
         )}
+        <div style={{ position: 'relative' }}>
         <div
           style={{
             position: 'relative',
@@ -727,23 +728,23 @@ export function MeasuredFloorPlan({
             </div>
           )}
         </div>
-        {/* Zoom controls — pinned to the viewport's top-right, stay in
-            place while the surface scrolls underneath. */}
+        </div>
+        {/* Zoom controls — absolute on the wrapper (not the scrolling
+            viewport), so they stay pinned to the canvas's top-right
+            regardless of how the surface scrolls. */}
         <div
           style={{
-            position: 'sticky',
-            top: 8,
-            float: 'right',
-            marginRight: 8,
-            marginBottom: -32,
+            position: 'absolute',
+            top: 6,
+            right: 6,
             display: 'inline-flex',
-            gap: 4,
+            gap: 2,
             zIndex: 20,
             background: 'rgba(255,250,243,0.94)',
             border: '1px solid var(--color-border)',
             borderRadius: 999,
-            padding: 4,
-            boxShadow: '0 2px 8px rgba(28,25,23,0.12)',
+            padding: 2,
+            boxShadow: '0 1px 4px rgba(28,25,23,0.12)',
           }}
         >
           <button
@@ -752,9 +753,9 @@ export function MeasuredFloorPlan({
             aria-label="Zoom out"
             onClick={zoomOut}
             disabled={zoom <= ZOOM_MIN + 0.001}
-            style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+            style={{ width: 20, height: 20, borderRadius: 999, border: 'none', background: 'transparent', cursor: zoom <= ZOOM_MIN + 0.001 ? 'default' : 'pointer', display: 'grid', placeItems: 'center', padding: 0, color: 'var(--color-secondary)' }}
           >
-            <Minus size={14} />
+            <Minus size={11} />
           </button>
           <button
             type="button"
@@ -762,10 +763,10 @@ export function MeasuredFloorPlan({
             aria-label="Reset zoom"
             onClick={zoomReset}
             disabled={zoom === 1}
-            style={{ width: 32, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: 'var(--color-foreground)' }}
+            style={{ width: zoom === 1 ? 20 : 28, height: 20, borderRadius: 999, border: 'none', background: 'transparent', cursor: zoom === 1 ? 'default' : 'pointer', display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 800, color: 'var(--color-foreground)', padding: 0 }}
             title={`${Math.round(zoom * 100)}%`}
           >
-            {zoom === 1 ? <Maximize2 size={12} /> : `${Math.round(zoom * 100)}%`}
+            {zoom === 1 ? <Maximize2 size={10} /> : `${Math.round(zoom * 100)}%`}
           </button>
           <button
             type="button"
@@ -773,9 +774,9 @@ export function MeasuredFloorPlan({
             aria-label="Zoom in"
             onClick={zoomIn}
             disabled={zoom >= ZOOM_MAX - 0.001}
-            style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+            style={{ width: 20, height: 20, borderRadius: 999, border: 'none', background: 'transparent', cursor: zoom >= ZOOM_MAX - 0.001 ? 'default' : 'pointer', display: 'grid', placeItems: 'center', padding: 0, color: 'var(--color-secondary)' }}
           >
-            <Plus size={14} />
+            <Plus size={11} />
           </button>
         </div>
         </div>
