@@ -746,7 +746,7 @@ function LayoutToolbar({
             className={`btn btn-${wallEditMode ? 'primary' : 'secondary'} btn-sm`}
             onClick={onToggleWallEdit}
             disabled={structureLocked}
-            title={structureLocked ? 'Structure layer is locked. Unlock to edit walls.' : wallEditMode ? 'Click two points to add a wall, then click endpoint × to delete. Click here to finish.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints and blueprint lines.'}
+            title={structureLocked ? 'Structure layer is locked. Unlock to edit walls.' : wallEditMode ? 'Click two points to add a wall. Walls auto-lock to the dominant axis (hold Shift for diagonal). Click × on a wall to delete.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints and blueprint lines. Holds the second click to the dominant axis by default.'}
           >
             <Ruler size={14} />
             {wallEditMode ? `Finish Walls (${wallCount})` : `Trace Walls (${wallCount})`}

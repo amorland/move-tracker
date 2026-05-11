@@ -157,14 +157,27 @@ export function MeasuredFloorPlan({
     };
   };
 
-  const snapForWallTrace = (point: PlanPoint): PlanPoint => {
+  const snapForWallTrace = (point: PlanPoint, axisLockTo: PlanPoint | null): PlanPoint => {
+    // If we're laying the second point of a wall (axisLockTo is the start
+    // point) and the user is NOT holding Shift, constrain the cursor to
+    // the dominant axis from the start point. This keeps walls orthogonal
+    // by default — the typical case — while Shift lets you go diagonal.
+    let working = point;
+    if (axisLockTo) {
+      const dx = Math.abs(point.x - axisLockTo.x);
+      const dy = Math.abs(point.y - axisLockTo.y);
+      working = dx >= dy
+        ? { x: point.x, y: axisLockTo.y }
+        : { x: axisLockTo.x, y: point.y };
+    }
+
     // Priority 1: snap to an existing wall endpoint within 1 ft.
     const endpoints: PlanPoint[] = walls.flatMap(wall => [
       { x: wall.startXFt, y: wall.startYFt },
       { x: wall.endXFt, y: wall.endYFt },
     ]);
     const nearestEndpoint = endpoints.reduce<{ point: PlanPoint; distance: number } | null>((best, candidate) => {
-      const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
+      const distance = Math.hypot(candidate.x - working.x, candidate.y - working.y);
       if (distance > 1) return best;
       if (!best || distance < best.distance) return { point: candidate, distance };
       return best;
@@ -173,7 +186,7 @@ export function MeasuredFloorPlan({
 
     // Priority 2: snap to a blueprint pixel within 0.5 ft.
     if (blueprintSnap.hasImage) {
-      const snapped = blueprintSnap.snap(point, 0.5);
+      const snapped = blueprintSnap.snap(working, 0.5);
       if (snapped) {
         return {
           x: Math.round(snapped.x * 100) / 100,
@@ -184,8 +197,8 @@ export function MeasuredFloorPlan({
 
     // Priority 3: grid snap.
     return {
-      x: snapPlanValue(point.x, snapToGrid),
-      y: snapPlanValue(point.y, snapToGrid),
+      x: snapPlanValue(working.x, snapToGrid),
+      y: snapPlanValue(working.y, snapToGrid),
     };
   };
 
@@ -197,7 +210,10 @@ export function MeasuredFloorPlan({
   const updateDraftFromPointer = (event: PointerEvent<HTMLElement>) => {
     if (wallEditMode) {
       const point = pointFromPointer(event);
-      if (point) setWallCursor(snapForWallTrace(point));
+      if (point) {
+        const axisLock = wallTraceStart && !event.shiftKey ? wallTraceStart : null;
+        setWallCursor(snapForWallTrace(point, axisLock));
+      }
       return;
     }
     if (!dragTarget) return;
@@ -336,7 +352,10 @@ export function MeasuredFloorPlan({
             if (!raw) return;
 
             if (interactionMode === 'wall') {
-              const snapped = snapForWallTrace(raw);
+              // First click: no axis lock (we're choosing the anchor).
+              // Second click: lock to dominant axis from the start unless Shift is held.
+              const axisLock = wallTraceStart && !event.shiftKey ? wallTraceStart : null;
+              const snapped = snapForWallTrace(raw, axisLock);
               if (!wallTraceStart) {
                 onWallTraceStartChange(snapped);
                 return;
