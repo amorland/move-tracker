@@ -1,7 +1,7 @@
 'use client';
 
 import { type PointerEvent, useRef, useState } from 'react';
-import { AlertTriangle, Grid3X3, MapPin, MoveDiagonal } from 'lucide-react';
+import { AlertTriangle, Grid3X3, MapPin, Maximize2, Minus, MoveDiagonal, Plus } from 'lucide-react';
 import {
   floorForRoom,
   itemFootprint,
@@ -67,6 +67,8 @@ export function MeasuredFloorPlan({
   overlayFit,
   structureLocked,
   elementsLocked,
+  wallLabelMode,
+  highlightedWallId,
   derivedRoomShapes,
   anchorPlacement,
   onPlaceAnchor,
@@ -99,6 +101,8 @@ export function MeasuredFloorPlan({
   overlayFit: OverlayFit;
   structureLocked: boolean;
   elementsLocked: boolean;
+  wallLabelMode: boolean;
+  highlightedWallId: number | null;
   derivedRoomShapes: Map<number, DerivedRoomShape>;
   anchorPlacement: RoomAnchorPlacement | null;
   onPlaceAnchor: (point: PlanPoint) => void;
@@ -123,6 +127,12 @@ export function MeasuredFloorPlan({
   const [itemDragPreview, setItemDragPreview] = useState<{ itemId: number; xFt: number; yFt: number } | null>(null);
   const [architecturalDragPreview, setArchitecturalDragPreview] = useState<{ elementId: number; xFt: number; yFt: number } | null>(null);
   const [wallCursor, setWallCursor] = useState<PlanPoint | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const ZOOM_MIN = 0.5;
+  const ZOOM_MAX = 3;
+  const zoomIn = () => setZoom(z => Math.min(ZOOM_MAX, Math.round(z * 1.25 * 100) / 100));
+  const zoomOut = () => setZoom(z => Math.max(ZOOM_MIN, Math.round(z / 1.25 * 100) / 100));
+  const zoomReset = () => setZoom(1);
 
   const floorRooms = rooms.filter(room => floorForRoom(room, floorPlans)?.name === floorPlan.name);
   const floorItems = items.filter(item => {
@@ -157,14 +167,27 @@ export function MeasuredFloorPlan({
     };
   };
 
-  const snapForWallTrace = (point: PlanPoint): PlanPoint => {
+  const snapForWallTrace = (point: PlanPoint, axisLockTo: PlanPoint | null): PlanPoint => {
+    // If we're laying the second point of a wall (axisLockTo is the start
+    // point) and the user is NOT holding Shift, constrain the cursor to
+    // the dominant axis from the start point. This keeps walls orthogonal
+    // by default — the typical case — while Shift lets you go diagonal.
+    let working = point;
+    if (axisLockTo) {
+      const dx = Math.abs(point.x - axisLockTo.x);
+      const dy = Math.abs(point.y - axisLockTo.y);
+      working = dx >= dy
+        ? { x: point.x, y: axisLockTo.y }
+        : { x: axisLockTo.x, y: point.y };
+    }
+
     // Priority 1: snap to an existing wall endpoint within 1 ft.
     const endpoints: PlanPoint[] = walls.flatMap(wall => [
       { x: wall.startXFt, y: wall.startYFt },
       { x: wall.endXFt, y: wall.endYFt },
     ]);
     const nearestEndpoint = endpoints.reduce<{ point: PlanPoint; distance: number } | null>((best, candidate) => {
-      const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
+      const distance = Math.hypot(candidate.x - working.x, candidate.y - working.y);
       if (distance > 1) return best;
       if (!best || distance < best.distance) return { point: candidate, distance };
       return best;
@@ -173,7 +196,7 @@ export function MeasuredFloorPlan({
 
     // Priority 2: snap to a blueprint pixel within 0.5 ft.
     if (blueprintSnap.hasImage) {
-      const snapped = blueprintSnap.snap(point, 0.5);
+      const snapped = blueprintSnap.snap(working, 0.5);
       if (snapped) {
         return {
           x: Math.round(snapped.x * 100) / 100,
@@ -184,8 +207,8 @@ export function MeasuredFloorPlan({
 
     // Priority 3: grid snap.
     return {
-      x: snapPlanValue(point.x, snapToGrid),
-      y: snapPlanValue(point.y, snapToGrid),
+      x: snapPlanValue(working.x, snapToGrid),
+      y: snapPlanValue(working.y, snapToGrid),
     };
   };
 
@@ -197,7 +220,10 @@ export function MeasuredFloorPlan({
   const updateDraftFromPointer = (event: PointerEvent<HTMLElement>) => {
     if (wallEditMode) {
       const point = pointFromPointer(event);
-      if (point) setWallCursor(snapForWallTrace(point));
+      if (point) {
+        const axisLock = wallTraceStart && !event.shiftKey ? wallTraceStart : null;
+        setWallCursor(snapForWallTrace(point, axisLock));
+      }
       return;
     }
     if (!dragTarget) return;
@@ -302,6 +328,17 @@ export function MeasuredFloorPlan({
           </div>
         )}
         <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            maxHeight: '85vh',
+            overflow: 'auto',
+            borderRadius: 12,
+            border: '1px solid var(--color-border)',
+            background: '#f8f4ec',
+          }}
+        >
+        <div
           ref={surfaceRef}
           onDragOver={event => event.preventDefault()}
           onDrop={event => {
@@ -336,7 +373,10 @@ export function MeasuredFloorPlan({
             if (!raw) return;
 
             if (interactionMode === 'wall') {
-              const snapped = snapForWallTrace(raw);
+              // First click: no axis lock (we're choosing the anchor).
+              // Second click: lock to dominant axis from the start unless Shift is held.
+              const axisLock = wallTraceStart && !event.shiftKey ? wallTraceStart : null;
+              const snapped = snapForWallTrace(raw, axisLock);
               if (!wallTraceStart) {
                 onWallTraceStartChange(snapped);
                 return;
@@ -363,11 +403,9 @@ export function MeasuredFloorPlan({
           }}
           style={{
             position: 'relative',
-            width: '100%',
+            width: `${100 * zoom}%`,
             aspectRatio: `${floorPlan.widthFt} / ${floorPlan.depthFt}`,
-            minHeight: 480,
-            borderRadius: 12,
-            border: '1px solid var(--color-border)',
+            minHeight: 480 * zoom,
             background: '#f8f4ec',
             overflow: 'hidden',
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.5)',
@@ -453,19 +491,22 @@ export function MeasuredFloorPlan({
             preserveAspectRatio="none"
             style={{ position: 'absolute', inset: 0, zIndex: 3, pointerEvents: 'none' }}
           >
-            {walls.map(wall => (
-              <line
-                key={wall.id}
-                x1={(wall.startXFt / floorPlan.widthFt) * 100}
-                y1={(wall.startYFt / floorPlan.depthFt) * 100}
-                x2={(wall.endXFt / floorPlan.widthFt) * 100}
-                y2={(wall.endYFt / floorPlan.depthFt) * 100}
-                stroke={structureLocked ? '#5a7691' : '#3f3a34'}
-                strokeWidth={0.6}
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
+            {walls.map(wall => {
+              const isHighlighted = wall.id === highlightedWallId;
+              return (
+                <line
+                  key={wall.id}
+                  x1={(wall.startXFt / floorPlan.widthFt) * 100}
+                  y1={(wall.startYFt / floorPlan.depthFt) * 100}
+                  x2={(wall.endXFt / floorPlan.widthFt) * 100}
+                  y2={(wall.endYFt / floorPlan.depthFt) * 100}
+                  stroke={isHighlighted ? '#b85f36' : structureLocked ? '#5a7691' : '#3f3a34'}
+                  strokeWidth={isHighlighted ? 1.1 : 0.6}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
             {wallEditMode && wallTraceStart && wallCursor && (
               <line
                 x1={(wallTraceStart.x / floorPlan.widthFt) * 100}
@@ -479,6 +520,42 @@ export function MeasuredFloorPlan({
               />
             )}
           </svg>
+          {/* Wall ID badges — shown only when the Elements panel has a
+              wall-attached type selected, so the user can match dropdown
+              entries to the actual walls on the canvas. */}
+          {wallLabelMode && walls.map(wall => {
+            const midX = (wall.startXFt + wall.endXFt) / 2;
+            const midY = (wall.startYFt + wall.endYFt) / 2;
+            const isHighlighted = wall.id === highlightedWallId;
+            return (
+              <div
+                key={`wall-id-${wall.id}`}
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  left: `${(midX / floorPlan.widthFt) * 100}%`,
+                  top: `${(midY / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 5,
+                  minWidth: 22,
+                  height: 22,
+                  padding: '0 6px',
+                  borderRadius: 999,
+                  background: isHighlighted ? '#b85f36' : 'rgba(255,250,243,0.96)',
+                  border: `2px solid ${isHighlighted ? '#b85f36' : 'rgba(31,107,91,0.55)'}`,
+                  color: isHighlighted ? '#fffaf3' : '#1f6b5b',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  display: 'grid',
+                  placeItems: 'center',
+                  pointerEvents: 'none',
+                  boxShadow: '0 1px 3px rgba(28,25,23,0.18)',
+                }}
+              >
+                #{wall.id}
+              </div>
+            );
+          })}
           {/* Wall delete buttons (only in edit mode, never when locked) */}
           {wallEditMode && !structureLocked && walls.map(wall => (
             <button
@@ -649,6 +726,58 @@ export function MeasuredFloorPlan({
               </div>
             </div>
           )}
+        </div>
+        {/* Zoom controls — pinned to the viewport's top-right, stay in
+            place while the surface scrolls underneath. */}
+        <div
+          style={{
+            position: 'sticky',
+            top: 8,
+            float: 'right',
+            marginRight: 8,
+            marginBottom: -32,
+            display: 'inline-flex',
+            gap: 4,
+            zIndex: 20,
+            background: 'rgba(255,250,243,0.94)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 999,
+            padding: 4,
+            boxShadow: '0 2px 8px rgba(28,25,23,0.12)',
+          }}
+        >
+          <button
+            type="button"
+            data-layout-control="true"
+            aria-label="Zoom out"
+            onClick={zoomOut}
+            disabled={zoom <= ZOOM_MIN + 0.001}
+            style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+          >
+            <Minus size={14} />
+          </button>
+          <button
+            type="button"
+            data-layout-control="true"
+            aria-label="Reset zoom"
+            onClick={zoomReset}
+            disabled={zoom === 1}
+            style={{ width: 32, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: 'var(--color-foreground)' }}
+            title={`${Math.round(zoom * 100)}%`}
+          >
+            {zoom === 1 ? <Maximize2 size={12} /> : `${Math.round(zoom * 100)}%`}
+          </button>
+          <button
+            type="button"
+            data-layout-control="true"
+            aria-label="Zoom in"
+            onClick={zoomIn}
+            disabled={zoom >= ZOOM_MAX - 0.001}
+            style={{ width: 26, height: 26, borderRadius: 999, border: 'none', background: 'transparent', cursor: 'pointer', display: 'grid', placeItems: 'center' }}
+          >
+            <Plus size={14} />
+          </button>
+        </div>
         </div>
       </div>
     </div>

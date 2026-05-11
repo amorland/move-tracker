@@ -71,6 +71,12 @@ export default function HomeLayoutPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [layoutMessage, setLayoutMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // When the Architectural Elements panel has a wall-attached type selected,
+  // we surface wall IDs on the canvas (so the user can match dropdown
+  // values to the actual walls) and highlight whichever wall is currently
+  // picked in the dropdown. Both fields are bubbled up from the panel via
+  // its onDraftPreview callback.
+  const [elementDraftPreview, setElementDraftPreview] = useState<{ elementType: ArchitecturalElementType; wallId: number | null } | null>(null);
 
   const fetchAll = useCallback(async () => {
     const [roomsRes, itemsRes, elementsRes, floorPlansRes, wallsRes] = await Promise.all([
@@ -509,6 +515,8 @@ export default function HomeLayoutPage() {
                 overlayFit={overlayFit}
                 structureLocked={activeFloor.structureLocked}
                 elementsLocked={activeFloor.elementsLocked}
+                wallLabelMode={elementDraftPreview ? isWallAttachedType(elementDraftPreview.elementType) : false}
+                highlightedWallId={elementDraftPreview && isWallAttachedType(elementDraftPreview.elementType) ? elementDraftPreview.wallId : null}
                 derivedRoomShapes={derivedRoomShapes}
                 anchorPlacement={anchorPlacement}
                 onPlaceAnchor={placeRoomAnchor}
@@ -602,6 +610,7 @@ export default function HomeLayoutPage() {
                 onSave={saveArchitecturalElement}
                 onDelete={deleteArchitecturalElement}
                 onClear={() => setSelectedElementId(null)}
+                onDraftPreview={setElementDraftPreview}
               />
               <BlueprintOverlayControls
                 key={activeFloor.id}
@@ -746,7 +755,7 @@ function LayoutToolbar({
             className={`btn btn-${wallEditMode ? 'primary' : 'secondary'} btn-sm`}
             onClick={onToggleWallEdit}
             disabled={structureLocked}
-            title={structureLocked ? 'Structure layer is locked. Unlock to edit walls.' : wallEditMode ? 'Click two points to add a wall, then click endpoint × to delete. Click here to finish.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints and blueprint lines.'}
+            title={structureLocked ? 'Structure layer is locked. Unlock to edit walls.' : wallEditMode ? 'Click two points to add a wall. Walls auto-lock to the dominant axis (hold Shift for diagonal). Click × on a wall to delete.' : 'Trace walls by clicking two points on the canvas. Snaps to existing wall endpoints and blueprint lines. Holds the second click to the dominant axis by default.'}
           >
             <Ruler size={14} />
             {wallEditMode ? `Finish Walls (${wallCount})` : `Trace Walls (${wallCount})`}
@@ -808,6 +817,7 @@ function BlueprintOverlayControls({
     overlayOffsetYFt: (floorPlan.overlayOffsetYFt ?? 0).toString(),
     overlayWidthFt: (floorPlan.overlayWidthFt ?? floorPlan.widthFt).toString(),
     overlayDepthFt: (floorPlan.overlayDepthFt ?? floorPlan.depthFt).toString(),
+    ceilingHeightFt: (floorPlan.ceilingHeightFt ?? '').toString(),
   });
   const previewSrc = toBlueprintImageSrc(draft.blueprintImagePath);
   const isBundledBlueprint = previewSrc?.startsWith('/blueprints/');
@@ -828,7 +838,7 @@ function BlueprintOverlayControls({
       overlayOffsetYFt: nullableNumber(draft.overlayOffsetYFt) ?? 0,
       overlayWidthFt: nullableNumber(draft.overlayWidthFt) ?? nullableNumber(draft.widthFt) ?? floorPlan.widthFt,
       overlayDepthFt: nullableNumber(draft.overlayDepthFt) ?? nullableNumber(draft.depthFt) ?? floorPlan.depthFt,
-      ceilingHeightFt: floorPlan.ceilingHeightFt,
+      ceilingHeightFt: nullableNumber(draft.ceilingHeightFt) ?? floorPlan.ceilingHeightFt,
       notes: floorPlan.notes,
       sortIndex: floorPlan.sortIndex,
     });
@@ -886,6 +896,19 @@ function BlueprintOverlayControls({
           <label style={{ display: 'block' }}>
             <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Depth ft</span>
             <input value={draft.depthFt} onChange={event => setDraft({ ...draft, depthFt: event.target.value })} type="number" min="1" step="0.25" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Ceiling ft</span>
+            <input
+              value={draft.ceilingHeightFt}
+              onChange={event => setDraft({ ...draft, ceilingHeightFt: event.target.value })}
+              type="number"
+              min="6"
+              max="16"
+              step="0.25"
+              placeholder="9"
+              title="Wall height for the 3D scene. Defaults to 9 ft when empty."
+            />
           </label>
           <label style={{ display: 'block' }}>
             <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Fit</span>
@@ -961,6 +984,7 @@ function ArchitecturalElementControls({
   onSave,
   onDelete,
   onClear,
+  onDraftPreview,
 }: {
   floorPlan: HomeFloorPlan;
   floorRooms: Room[];
@@ -971,6 +995,7 @@ function ArchitecturalElementControls({
   onSave: (elementId: number, update: ArchitecturalElementUpdate) => Promise<SaveResult>;
   onDelete: (elementId: number) => Promise<SaveResult>;
   onClear: () => void;
+  onDraftPreview?: (preview: { elementType: ArchitecturalElementType; wallId: number | null } | null) => void;
 }) {
   const [draft, setDraft] = useState(() => makeArchitecturalElementDraft(selectedElement, floorPlan, floorRooms));
   const isWallAttached = isWallAttachedType(draft.elementType);
@@ -988,6 +1013,16 @@ function ArchitecturalElementControls({
       setSaveMessage(null);
     });
   }, [floorPlan, floorRooms, selectedElement]);
+
+  // Notify the parent of the current draft type + wallId so the canvas
+  // can surface wall IDs / highlight the selected wall while a
+  // wall-attached element type is selected.
+  useEffect(() => {
+    onDraftPreview?.({ elementType: draft.elementType, wallId: draft.wallId });
+    return () => {
+      onDraftPreview?.(null);
+    };
+  }, [draft.elementType, draft.wallId, onDraftPreview]);
 
   const updateType = (elementType: ArchitecturalElementType) => {
     const dimensions = defaultArchitecturalElementDimensions(elementType);

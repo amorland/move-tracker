@@ -281,7 +281,10 @@ function SceneCamera({ floorPlan, mode }: { floorPlan: HomeFloorPlan; mode: Scen
 }
 
 function ceilingPerspectiveHeight(floorPlan: HomeFloorPlan) {
-  return Math.max(floorPlan.widthFt, floorPlan.depthFt) * 0.8;
+  // Lower than the original 0.8× so standard 9 ft walls don't look stubby
+  // under heavy foreshortening. ~25 ft for a 50 ft floor is closer to a
+  // person standing on a stair landing peeking into the room.
+  return Math.max(floorPlan.widthFt, floorPlan.depthFt) * 0.5;
 }
 
 function Floor({
