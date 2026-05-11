@@ -68,12 +68,40 @@ export function deriveRoomPolygon(
 
 function rasteriseWalls(walls: Wall[], cols: number, rows: number): boolean[] {
   const obstacles = new Array<boolean>(cols * rows).fill(false);
+  // Pre-compute which endpoints need a cap. A cap is only useful for
+  // bridging — i.e., when an endpoint is close to ANOTHER wall's endpoint
+  // but not exactly co-located. Endpoints that share a point (within
+  // CO_LOCATED_FT) with another endpoint don't need a cap because the
+  // body bands already overlap there; adding a cap would push the
+  // polygon back ~0.5 ft from properly-aligned corners.
+  const CO_LOCATED_FT = 0.05;
+  const BRIDGE_LIMIT_FT = 1.0;
+  const needsCap = new Map<string, boolean>();
+  const allEndpoints: { key: string; wallId: number; x: number; y: number }[] = [];
+  for (const w of walls) {
+    allEndpoints.push({ key: `${w.id}-start`, wallId: w.id, x: w.startXFt, y: w.startYFt });
+    allEndpoints.push({ key: `${w.id}-end`, wallId: w.id, x: w.endXFt, y: w.endYFt });
+  }
+  for (const ep of allEndpoints) {
+    let minDist = Infinity;
+    for (const other of allEndpoints) {
+      if (other.wallId === ep.wallId) continue; // skip same wall's endpoints
+      const d = Math.hypot(other.x - ep.x, other.y - ep.y);
+      if (d < minDist) minDist = d;
+    }
+    // Need a cap if the nearest other endpoint is BETWEEN co-located
+    // and the bridge limit. Co-located = no cap needed (body bands meet);
+    // beyond bridge limit = no cap needed (truly free endpoint, cap
+    // would just push into the room).
+    needsCap.set(ep.key, minDist > CO_LOCATED_FT && minDist <= BRIDGE_LIMIT_FT);
+  }
+
   for (const wall of walls) {
     const halfThickness = (wall.thicknessIn ?? 5) / 12 / 2 + WALL_SAFETY_FT;
-    // The bounding box must contain everything within max(halfThickness,
-    // ENDPOINT_CAP_FT) of either endpoint — i.e., the union of the wall
-    // body band and the endpoint caps.
-    const reach = Math.max(halfThickness, ENDPOINT_CAP_FT);
+    const startCap = needsCap.get(`${wall.id}-start`) === true;
+    const endCap = needsCap.get(`${wall.id}-end`) === true;
+    const capReach = (startCap || endCap) ? ENDPOINT_CAP_FT : halfThickness;
+    const reach = Math.max(halfThickness, capReach);
     const minX = Math.max(0, Math.min(wall.startXFt, wall.endXFt) - reach);
     const maxX = Math.min(cols * CELL_SIZE_FT, Math.max(wall.startXFt, wall.endXFt) + reach);
     const minY = Math.max(0, Math.min(wall.startYFt, wall.endYFt) - reach);
@@ -89,13 +117,9 @@ function rasteriseWalls(walls: Wall[], cols: number, rows: number): boolean[] {
         if (obstacles[row * cols + col]) continue;
         const cellCenterX = (col + 0.5) * CELL_SIZE_FT;
         const cellCenterY = (row + 0.5) * CELL_SIZE_FT;
-        // Cell is an obstacle if it's within the body band of the wall
-        // OR within the endpoint cap radius of either endpoint. The cap
-        // is the magic that bridges small gaps between near-but-not-
-        // touching walls.
         const inBody = distanceToSegment(cellCenterX, cellCenterY, wall.startXFt, wall.startYFt, wall.endXFt, wall.endYFt) <= halfThickness;
-        const inStartCap = Math.hypot(cellCenterX - wall.startXFt, cellCenterY - wall.startYFt) <= ENDPOINT_CAP_FT;
-        const inEndCap = Math.hypot(cellCenterX - wall.endXFt, cellCenterY - wall.endYFt) <= ENDPOINT_CAP_FT;
+        const inStartCap = startCap && Math.hypot(cellCenterX - wall.startXFt, cellCenterY - wall.startYFt) <= ENDPOINT_CAP_FT;
+        const inEndCap = endCap && Math.hypot(cellCenterX - wall.endXFt, cellCenterY - wall.endYFt) <= ENDPOINT_CAP_FT;
         if (inBody || inStartCap || inEndCap) {
           obstacles[row * cols + col] = true;
         }

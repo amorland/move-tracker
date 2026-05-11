@@ -188,6 +188,7 @@ The repo includes the legacy base schema and migration files plus the newer home
 - [supabase-room-item-furniture-types.sql](supabase-room-item-furniture-types.sql) — adds stored furniture shape types to room items and backfills existing records from item names
 - [supabase-belongings-placement.sql](supabase-belongings-placement.sql) — adds `size_class` plus per-item dimensions (`width_in`, `depth_in`, `height_in`) to belongings and backfills from existing room_items rows
 - [supabase-walls.sql](supabase-walls.sql) — adds the `walls` table (line-segment wall geometry per floor) and nullable `wall_id`/`offset_along_wall_ft` columns on architectural_elements
+- [supabase-wall-virtual.sql](supabase-wall-virtual.sql) — adds `is_virtual` to walls so divider lines (invisible in 3D, used to split open spaces into rooms) can be stored
 - [supabase-reset-placements.sql](supabase-reset-placements.sql) — destructive: clears `room_items` placements, `rooms.shape_points`, and all `architectural_elements`. Run when migrating a floor over to wall-based geometry.
 - [supabase-phase-4-schema.sql](supabase-phase-4-schema.sql) — adds `home_floor_plans.structure_locked` / `elements_locked` lock flags and `rooms.anchor_x_ft` / `anchor_y_ft` for the wall-authoritative redesign
 - [supabase-phase-4-reset.sql](supabase-phase-4-reset.sql) — destructive: wipes walls, architectural elements, room polygons, and room_items placements so the floor can be rebuilt with walls as authoritative geometry

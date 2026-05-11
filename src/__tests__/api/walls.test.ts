@@ -29,6 +29,15 @@ beforeEach(() => {
 });
 
 describe('GET /api/walls', () => {
+  it('defaults isVirtual to false when the column is absent', async () => {
+    mockFrom.mockReturnValueOnce({
+      select: vi.fn(() => ({ order: vi.fn(() => ({ order: vi.fn(() => ({ data: [mockWall], error: null })) })) })),
+    });
+    const res = await GET(new Request('http://localhost/api/walls'));
+    const body = await res.json();
+    expect(body[0].isVirtual).toBe(false);
+  });
+
   it('returns normalized walls', async () => {
     mockFrom.mockReturnValueOnce({
       select: vi.fn(() => ({ order: vi.fn(() => ({ order: vi.fn(() => ({ data: [mockWall], error: null })) })) })),

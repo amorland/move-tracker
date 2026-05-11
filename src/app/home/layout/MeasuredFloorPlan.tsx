@@ -206,7 +206,12 @@ export function MeasuredFloorPlan({
     ]);
     const nearestEndpoint = endpoints.reduce<{ point: PlanPoint; distance: number } | null>((best, candidate) => {
       const distance = Math.hypot(candidate.x - working.x, candidate.y - working.y);
-      if (distance > 1) return best;
+      // Tighter than the 1 ft I started with — at 1 ft the cursor gets
+      // visibly pulled toward unrelated endpoints in dense areas, which
+      // makes short walls hard to trace. 0.6 ft is still generous
+      // enough to close polygons reliably while letting you trace near
+      // existing endpoints without being yanked toward them.
+      if (distance > 0.6) return best;
       if (!best || distance < best.distance) return { point: candidate, distance };
       return best;
     }, null);
@@ -516,14 +521,29 @@ export function MeasuredFloorPlan({
               const dy = wall.endYFt - wall.startYFt;
               const length = Math.hypot(dx, dy);
               if (length < 0.01) return null;
+              // Virtual dividers render as a thin dashed line, not a
+              // polygon body. They divide rooms in the flood-fill but
+              // aren't a physical wall.
+              if (wall.isVirtual) {
+                return (
+                  <line
+                    key={wall.id}
+                    x1={(wall.startXFt / floorPlan.widthFt) * 100}
+                    y1={(wall.startYFt / floorPlan.depthFt) * 100}
+                    x2={(wall.endXFt / floorPlan.widthFt) * 100}
+                    y2={(wall.endYFt / floorPlan.depthFt) * 100}
+                    stroke={isHighlighted ? '#b85f36' : '#5a7691'}
+                    strokeOpacity={isHighlighted ? 0.95 : 0.55}
+                    strokeWidth={isHighlighted ? 0.7 : 0.4}
+                    strokeDasharray="1.5 1"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              }
               const perpX = -dy / length;
               const perpY = dx / length;
               const thicknessIn = wall.thicknessIn ?? 5;
-              // Visual width is 75% of the actual thickness so walls read
-              // as cleaner without re-introducing a perceptible gap to the
-              // room fill. Walls with thickness_in > 6 are treated as
-              // exterior — render bolder + more opaque. Default 5" walls
-              // are interior and render lighter.
               const isExterior = thicknessIn > 6;
               const halfFt = thicknessIn / 12 / 2 * 0.75;
               const opacity = isHighlighted ? 0.95 : isExterior ? 0.78 : 0.55;
