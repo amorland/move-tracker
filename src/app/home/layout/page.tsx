@@ -817,6 +817,7 @@ function BlueprintOverlayControls({
     overlayOffsetYFt: (floorPlan.overlayOffsetYFt ?? 0).toString(),
     overlayWidthFt: (floorPlan.overlayWidthFt ?? floorPlan.widthFt).toString(),
     overlayDepthFt: (floorPlan.overlayDepthFt ?? floorPlan.depthFt).toString(),
+    ceilingHeightFt: (floorPlan.ceilingHeightFt ?? '').toString(),
   });
   const previewSrc = toBlueprintImageSrc(draft.blueprintImagePath);
   const isBundledBlueprint = previewSrc?.startsWith('/blueprints/');
@@ -837,7 +838,7 @@ function BlueprintOverlayControls({
       overlayOffsetYFt: nullableNumber(draft.overlayOffsetYFt) ?? 0,
       overlayWidthFt: nullableNumber(draft.overlayWidthFt) ?? nullableNumber(draft.widthFt) ?? floorPlan.widthFt,
       overlayDepthFt: nullableNumber(draft.overlayDepthFt) ?? nullableNumber(draft.depthFt) ?? floorPlan.depthFt,
-      ceilingHeightFt: floorPlan.ceilingHeightFt,
+      ceilingHeightFt: nullableNumber(draft.ceilingHeightFt) ?? floorPlan.ceilingHeightFt,
       notes: floorPlan.notes,
       sortIndex: floorPlan.sortIndex,
     });
@@ -895,6 +896,19 @@ function BlueprintOverlayControls({
           <label style={{ display: 'block' }}>
             <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Depth ft</span>
             <input value={draft.depthFt} onChange={event => setDraft({ ...draft, depthFt: event.target.value })} type="number" min="1" step="0.25" />
+          </label>
+          <label style={{ display: 'block' }}>
+            <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Ceiling ft</span>
+            <input
+              value={draft.ceilingHeightFt}
+              onChange={event => setDraft({ ...draft, ceilingHeightFt: event.target.value })}
+              type="number"
+              min="6"
+              max="16"
+              step="0.25"
+              placeholder="9"
+              title="Wall height for the 3D scene. Defaults to 9 ft when empty."
+            />
           </label>
           <label style={{ display: 'block' }}>
             <span className="section-label" style={{ display: 'block', marginBottom: 6, fontSize: 10 }}>Fit</span>
