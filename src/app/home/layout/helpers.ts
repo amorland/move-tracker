@@ -30,7 +30,7 @@ export type GeometryDragTarget =
   | { type: 'edge'; index: number; points: PlanPoint[]; start: PlanPoint }
   | { type: 'label' }
   | { type: 'room'; start: PlanPoint; points: PlanPoint[] }
-  | { type: 'item'; item: RoomItem; start: PlanPoint; xFt: number; yFt: number; widthFt: number; depthFt: number }
+  | { type: 'item'; item: RoomItem; start: PlanPoint; xFt: number; yFt: number; widthFt: number; depthFt: number; constrainPolygon: PlanPoint[] | null }
   | { type: 'architecturalElement'; element: ArchitecturalElement; start: PlanPoint; xFt: number; yFt: number };
 
 export type RoomItemLayoutUpdate = {
