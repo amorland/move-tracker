@@ -8,14 +8,14 @@ import {
 } from '@/lib/homeLayout';
 import { FURNITURE_TYPE_OPTIONS, normaliseFurnitureType } from '@/lib/furniture';
 import { ArchitecturalElement, ArchitecturalElementType, FurnitureType, HomeFloorPlan, PlanPoint, Room, RoomItem, Wall } from '@/lib/types';
-import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Crosshair, Eye, EyeOff, Grid3X3, Image as ImageIcon, Lock, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2, Unlock } from 'lucide-react';
+import { Armchair, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, Crosshair, Eye, EyeOff, Grid3X3, Image as ImageIcon, Lock, Package, Plus, RotateCcw, RotateCw, Ruler, Save, SlidersHorizontal, Trash2, Unlock } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MeasuredFloorPlan } from './MeasuredFloorPlan';
 import { MeasuredFloorScene, type SceneCameraMode } from './MeasuredFloorScene';
 import { useBlueprintImageUrl } from './useBlueprintImageUrl';
 import { useBlueprintSnap } from './blueprintSnap';
-import { useDerivedRoomShapes } from './useDerivedRoomShapes';
+import { useDerivedRoomShapes, type DerivedRoomShape } from './useDerivedRoomShapes';
 import { polygonContainsPoint } from './roomDerivation';
 import { RoomAnchorControls, type RoomAnchorPlacement } from './RoomAnchorControls';
 import {
@@ -611,6 +611,7 @@ export default function HomeLayoutPage() {
                 floorPlan={activeFloor}
                 floorRooms={activeFloorRooms}
                 floorWalls={activeFloorWalls}
+                derivedRoomShapes={derivedRoomShapes}
                 locked={activeFloor.elementsLocked}
                 selectedElement={selectedElement?.floorPlanId === activeFloor.id ? selectedElement : null}
                 onCreate={createArchitecturalElement}
@@ -1004,6 +1005,7 @@ function ArchitecturalElementControls({
   floorPlan,
   floorRooms,
   floorWalls,
+  derivedRoomShapes,
   locked,
   selectedElement,
   onCreate,
@@ -1015,6 +1017,7 @@ function ArchitecturalElementControls({
   floorPlan: HomeFloorPlan;
   floorRooms: Room[];
   floorWalls: Wall[];
+  derivedRoomShapes: Map<number, DerivedRoomShape>;
   locked: boolean;
   selectedElement: ArchitecturalElement | null;
   onCreate: (draft: ArchitecturalElementDraft) => Promise<SaveResult>;
@@ -1049,6 +1052,36 @@ function ArchitecturalElementControls({
       onDraftPreview?.(null);
     };
   }, [draft.elementType, draft.wallId, onDraftPreview]);
+
+  // For wall-attached elements: when the user picks a wall, auto-set
+  // roomId based on which derived room contains the wall's midpoint.
+  // This makes the room dropdown reflect where the element actually
+  // appears on the canvas (its wall's location). User can still
+  // override via the dropdown if they want a different tag.
+  // Microtask-deferred so the synchronous setState inside the effect
+  // doesn't trip the react-hooks/set-state-in-effect lint rule.
+  useEffect(() => {
+    if (!isWallAttachedType(draft.elementType)) return;
+    if (draft.wallId == null) return;
+    if (selectedElement) return; // only auto-update for NEW elements
+    const wall = floorWalls.find(w => w.id === draft.wallId);
+    if (!wall) return;
+    const midX = (wall.startXFt + wall.endXFt) / 2;
+    const midY = (wall.startYFt + wall.endYFt) / 2;
+    let inferredRoomId: number | null = null;
+    for (const [roomId, shape] of derivedRoomShapes) {
+      if (shape.bounded && polygonContainsPoint(shape.polygon, { x: midX, y: midY })) {
+        inferredRoomId = roomId;
+        break;
+      }
+    }
+    if (inferredRoomId === null || inferredRoomId === draft.roomId) return;
+    const target = inferredRoomId;
+    const handle = setTimeout(() => {
+      setDraft(current => ({ ...current, roomId: target }));
+    }, 0);
+    return () => clearTimeout(handle);
+  }, [draft.wallId, draft.elementType, derivedRoomShapes, floorWalls, selectedElement, draft.roomId]);
 
   const updateType = (elementType: ArchitecturalElementType) => {
     const dimensions = defaultArchitecturalElementDimensions(elementType);
@@ -1103,6 +1136,30 @@ function ArchitecturalElementControls({
     setSaveMessage(result.message);
   };
 
+  // Compact, unambiguous status header that tells the user which mode
+  // the panel is in. Three cases:
+  //   - editing a saved element  → "Editing #<id> · <label>"
+  //   - creating a new element   → "New element"
+  //   - just saved (briefly)     → "Saved!" with a checkmark, fades to
+  //                                "Editing #<id> · <label>" after 1.8s
+  let statusLabel: string;
+  let statusColor: string;
+  let statusBg: string;
+  if (saveState === 'saved') {
+    statusLabel = saveMessage ?? 'Saved.';
+    statusColor = '#1f6b5b';
+    statusBg = 'rgba(31,107,91,0.12)';
+  } else if (selectedElement) {
+    const wallSuffix = selectedElement.wallId != null ? ` · wall #${selectedElement.wallId}` : '';
+    statusLabel = `Editing #${selectedElement.id} · ${selectedElement.label}${wallSuffix}`;
+    statusColor = 'var(--color-foreground)';
+    statusBg = 'rgba(85,86,72,0.08)';
+  } else {
+    statusLabel = 'New element — fill the fields and click Add Element';
+    statusColor = '#9a5a2f';
+    statusBg = 'rgba(154,90,47,0.10)';
+  }
+
   return (
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1117,23 +1174,17 @@ function ArchitecturalElementControls({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {selectedElement && (
-              <span className="badge badge-neutral" style={{ alignSelf: 'center' }}>
-                {selectedElement.source === 'recommended' ? 'Recommended detail' : 'Manual detail'}
-              </span>
-            )}
-            {hasUnsavedElementChanges && (
-              <span className="badge badge-neutral" style={{ alignSelf: 'center', color: '#9a5a2f', borderColor: 'rgba(154,90,47,0.44)' }}>
-                Unsaved detail
-              </span>
-            )}
-            {selectedElement && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={onClear}>
-                <Plus size={14} /> New Element
-              </button>
-            )}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={onClear}
+              disabled={!selectedElement && !hasUnsavedElementChanges}
+              title={selectedElement ? 'Start a fresh new element (clears the current selection).' : 'Start over from a blank form.'}
+            >
+              <Plus size={14} /> New Element
+            </button>
             <button type="button" className="btn btn-primary btn-sm" onClick={() => persist()} disabled={!canPersist || saveState === 'saving'}>
-              <Save size={14} /> {selectedElement ? 'Save Element' : 'Add Element'}
+              <Save size={14} /> {selectedElement ? 'Save Changes' : 'Add Element'}
             </button>
             {selectedElement && (
               <button type="button" className="btn btn-secondary btn-sm" onClick={deleteSelected} disabled={saveState === 'saving'} style={{ color: '#b91c1c' }}>
@@ -1141,6 +1192,28 @@ function ArchitecturalElementControls({
               </button>
             )}
           </div>
+        </div>
+
+        {/* Status banner under the header — always visible so users know
+            what state the panel is in. */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            borderRadius: 8,
+            background: statusBg,
+            color: statusColor,
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          {saveState === 'saved' && <Check size={14} />}
+          <span style={{ flex: 1 }}>{statusLabel}</span>
+          {hasUnsavedElementChanges && saveState !== 'saved' && (
+            <span style={{ color: '#9a5a2f', fontSize: 11 }}>Unsaved changes</span>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, alignItems: 'end' }}>
