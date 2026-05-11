@@ -56,6 +56,20 @@ describe('deriveRoomPolygon', () => {
     expect(result.bounded).toBe(false);
   });
 
+  it('bridges small endpoint gaps via the endpoint caps', () => {
+    // 10x10 box where two walls don't quite touch — the right wall ends
+    // at y=29.4 instead of y=30. Endpoint caps (0.5 ft radius) should
+    // close the 0.6 ft gap to the top wall's right endpoint.
+    const walls: Wall[] = [
+      wall(20, 20, 30, 20),    // top
+      wall(30, 20, 30, 29.4),  // right — short by 0.6 ft
+      wall(30, 30, 20, 30),    // bottom
+      wall(20, 30, 20, 20),    // left
+    ];
+    const result = deriveRoomPolygon(walls, { x: 25, y: 25 }, FLOOR);
+    expect(result.bounded).toBe(true);
+  });
+
   it('returns empty when the anchor sits on a wall', () => {
     const walls: Wall[] = [wall(20, 25, 30, 25, 12)]; // 12-inch wall right under the anchor
     const result = deriveRoomPolygon(walls, { x: 25, y: 25 }, FLOOR);

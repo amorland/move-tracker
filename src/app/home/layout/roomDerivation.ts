@@ -8,6 +8,13 @@ export type RoomPolygon = {
 
 const CELL_SIZE_FT = 0.25;
 const WALL_SAFETY_FT = 0.05;
+// Endpoint cap radius. Each wall endpoint contributes a disc obstacle of
+// this radius in addition to the wall body. Two walls whose endpoints are
+// within 2 * ENDPOINT_CAP_FT of each other will have overlapping caps,
+// closing the obstacle band even if their endpoint coordinates don't
+// match exactly (e.g., older walls drawn before endpoint snap was
+// reliable).
+const ENDPOINT_CAP_FT = 0.5;
 
 /**
  * Flood-fill room derivation.
@@ -63,10 +70,14 @@ function rasteriseWalls(walls: Wall[], cols: number, rows: number): boolean[] {
   const obstacles = new Array<boolean>(cols * rows).fill(false);
   for (const wall of walls) {
     const halfThickness = (wall.thicknessIn ?? 5) / 12 / 2 + WALL_SAFETY_FT;
-    const minX = Math.max(0, Math.min(wall.startXFt, wall.endXFt) - halfThickness);
-    const maxX = Math.min(cols * CELL_SIZE_FT, Math.max(wall.startXFt, wall.endXFt) + halfThickness);
-    const minY = Math.max(0, Math.min(wall.startYFt, wall.endYFt) - halfThickness);
-    const maxY = Math.min(rows * CELL_SIZE_FT, Math.max(wall.startYFt, wall.endYFt) + halfThickness);
+    // The bounding box must contain everything within max(halfThickness,
+    // ENDPOINT_CAP_FT) of either endpoint — i.e., the union of the wall
+    // body band and the endpoint caps.
+    const reach = Math.max(halfThickness, ENDPOINT_CAP_FT);
+    const minX = Math.max(0, Math.min(wall.startXFt, wall.endXFt) - reach);
+    const maxX = Math.min(cols * CELL_SIZE_FT, Math.max(wall.startXFt, wall.endXFt) + reach);
+    const minY = Math.max(0, Math.min(wall.startYFt, wall.endYFt) - reach);
+    const maxY = Math.min(rows * CELL_SIZE_FT, Math.max(wall.startYFt, wall.endYFt) + reach);
 
     const startCol = Math.floor(minX / CELL_SIZE_FT);
     const endCol = Math.min(cols - 1, Math.ceil(maxX / CELL_SIZE_FT));
@@ -78,7 +89,14 @@ function rasteriseWalls(walls: Wall[], cols: number, rows: number): boolean[] {
         if (obstacles[row * cols + col]) continue;
         const cellCenterX = (col + 0.5) * CELL_SIZE_FT;
         const cellCenterY = (row + 0.5) * CELL_SIZE_FT;
-        if (distanceToSegment(cellCenterX, cellCenterY, wall.startXFt, wall.startYFt, wall.endXFt, wall.endYFt) <= halfThickness) {
+        // Cell is an obstacle if it's within the body band of the wall
+        // OR within the endpoint cap radius of either endpoint. The cap
+        // is the magic that bridges small gaps between near-but-not-
+        // touching walls.
+        const inBody = distanceToSegment(cellCenterX, cellCenterY, wall.startXFt, wall.startYFt, wall.endXFt, wall.endYFt) <= halfThickness;
+        const inStartCap = Math.hypot(cellCenterX - wall.startXFt, cellCenterY - wall.startYFt) <= ENDPOINT_CAP_FT;
+        const inEndCap = Math.hypot(cellCenterX - wall.endXFt, cellCenterY - wall.endYFt) <= ENDPOINT_CAP_FT;
+        if (inBody || inStartCap || inEndCap) {
           obstacles[row * cols + col] = true;
         }
       }
