@@ -6,8 +6,13 @@ export type RoomPolygon = {
   areaFt2: number;
 };
 
-const CELL_SIZE_FT = 0.25;
-const WALL_SAFETY_FT = 0.05;
+// Reduced from 0.25 ft to 0.125 ft (1.5 inch cells) so the polygon edge
+// can sit within a half-cell of the visible wall body. Memory + compute
+// cost goes up ~4x, which is still well under the 60 ms debounce budget.
+const CELL_SIZE_FT = 0.125;
+// With smaller cells, the safety band can be tiny — it's now just there
+// to absorb floating-point edge cases, not to compensate for cell coarseness.
+const WALL_SAFETY_FT = 0.02;
 // Endpoint cap radius. Each wall endpoint contributes a disc obstacle of
 // this radius in addition to the wall body. Two walls whose endpoints are
 // within 2 * ENDPOINT_CAP_FT of each other will have overlapping caps,
@@ -97,7 +102,13 @@ function rasteriseWalls(walls: Wall[], cols: number, rows: number): boolean[] {
   }
 
   for (const wall of walls) {
-    const halfThickness = (wall.thicknessIn ?? 5) / 12 / 2 + WALL_SAFETY_FT;
+    // Match the visible wall body's half-width (75% of true thickness)
+    // plus a small safety so the polygon edge in the flood-fill lines up
+    // with the wall as drawn on the canvas. Previously the obstacle band
+    // was the full true thickness + 0.05 safety, which extended ~0.1 ft
+    // beyond the visible wall body — visible as fill stopping short of
+    // the wall edge.
+    const halfThickness = (wall.thicknessIn ?? 5) / 12 / 2 * 0.75 + WALL_SAFETY_FT;
     const startCap = needsCap.get(`${wall.id}-start`) === true;
     const endCap = needsCap.get(`${wall.id}-end`) === true;
     const capReach = (startCap || endCap) ? ENDPOINT_CAP_FT : halfThickness;
