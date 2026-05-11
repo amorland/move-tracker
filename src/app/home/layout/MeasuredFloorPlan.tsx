@@ -1,6 +1,6 @@
 'use client';
 
-import { type PointerEvent, useRef, useState } from 'react';
+import { type PointerEvent, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Grid3X3, MapPin, Maximize2, Minus, MoveDiagonal, Plus } from 'lucide-react';
 import {
   floorForRoom,
@@ -130,6 +130,24 @@ export function MeasuredFloorPlan({
   const [zoom, setZoom] = useState(1);
   const ZOOM_MIN = 0.5;
   const ZOOM_MAX = 3;
+  // The wall whose midpoint is closest to the cursor (within 1.5 ft).
+  // Only this wall's × delete button renders — keeps the canvas clear
+  // for tracing in dense areas where multiple wall midpoints cluster.
+  const hoveredWallId = useMemo(() => {
+    if (!wallEditMode || !wallCursor) return null;
+    let bestId: number | null = null;
+    let bestDist = 1.5;
+    for (const wall of walls) {
+      const midX = (wall.startXFt + wall.endXFt) / 2;
+      const midY = (wall.startYFt + wall.endYFt) / 2;
+      const dist = Math.hypot(midX - wallCursor.x, midY - wallCursor.y);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestId = wall.id;
+      }
+    }
+    return bestId;
+  }, [wallEditMode, wallCursor, walls]);
   const zoomIn = () => setZoom(z => Math.min(ZOOM_MAX, Math.round(z * 1.25 * 100) / 100));
   const zoomOut = () => setZoom(z => Math.max(ZOOM_MIN, Math.round(z / 1.25 * 100) / 100));
   const zoomReset = () => setZoom(1);
@@ -498,15 +516,17 @@ export function MeasuredFloorPlan({
               const dy = wall.endYFt - wall.startYFt;
               const length = Math.hypot(dx, dy);
               if (length < 0.01) return null;
-              // Perpendicular unit vector (rotate (ux, uy) by 90°): (-uy, ux).
               const perpX = -dy / length;
               const perpY = dx / length;
-              // Render at the actual wall thickness, matching the obstacle
-              // band the room flood-fill uses. The +0.05 ft safety band the
-              // algorithm adds isn't reflected here — the obstacle is
-              // generously sized for fill robustness, but the visual width
-              // is the true wall body.
-              const halfFt = (wall.thicknessIn ?? 5) / 12 / 2;
+              const thicknessIn = wall.thicknessIn ?? 5;
+              // Visual width is 75% of the actual thickness so walls read
+              // as cleaner without re-introducing a perceptible gap to the
+              // room fill. Walls with thickness_in > 6 are treated as
+              // exterior — render bolder + more opaque. Default 5" walls
+              // are interior and render lighter.
+              const isExterior = thicknessIn > 6;
+              const halfFt = thicknessIn / 12 / 2 * 0.75;
+              const opacity = isHighlighted ? 0.95 : isExterior ? 0.78 : 0.55;
               const corners = [
                 { x: wall.startXFt + perpX * halfFt, y: wall.startYFt + perpY * halfFt },
                 { x: wall.endXFt + perpX * halfFt, y: wall.endYFt + perpY * halfFt },
@@ -522,6 +542,7 @@ export function MeasuredFloorPlan({
                   key={wall.id}
                   points={points}
                   fill={fill}
+                  fillOpacity={opacity}
                   stroke={isHighlighted ? '#7a3818' : 'none'}
                   strokeWidth={isHighlighted ? 0.3 : 0}
                   vectorEffect="non-scaling-stroke"
@@ -577,38 +598,46 @@ export function MeasuredFloorPlan({
               </div>
             );
           })}
-          {/* Wall delete buttons (only in edit mode, never when locked) */}
-          {wallEditMode && !structureLocked && walls.map(wall => (
-            <button
-              key={`wall-handle-${wall.id}`}
-              type="button"
-              data-layout-control="true"
-              aria-label={`Delete wall ${wall.id}`}
-              title="Click to delete this wall"
-              onClick={async (event) => {
-                event.stopPropagation();
-                await onDeleteWall(wall.id);
-              }}
-              style={{
-                position: 'absolute',
-                left: `${(((wall.startXFt + wall.endXFt) / 2) / floorPlan.widthFt) * 100}%`,
-                top: `${(((wall.startYFt + wall.endYFt) / 2) / floorPlan.depthFt) * 100}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 6,
-                width: 18,
-                height: 18,
-                borderRadius: 999,
-                border: '2px solid #b91c1c',
-                background: 'rgba(255,250,243,0.96)',
-                color: '#b91c1c',
-                fontSize: 10,
-                fontWeight: 800,
-                cursor: 'pointer',
-                padding: 0,
-                lineHeight: 1,
-              }}
-            >×</button>
-          ))}
+          {/* Wall delete × — only the hovered wall, never when locked.
+              Keeping just one × visible at a time stops tracing in dense
+              wall clusters from being interrupted by adjacent walls'
+              delete buttons. To delete: hover over the wall you want
+              removed and click ×. To trace near a midpoint without
+              deleting, nudge the cursor a few feet away first to dismiss
+              the ×. */}
+          {wallEditMode && !structureLocked && hoveredWallId !== null && walls
+            .filter(wall => wall.id === hoveredWallId)
+            .map(wall => (
+              <button
+                key={`wall-handle-${wall.id}`}
+                type="button"
+                data-layout-control="true"
+                aria-label={`Delete wall ${wall.id}`}
+                title="Click to delete this wall"
+                onClick={async (event) => {
+                  event.stopPropagation();
+                  await onDeleteWall(wall.id);
+                }}
+                style={{
+                  position: 'absolute',
+                  left: `${(((wall.startXFt + wall.endXFt) / 2) / floorPlan.widthFt) * 100}%`,
+                  top: `${(((wall.startYFt + wall.endYFt) / 2) / floorPlan.depthFt) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                  zIndex: 6,
+                  width: 14,
+                  height: 14,
+                  borderRadius: 999,
+                  border: '2px solid #b91c1c',
+                  background: 'rgba(255,250,243,0.96)',
+                  color: '#b91c1c',
+                  fontSize: 9,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+              >×</button>
+            ))}
           {wallEditMode && wallTraceStart && (
             <span
               aria-hidden="true"
